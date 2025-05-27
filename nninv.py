@@ -11,13 +11,13 @@ class NNInv:
     def __init__(
         self,
         init=decomposition.PCA(n_components=2),
-        size="medium",
-        style="bottleneck",
+        # size="medium",
+        # style="bottleneck",
         loss="mean_squared_error",
         opt="adam",
         l1=0.0,
         l2=0.0,
-        dropout=True,
+        dropout=False,
         latent_dims=2
     ):
         self.stop = EarlyStopping(
@@ -28,7 +28,7 @@ class NNInv:
         self.init = init
         self.dropout = dropout
         self.opt = opt
-        self.epochs = epochs
+        # self.epochs = epochs
         self.loss = loss
         self.l1 = l1
         self.l2 = l2
@@ -37,7 +37,7 @@ class NNInv:
         self.is_fitted = False
         K.clear_session()
 
-    def fit(self, X, y=None, epochs=0):
+    def fit(self, X, y=None, epochs=300):
         main_input = Input(shape=(self.latent_dims,), name="main_input")
         x = Dense(
             2048,
@@ -64,7 +64,7 @@ class NNInv:
             bias_initializer=Constant(0.01),
         )(x)
         x = Dense(
-            X.shape[1],
+            y.shape[1],
             activation="sigmoid",
             kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",

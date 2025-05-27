@@ -172,3 +172,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+data/
+results_inverse/
+Resultados_relatorio/

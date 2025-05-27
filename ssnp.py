@@ -44,7 +44,6 @@ class SSNP:
         min_delta=0.01,
     ):
         self.init_labels = init_labels
-        self.epochs = epochs
         self.verbose = verbose
         self.opt = opt
         self.act = act
