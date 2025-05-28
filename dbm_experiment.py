@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import math
 import os
 from time import sleep
 from typing import Union
@@ -201,6 +202,10 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
 #     st.plotly_chart(fig, use_container_width=True)
 
 # run_ssnp_dbm()
+#Outros metodos (alem do sharp e outras distribuições possiveis), em vez de usar 4 dimensoes latentes, adicionar 2 valores aleatorios, outros datasets
+#Gera os valores aleatorios com o tamanho dos dados de treino, e mandar como parametro a para gerar o modelo, para assim nao gerar valores aleatorios a cada epoch
+#Dropdown para o tipo de projecao e para a resolusao, e um canvas para alterar a posicao do ponto no espaco latente, ao inves de 2 sliders
+#Fazer um git
 if __name__ == "__main__":
 
     output_dir = "results_inverse"
@@ -231,15 +236,24 @@ if __name__ == "__main__":
         results_2d, clf, inv_model, _, limits = get_inv_proj_data( #get_inv_proj_data_sharp(output_dir)
             output_dir, 
             sharp.ShaRP(
+                # dims,
+                # classes,
+                # "laplace",
+                # latent_dim=4,
+                # variational_layer_kwargs=dict(prior_scale=0.1),
+                # var_leaky_relu_alpha=-0.0001,
+                # bottleneck_activation="linear",
+                # bottleneck_l1=0.0,
+                # bottleneck_l2=0.5,
                 dims,
                 classes,
-                "laplace",
+                "diagonal_normal",
                 latent_dim=4,
-                variational_layer_kwargs=dict(prior_scale=0.1),
+                variational_layer_kwargs=dict(kl_weight=0.05, kl_mu_weight=0),
                 var_leaky_relu_alpha=-0.0001,
                 bottleneck_activation="linear",
                 bottleneck_l1=0.0,
-                bottleneck_l2=0.5,
+                bottleneck_l2=0.1,
             ),
             {},
             dataset,
@@ -280,9 +294,12 @@ if __name__ == "__main__":
         )
 
         # model.fit(X=)
+    sliderx_step = np.floor(np.log10(limits[1]-limits[0]))-2
+    slidery_step = np.floor(np.log10(limits[3]-limits[2]))-2
 
-    x = st.sidebar.slider('x', limits[0], limits[1], 0.02)
-    y = st.sidebar.slider('y', limits[2], limits[3], 0.02)
+    print("here", sliderx_step, slidery_step)
+    x = st.sidebar.slider('x', limits[0], limits[1], 0.0, step=10**(sliderx_step), format=f"%0.{np.array([np.abs(sliderx_step)], dtype=np.int8)[0]}f")
+    y = st.sidebar.slider('y', limits[2], limits[3], 0.0, step=10**(slidery_step), format=f"%0.{np.array([np.abs(slidery_step)], dtype=np.int8)[0]}f")
 
     grid_res = st.sidebar.selectbox("DBM Resolution", (50, 75, 100, 150, 200))
 
