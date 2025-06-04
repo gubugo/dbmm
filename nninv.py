@@ -1,3 +1,5 @@
+import os
+
 from sklearn import decomposition, preprocessing
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import EarlyStopping
@@ -16,15 +18,16 @@ class NNInv:
         loss="mean_squared_error",
         opt="adam",
         l1=0.0,
-        l2=0.0,
+        l2=0.1,
         dropout=False,
-        latent_dims=2
+        latent_dims=2,
+        verbose=1,
     ):
         self.stop = EarlyStopping(
-            verbose=0, min_delta=0.00001, mode="min", patience=10, restore_best_weights=True
+            verbose=0, min_delta=0.00001, mode="min", patience=20, restore_best_weights=True
         )
         self.callbacks = [self.stop]
-
+        self.verbose = verbose
         self.init = init
         self.dropout = dropout
         self.opt = opt
@@ -42,19 +45,19 @@ class NNInv:
         x = Dense(
             2048,
             activation="relu",
-            kernel_initialize="he_uniform",
+            kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
         )(main_input)
         x = Dense(
             2048,
             activation="relu",
-            kernel_initialize="he_uniform",
+            kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
         )(main_input)
         x = Dense(
             2048,
             activation="relu",
-            kernel_initialize="he_uniform",
+            kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
         )(main_input)
         x = Dense(
@@ -85,7 +88,7 @@ class NNInv:
             y,
             batch_size=32,
             epochs=epochs,
-            verbose=0,
+            verbose=self.verbose,
             validation_split=0.05,
             callbacks=self.callbacks,
         )
@@ -100,3 +103,12 @@ class NNInv:
     def inverse_transform(self, X):
         if self._is_fit():
             return self.model.predict(X)
+        
+    def save_weights(self, export_path: str, *args, **kwargs):
+        # Route `save_weights` to specific models.
+        self.model.save_weights(os.path.join(export_path, "model"), *args, **kwargs)
+
+
+    def load_weights(self, export_path: str, *args, **kwargs):
+        # Same for `load_weights`
+        self.model.load_weights(os.path.join(export_path, "model"), *args, **kwargs)
