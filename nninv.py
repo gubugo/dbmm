@@ -111,4 +111,5 @@ class NNInv:
 
     def load_weights(self, export_path: str, *args, **kwargs):
         # Same for `load_weights`
+        self.is_fitted = True
         self.model.load_weights(os.path.join(export_path, "model"), *args, **kwargs)
