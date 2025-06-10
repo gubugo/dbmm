@@ -158,25 +158,44 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
     )
 
     # print(X_train.shape, X_test.shape, y_train.shape)
+    if model_name == "sharp":
+        try:
+            _model.load_weights(os.path.join(output_dir, dataset_name, model_name))
+        except:
+            _model.fit(X_train, y_train, epochs=epochs)
+            _model.save_weights(os.path.join(output_dir, dataset_name, model_name))
 
-    try:
-        _model.load_weights(os.path.join(output_dir, dataset_name, model_name))
-    except:
-        _model.fit(X_test, y_test, epochs=epochs)
-        _model.save_weights(os.path.join(output_dir, dataset_name, model_name))
-        
-    X_model_res = _model.transform(X_test)
+        X_model_res = _model.transform(X_test)
     
-    try:
-        _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name))
-    except:
-        _inv_model.fit(X_model_res, X_test, epochs=epochs)
-        _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name))
+    if model_name == "nninv":
+        # X_model_res = _model.fit_transform(X_train)
+        try:
+            _model.load_weights(os.path.join(output_dir, dataset_name, model_name))
+        except:
+            _model.fit(X_train, y_train, epochs=epochs)
+            _model.save_weights(os.path.join(output_dir, dataset_name, model_name))
+        
+        X_model_res = _model.transform(X_test)
+        
+        try:
+            _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name))
+        except:
+            _inv_model.fit(X_model_res, X_test, epochs=epochs)
+            _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name))
+
+    if model_name == "tsne":
+        X_model_res = _model.fit_transform(X_test)
+        plot(X_model_res, y_test, figname="test.png")
+        try:
+            _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name))
+        except:
+            _inv_model.fit(X_model_res, X_test, epochs=epochs)
+            _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name))
 
     try:
         clf = load(f'{output_dir}/{dataset_name}/{model_name}class.joblib')
     except:
-        clf = make_and_fit_mlp(X_test, y_test)
+        clf = make_and_fit_mlp(X_train, y_train)
         dump(clf, f'{output_dir}/{dataset_name}/{model_name}class.joblib')
     
     X_model_2d = np.array([[i[0], i[1]] for i in X_model_res])
@@ -193,8 +212,8 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
 
 if __name__ == "__main__":
 
-    output_dir = "results_inverse"
-    method = st.sidebar.selectbox("Inverse Projection Method", ("ssnp", "sharp", "nninv"))
+    output_dir = "results_inverse/test_nninv"
+    method = st.sidebar.selectbox("Inverse Projection Method", ("tsne", "sharp", "nninv"))
     dataset = "mnist"
     # dataset = st.sidebar.selectbox("Dataset Used", ("mnist", "fashionmnist", "har", "reuters"))
     
@@ -217,7 +236,7 @@ if __name__ == "__main__":
 
     dims = sharp_dims_classes[dataset][0]
     classes = sharp_dims_classes[dataset][1]
-
+    
     if method=="nninv":
         results_2d, clf, _, inv_model, limits = get_inv_proj_data(
             output_dir, 
@@ -277,7 +296,21 @@ if __name__ == "__main__":
             "sharp",
             epochs
         )
-
+    if method=="tsne":
+        results_2d, clf, _, inv_model, limits = get_inv_proj_data(
+            output_dir, 
+            TSNE(
+                n_jobs=4, 
+                random_state=420, 
+                n_components=2
+            ),
+            nninv.NNInv(
+                latent_dims=2
+            ),
+            dataset,
+            "tsne",
+            300
+        )
         # model.fit(X=)
     # sliderx_step = np.floor(np.log10(limits[1]-limits[0]))-2
     # slidery_step = np.floor(np.log10(limits[3]-limits[2]))-2

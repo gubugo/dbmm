@@ -168,11 +168,11 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
         
         X_model_res = _model.transform(X_test)
     else:
-        X_model_res = _model.fit_transform(X_train)
+        X_model_res = _model.fit_transform(X_test)
         try:
             _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name))
         except:
-            _inv_model.fit(X_model_res, X_train, epochs=epochs)
+            _inv_model.fit(X_model_res, X_test, epochs=epochs)
             _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name))
 
     try:
@@ -195,10 +195,10 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
 
 if __name__ == "__main__":
 
-    output_dir = "results_inverse"
+    output_dir = "weights2"
     method = st.sidebar.selectbox("Inverse Projection Method", ("ssnp", "sharp", "nninv"))
     dataset = "mnist"
-    # dataset = st.sidebar.selectbox("Dataset Used", ("mnist", "fashionmnist", "har", "reuters"))
+    dataset = st.sidebar.selectbox("Dataset Used", ("mnist", "fashionmnist")) # , "har", "reuters"
     
     epochs_dataset = {}
     epochs_dataset["fashionmnist"] = 10
@@ -210,12 +210,11 @@ if __name__ == "__main__":
     epochs = epochs_dataset[dataset]
 
     if method == "sharp":
-        output_dir = "results_inverse"
         sharp_dims_classes = {}
         sharp_dims_classes["fashionmnist"] = [784, 10]
         sharp_dims_classes["mnist"] = [784, 10]
-        sharp_dims_classes["har"]  = [561, 6]# errado
-        sharp_dims_classes["reuters"] = [5000, 6] # errado
+        sharp_dims_classes["har"]  = [561, 6]
+        sharp_dims_classes["reuters"] = [5000, 6]
 
         dims = sharp_dims_classes[dataset][0]
         classes = sharp_dims_classes[dataset][1]

@@ -45,24 +45,28 @@ class NNInv:
         x = Dense(
             2048,
             activation="relu",
+            # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
         )(main_input)
         x = Dense(
             2048,
             activation="relu",
+            # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
         )(main_input)
         x = Dense(
             2048,
             activation="relu",
+            # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
         )(main_input)
         x = Dense(
             2048,
             activation="relu",
+            # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
         )(x)
