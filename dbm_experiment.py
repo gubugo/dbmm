@@ -7,6 +7,7 @@ from time import sleep
 from typing import Union
 import warnings
 
+import tensorflow as tf
 from sklearn.decomposition import PCA 
 from sklearn.base import ClassifierMixin
 from sklearn.neural_network import MLPClassifier
@@ -137,7 +138,7 @@ def Load_data(path, dataset):
     return X, y
 
 @st.cache_resource
-def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, epochs):
+def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, method, epochs):
     verbose = False
 
     data_dir = "./data/"
@@ -158,22 +159,33 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
     )
 
     # print(X_train.shape, X_test.shape, y_train.shape)
-
+    # if method == "noise":
+    
+    
+    # ugh refactor this ugly shit
     if model_name != "nninv":
-        try:
-            _model.load_weights(os.path.join(output_dir, dataset_name, model_name))
-        except:
-            _model.fit(X_train, y_train, epochs=epochs)
-            _model.save_weights(os.path.join(output_dir, dataset_name, model_name))
-        
-        X_model_res = _model.transform(X_test)
+        if method == "noise":
+            try:
+                _model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
+            except:
+                _model.fit_random(X_train, y_train, epochs=epochs)
+                _model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
+            X_rand = np.random.normal(0.0, 1.0, (X_test.shape[0],2))
+            X_model_res = _model.transform([X_test, X_rand])
+        else:
+            try:
+                _model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
+            except:
+                _model.fit(X_train, y_train, epochs=epochs)
+                _model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
+            X_model_res = _model.transform(X_test)
     else:
         X_model_res = _model.fit_transform(X_test)
         try:
-            _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name))
+            _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
         except:
             _inv_model.fit(X_model_res, X_test, epochs=epochs)
-            _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name))
+            _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
 
     try:
         clf = load(f'{output_dir}/{dataset_name}/{model_name}class.joblib')
@@ -181,24 +193,29 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
         clf = make_and_fit_mlp(X_train, y_train)
         dump(clf, f'{output_dir}/{dataset_name}/{model_name}class.joblib')
     
-    X_model_2d = np.array([[i[0], i[1]] for i in X_model_res])
+    X_model_2d = np.array([[i[2], i[3]] for i in X_model_res])
 
-    _, _, z_min, w_min = np.round(X_model_res.min(axis=0),2)
-    _, _, z_max, w_max = np.round(X_model_res.max(axis=0),2)
+    z_min, w_min, _, _ = np.round(X_model_res.min(axis=0),2)
+    z_max, w_max, _, _ = np.round(X_model_res.max(axis=0),2)
 
     return X_model_2d, clf, _model, _inv_model, [float(z_min), float(z_max), float(w_min), float(w_max)]
     
 
 #Outros metodos (alem do sharp e outras distribuições possiveis), em vez de usar 4 dimensoes latentes, adicionar 2 valores aleatorios, outros datasets
-#Gera os valores aleatorios com o tamanho dos dados de treino, e mandar como parametro a para gerar o modelo, para assim nao gerar valores aleatorios a cada epoch
+#Gera os valores aleatorios com o tamanho dos dados de treino, e mandar como parametro a para gerar o modelo, para assim nao gerar valores aleatorios a cada epoch (falta pro sharp e p nninv)
 #Dropdown para o tipo de projecao e para a resolusao, e um canvas para alterar a posicao do ponto no espaco latente, ao inves de 2 sliders
+
+#salvar dados da projeçao de tsne pra n demorar mt dps
+#arruma a organizacao da func principal 
 
 if __name__ == "__main__":
 
-    output_dir = "weights2"
-    method = st.sidebar.selectbox("Inverse Projection Method", ("ssnp", "sharp", "nninv"))
+    output_dir = "weights"
+    model_name = st.sidebar.selectbox("Inverse Projection Method", ("ssnp", "sharp", "nninv"))
     dataset = "mnist"
     dataset = st.sidebar.selectbox("Dataset Used", ("mnist", "fashionmnist")) # , "har", "reuters"
+
+    method = st.sidebar.selectbox("Training Method Used", ("latent_space", "noise")) # , "har", "reuters"
     
     epochs_dataset = {}
     epochs_dataset["fashionmnist"] = 10
@@ -209,7 +226,7 @@ if __name__ == "__main__":
     
     epochs = epochs_dataset[dataset]
 
-    if method == "sharp":
+    if model_name == "sharp":
         sharp_dims_classes = {}
         sharp_dims_classes["fashionmnist"] = [784, 10]
         sharp_dims_classes["mnist"] = [784, 10]
@@ -234,7 +251,7 @@ if __name__ == "__main__":
                 dims,
                 classes,
                 "diagonal_normal",
-                latent_dim=4,
+                latent_dim= (2 if method=="noise" else 4),
                 variational_layer_kwargs=dict(kl_weight=0.05, kl_mu_weight=0),
                 var_leaky_relu_alpha=-0.0001,
                 bottleneck_activation="linear",
@@ -243,38 +260,41 @@ if __name__ == "__main__":
             ),
             {},
             dataset,
+            model_name,
             method,
             epochs
         )
 
-    if method == "ssnp":
+    if model_name == "ssnp":
         results_2d, clf, inv_model, _, limits = get_inv_proj_data(
             output_dir, 
             ssnp.SSNP(
-                verbose=False,
-                latent_dims=4,
+                verbose=True,
+                latent_dims=(2 if method=="noise" else 4),
                 patience=0,
                 opt="adam",
                 bottleneck_activation="linear",
             ),
             {},
             dataset,
+            model_name,
             method,
             epochs
         )
 
-    if method == "nninv":
+    if model_name == "nninv":
         results_2d, clf, _, inv_model, limits = get_inv_proj_data(
             output_dir, 
             TSNE(
                 n_jobs=4, 
                 random_state=420, 
-                n_components=4
+                n_components=(2 if method=="noise" else 4)
             ),
             nninv.NNInv(
-                latent_dims=4
+                latent_dims=(2 if method=="noise" else 4)
             ),
             dataset,
+            model_name,
             method,
             300
         )

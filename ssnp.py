@@ -210,7 +210,7 @@ class SSNP:
         if y is None:
             y = self.init_labels.fit_predict(X)
 
-        X_rand = tf.random.Generator.from_seed(360).normal(shape=(2,X.shape[0]))
+        X_rand = tf.random.Generator.from_seed(360).normal(stddev=1, shape=(X.shape[0],2))
 
         self.label_bin.fit(y)
 
@@ -242,6 +242,8 @@ class SSNP:
             kernel_initializer=self.init,
             bias_initializer=Constant(self.bias),
         )(x)
+        print(x)
+        print(second_input)
         encoded = Concatenate(axis=1)([x, second_input])
         x = Dense(
             32,
@@ -324,7 +326,7 @@ class SSNP:
             callbacks=callbacks,
         )
 
-        encoded_input = Input(shape=(self.latent_dims,))
+        encoded_input = Input(shape=(self.latent_dims+2,))
         l = model.get_layer("enc1")(encoded_input)
         l = model.get_layer("enc2")(l)
         l = model.get_layer("enc3")(l)

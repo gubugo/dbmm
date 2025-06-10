@@ -90,7 +90,7 @@ class NNInv:
         self.model.fit(
             X,
             y,
-            batch_size=32,
+            batch_size=16,
             epochs=epochs,
             verbose=self.verbose,
             validation_split=0.05,
