@@ -7,6 +7,8 @@ from time import sleep
 from typing import Union
 import warnings
 
+import tensorflow as tf
+
 from sklearn.decomposition import PCA 
 from sklearn.base import ClassifierMixin
 from sklearn.neural_network import MLPClassifier
@@ -34,6 +36,10 @@ pio.templates.default = 'plotly'
 import sharp
 import ssnp
 import nninv
+
+os.environ["TF_GPU_THREAD_MODE"] = "gpu_private"
+# tf.debugging.enable_check_numerics()
+# tf.data.experimental.enable_debug_mode()
 
 cmap = plt.get_cmap("tab10")
 
@@ -172,24 +178,27 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
         try:
             _model.load_weights(os.path.join(output_dir, dataset_name, model_name))
         except:
-            _model.fit(X_train, y_train, epochs=epochs)
+            _model.fit(X, y, epochs=epochs)
             _model.save_weights(os.path.join(output_dir, dataset_name, model_name))
         
-        X_model_res = _model.transform(X_test)
+        X_model_res = _model.transform(X)
         
         try:
             _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name))
         except:
-            _inv_model.fit(X_model_res, X_test, epochs=epochs)
+            _inv_model.fit(X_model_res, X, epochs=epochs)
             _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name))
 
     if model_name == "tsne":
-        X_model_res = _model.fit_transform(X_test)
-        plot(X_model_res, y_test, figname="test.png")
+        try:
+            X_model_res = load(f'weights/{dataset_name}/tsneData2d.joblib')
+        except:
+            X_model_res = _model.fit_transform(X)
+        # plot(X_model_res, y, figname="test.png")
         try:
             _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name))
         except:
-            _inv_model.fit(X_model_res, X_test, epochs=epochs)
+            _inv_model.fit(X_model_res, X, epochs=epochs)
             _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name))
 
     try:

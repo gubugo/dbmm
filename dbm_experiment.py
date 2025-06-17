@@ -44,7 +44,7 @@ def make_grid(
     xx, yy = np.meshgrid(
         np.linspace(x_min, x_max, side_length), np.linspace(y_min, y_max, side_length)
     )
-
+    
     return np.array([[i[0], i[1], v1, v2] for i in np.c_[xx.ravel(), yy.ravel()]])
 
 def dbm_for_estimator(
@@ -59,6 +59,7 @@ def dbm_for_estimator(
 ):
     grid = make_grid(*bounding_box, v1, v2, grid_res)
     aux = inverter.inverse_transform(grid)
+
     classes = model.predict(aux).astype(np.uint8)
 
     cmapped = cmap(classes)*255
@@ -161,12 +162,13 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
     # print(X_train.shape, X_test.shape, y_train.shape)
     # if method == "noise":
     
+    print(os.path.abspath(os.path.join(output_dir, dataset_name, model_name, method)))
     
     # ugh refactor this ugly shit
     if model_name != "nninv":
         if method == "noise":
             try:
-                _model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
+                _model.load_weights(export_path=os.path.join(output_dir, dataset_name, model_name, method))
             except:
                 _model.fit_random(X_train, y_train, epochs=epochs)
                 _model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
@@ -174,45 +176,68 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
             X_model_res = _model.transform([X_test, X_rand])
         else:
             try:
-                _model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
+                _model.load_weights(export_path=os.path.abspath(os.path.join(output_dir, dataset_name, model_name, method)))
             except:
                 _model.fit(X_train, y_train, epochs=epochs)
-                _model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
+                _model.save_weights(export_path=os.path.abspath(os.path.join(output_dir, dataset_name, model_name, method)))
+
             X_model_res = _model.transform(X_test)
+
+        X_model_2d = np.array([[i[2], i[3]] for i in X_model_res])
+        z_min, w_min, _, _ = np.round(X_model_res.min(axis=0),2)
+        z_max, w_max, _, _ = np.round(X_model_res.max(axis=0),2)
     else:
-        X_model_res = _model.fit_transform(X_test)
-        try:
-            _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
-        except:
-            _inv_model.fit(X_model_res, X_test, epochs=epochs)
-            _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
+        if method == "noise":
+            try:
+                X_model_res = load(f'{output_dir}/{dataset_name}/tsneData2d.joblib')
+            except:
+                X_model_res = _model.fit_transform(X_test)
+                dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData2d.joblib')
+            # try:
+            #     X_model_res = load(f'{output_dir}/{dataset_name}/tsneData4d.joblib')
+            # except:
+            #     X_model_res = _model.fit_transform(X_test)
+            #     dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData4d.joblib')
+            try:
+                _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
+            except:
+                print(X_model_res.shape)
+                _inv_model.fit_random(X_model_res, X_test, epochs=epochs)
+                _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
+            
+            X_model_2d = X_model_res
+            z_min, w_min = np.round(X_model_res.min(axis=0),2)
+            z_max, w_max = np.round(X_model_res.max(axis=0),2)
+
+        else:
+            try:
+                X_model_res = load(f'{output_dir}/{dataset_name}/tsneData4d.joblib')
+            except:
+                X_model_res = _model.fit_transform(X_test)
+                dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData4d.joblib')
+            try:
+                _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
+            except:
+                _inv_model.fit(X_model_res, X_test, epochs=epochs)
+                _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
+            
+            X_model_2d = np.array([[i[2], i[3]] for i in X_model_res])
+            z_min, w_min, _, _ = np.round(X_model_res.min(axis=0),2)
+            z_max, w_max, _, _ = np.round(X_model_res.max(axis=0),2)
 
     try:
-        clf = load(f'{output_dir}/{dataset_name}/{model_name}class.joblib')
+        clf = load(f'{output_dir}/{dataset_name}/class.joblib')
     except:
         clf = make_and_fit_mlp(X_train, y_train)
-        dump(clf, f'{output_dir}/{dataset_name}/{model_name}class.joblib')
-    
-    X_model_2d = np.array([[i[2], i[3]] for i in X_model_res])
-
-    z_min, w_min, _, _ = np.round(X_model_res.min(axis=0),2)
-    z_max, w_max, _, _ = np.round(X_model_res.max(axis=0),2)
+        dump(clf, f'{output_dir}/{dataset_name}/class.joblib')
 
     return X_model_2d, clf, _model, _inv_model, [float(z_min), float(z_max), float(w_min), float(w_max)]
-    
-
-#Outros metodos (alem do sharp e outras distribuições possiveis), em vez de usar 4 dimensoes latentes, adicionar 2 valores aleatorios, outros datasets
-#Gera os valores aleatorios com o tamanho dos dados de treino, e mandar como parametro a para gerar o modelo, para assim nao gerar valores aleatorios a cada epoch (falta pro sharp e p nninv)
-#Dropdown para o tipo de projecao e para a resolusao, e um canvas para alterar a posicao do ponto no espaco latente, ao inves de 2 sliders
-
-#salvar dados da projeçao de tsne pra n demorar mt dps
-#arruma a organizacao da func principal 
 
 if __name__ == "__main__":
 
     output_dir = "weights"
     model_name = st.sidebar.selectbox("Inverse Projection Method", ("ssnp", "sharp", "nninv"))
-    dataset = "mnist"
+    # dataset = "mnist"
     dataset = st.sidebar.selectbox("Dataset Used", ("mnist", "fashionmnist")) # , "har", "reuters"
 
     method = st.sidebar.selectbox("Training Method Used", ("latent_space", "noise")) # , "har", "reuters"

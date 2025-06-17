@@ -5,15 +5,13 @@ import numpy as np
 import tensorflow as tf
 from sklearn.neighbors import DistanceMetric, NearestNeighbors
 from sklearn.preprocessing import LabelBinarizer, MultiLabelBinarizer
-from tensorflow.keras import backend as K
-from tensorflow.keras import constraints
-from tensorflow.keras import datasets as kdatasets
-from tensorflow.keras import losses, optimizers, regularizers
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.initializers import Constant
-from tensorflow.keras.layers import Dense, Dropout, Input, Concatenate
-from tensorflow.keras.models import Model, Sequential
-from tensorflow.keras.utils import to_categorical
+from keras import backend as K
+from keras import datasets as kdatasets
+from keras import losses, optimizers, regularizers
+from keras.callbacks import EarlyStopping
+from keras.initializers import Constant
+from keras.layers import Dense, Dropout, Input, Concatenate
+from keras.models import Model, Sequential, load_model
 
 # os.environ["TF_DETERMINISTIC_OPS"] = "1"
 
@@ -78,7 +76,7 @@ class SSNP:
         self.label_bin.fit(y)
 
         main_input = Input(shape=(X.shape[1],), name="main_input")
-        print(main_input)
+        # print(main_input)
         x = Dense(
             512,
             activation=self.act,
@@ -242,8 +240,8 @@ class SSNP:
             kernel_initializer=self.init,
             bias_initializer=Constant(self.bias),
         )(x)
-        print(x)
-        print(second_input)
+        # print(x)
+        # print(second_input)
         encoded = Concatenate(axis=1)([x, second_input])
         x = Dense(
             32,
@@ -361,14 +359,19 @@ class SSNP:
         else:
             raise Exception("Model not trained. Call fit() before calling transform()")
         
-    def save_weights(self, export_path: str, *args, **kwargs):
+    def save_weights(self, export_path: str):
         # Route `save_weights` to specific models.
-        self.fwd.save_weights(os.path.join(export_path, "fwd"), *args, **kwargs)
-        self.inv.save_weights(os.path.join(export_path, "inv"), *args, **kwargs)
+        self.fwd.save(os.path.join(export_path, "fwd"))
+        self.inv.save(os.path.join(export_path, "inv"))
+        # self.clustering.save(os.path.join(export_path, "clustering"))
+        # self.latent_clustering.save(os.path.join(export_path, "latent_clustering"))
 
 
-    def load_weights(self, export_path: str, *args, **kwargs):
+    def load_weights(self, export_path: str):
         # Same for `load_weights`
-        self.fwd.load_weights(os.path.join(export_path, "fwd"), *args, **kwargs)
-        self.inv.load_weights(os.path.join(export_path, "inv"), *args, **kwargs)
+        self.is_fitted = True
+        self.fwd = load_model(os.path.join(export_path, "fwd"))
+        self.inv = load_model(os.path.join(export_path, "inv"))
+        # self.clustering = load_model(os.path.join(export_path, "clustering"))
+        # self.latent_clustering = load_model(os.path.join(export_path, "latent_clustering"))
 

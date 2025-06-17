@@ -258,7 +258,7 @@ class ShaRP(tfk.Model):
         **kwargs,
     ) -> tfk.callbacks.History:
         if isinstance(X_train, tf.data.Dataset):
-            return super().fit(X_train, *args, **kwargs)
+            return super().fit(X_train, verbose=True,*args, **kwargs)
         else:
             assert (
                 y_train is not None
@@ -268,7 +268,7 @@ class ShaRP(tfk.Model):
                 y_train_bin[range(y_train.shape[0]), y_train] = 1
             else:
                 y_train_bin = self.label_bin.fit_transform(y_train)
-            return super().fit(X_train, [y_train_bin, X_train], *args, **kwargs)
+            return super().fit(X_train, [y_train_bin, X_train], verbose=True,*args, **kwargs)
 
     def call(self, inputs, training):
         encoded = self.encoder(inputs)
