@@ -2,11 +2,12 @@ import os
 
 from sklearn.decomposition import PCA
 
+import keras
 import tensorflow as tf
 from keras import backend as K
 from keras.callbacks import EarlyStopping
 from keras.initializers import Constant
-from keras.layers import Dense, Dropout, Input, Concatenate
+from keras.layers import Dense, Dropout, Input, Concatenate, Activation
 from keras.models import Sequential, Model, load_model
 from keras import regularizers, optimizers
 
@@ -18,7 +19,7 @@ class NNInv:
         # size="medium",
         # style="bottleneck",
         loss="mean_squared_error",
-        opt="adam",
+        opt=keras.optimizers.Adam(learning_rate=0.001),
         l1=0.0,
         l2=0.1,
         dropout=False,
@@ -45,47 +46,53 @@ class NNInv:
         K.clear_session()
 
     def fit(self, X, y=None, epochs=300, **kwargs):
-        main_input = Input(shape=(self.latent_dims,), name="main_input")
+        main_input = Input(shape=(self.latent_dims,), name="main_input", dtype=tf.float64)
         x = Dense(
             2048,
-            activation="relu",
             # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
-            name="l1"
+            name="l1", 
+            dtype=tf.float64,
         )(main_input)
+        x = Activation("relu", dtype='float64', name='a1')(x)
         x = Dense(
             2048,
-            activation="relu",
             # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
-            name="l2"
+            name="l2", 
+            dtype=tf.float64,
         )(x)
+        x = Activation("relu", dtype='float64', name='a2')(x)
         x = Dense(
             2048,
-            activation="relu",
             # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
-            name="l3"
+            name="l3", 
+            dtype=tf.float64,
         )(x)
+        x = Activation("relu", dtype='float64', name='a3')(x)
         x = Dense(
             2048,
-            activation="relu",
             # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
-            name="l4"
+            name="l4", 
+            dtype=tf.float64,
         )(x)
+        x = Activation("relu", dtype='float64', name='a4')(x)
         x = Dense(
             y.shape[1],
-            activation="sigmoid",
+            # activation=Activation("sigmoid", dtype='float64'),
             kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
-            name="output"
+            name="output", 
+            dtype=tf.float64,
         )(x)
+        x = Activation("sigmoid", dtype='float64', name='a5')(x)
 
         if self.dropout:
             x = Dropout(0.5)(x)
@@ -93,34 +100,41 @@ class NNInv:
 
         self.model = Model(inputs=main_input, outputs=x)
 
+        self.model.summary()
+
         self.model.compile(loss=self.loss, optimizer=self.opt)
 
 
         self.model.fit(
             X,
             y,
-            batch_size=16,
+            batch_size=64,
             epochs=epochs,
             verbose=self.verbose,
             validation_split=0.05,
             callbacks=self.callbacks,
-            **kwargs
+            **kwargs,
         )
 
         #this is unnecessary, but to fit into my pipeline it had to be done I guess
         encoded_input = Input(shape=(self.latent_dims,))
         l = self.model.get_layer("l1")(encoded_input)
+        l = self.model.get_layer("a1")(encoded_input)
         l = self.model.get_layer("l2")(l)
+        l = self.model.get_layer("a2")(l)
         l = self.model.get_layer("l3")(l)
+        l = self.model.get_layer("a3")(l)
         l = self.model.get_layer("l4")(l)
-        decoder_layer = self.model.get_layer("output")(l)
+        l = self.model.get_layer("a4")(l)
+        l = self.model.get_layer("output")(l)
+        decoder_layer = self.model.get_layer("a5")(l)
 
         self.inv = Model(encoded_input, decoder_layer)
 
         self.is_fitted = True
 
     def fit_random(self, X, y=None, epochs=300, **kwargs):
-        X_rand = tf.random.Generator.from_seed(360).normal(stddev=1, shape=(X.shape[0],2), dtype=tf.float64)
+        X_rand = tf.random.Generator.from_seed(360).normal(stddev=1, shape=(X.shape[0],2), dtype=tf.float32)
 
         main_input = Input(shape=(self.latent_dims,), name="main_input", dtype=tf.float64)
         second_input = Input(shape=(2,), name="second_input", dtype=tf.float64)

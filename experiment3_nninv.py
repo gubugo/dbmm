@@ -8,7 +8,6 @@ from typing import Union
 import warnings
 
 import tensorflow as tf
-
 from sklearn.decomposition import PCA 
 from sklearn.base import ClassifierMixin
 from sklearn.neural_network import MLPClassifier
@@ -40,6 +39,8 @@ import nninv
 os.environ["TF_GPU_THREAD_MODE"] = "gpu_private"
 # tf.debugging.enable_check_numerics()
 # tf.data.experimental.enable_debug_mode()
+tf.keras.mixed_precision.set_global_policy('float32')
+tf.random.set_seed(360) 
 
 cmap = plt.get_cmap("tab10")
 
