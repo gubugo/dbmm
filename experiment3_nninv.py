@@ -178,20 +178,20 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
         try:
             _model.load_weights(os.path.join(output_dir, dataset_name, model_name))
         except:
-            _model.fit(X, y, epochs=epochs)
+            _model.fit(X_train, y_train, epochs=epochs)
             _model.save_weights(os.path.join(output_dir, dataset_name, model_name))
         
-        X_model_res = _model.transform(X)
+        X_model_res = _model.transform(X_train)
         
         try:
             _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name))
         except:
-            _inv_model.fit(X_model_res, X, epochs=epochs)
+            _inv_model.fit(X_model_res, X_train, epochs=epochs)
             _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name))
 
     if model_name == "tsne":
         try:
-            X_model_res = load(f'weights/{dataset_name}/tsneData2d.joblib')
+            X_model_res = load(f'{output_dir}/{dataset_name}/tsneData2d.joblib')
         except:
             X_model_res = _model.fit_transform(X)
         # plot(X_model_res, y, figname="test.png")
@@ -201,11 +201,11 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
             _inv_model.fit(X_model_res, X, epochs=epochs)
             _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name))
 
-    try:
-        clf = load(f'{output_dir}/{dataset_name}/{model_name}class.joblib')
-    except:
-        clf = make_and_fit_mlp(X_train, y_train)
-        dump(clf, f'{output_dir}/{dataset_name}/{model_name}class.joblib')
+    # try:
+    #     clf = load(f'{output_dir}/{dataset_name}/{model_name}class.joblib')
+    # except:
+    clf = make_and_fit_mlp(X, y)
+    dump(clf, f'{output_dir}/{dataset_name}/{model_name}class.joblib')
     
     X_model_2d = np.array([[i[0], i[1]] for i in X_model_res])
 

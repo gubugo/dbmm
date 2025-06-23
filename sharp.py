@@ -193,15 +193,28 @@ class ShaRP(tfk.Model):
         self.encoded_input = tfk.Input(
             self.latent_dim
         )
-        rev = self.decoder(self.encoded_input)
-        classes = self.classifier(rev)
-        rev = self.reconstructor(rev)
-        self.inv = tfk.Model(inputs=self.encoded_input, outputs=rev)
+        if self.latent_dim == 2:
+            self.encoded_input_rnd = tfk.Input(
+                2
+            )
+            concat = tfkl.Concatenate(axis=1)([self.encoded_input, self.encoded_input_rnd])
+            rev = self.decoder(concat)
+            classes = self.classifier(rev)
+            rev = self.reconstructor(rev)
+            self.inv = tfk.Model(inputs=concat, outputs=rev)
+            self.class_model = tfk.Model(inputs=concat, outputs=classes)
+        
+        else:
+            rev = self.decoder(self.encoded_input)
+            classes = self.classifier(rev)
+            rev = self.reconstructor(rev)
+            self.inv = tfk.Model(inputs=self.encoded_input, outputs=rev)
+            self.class_model = tfk.Model(inputs=self.encoded_input, outputs=classes)
 
         self.log_var_model = tfk.Model(inputs=self.main_input, outputs=log_var)
         self.mu_model = tfk.Model(inputs=self.main_input, outputs=mu)
 
-        self.class_model = tfk.Model(inputs=self.encoded_input, outputs=classes)
+        
 
     def _build_variational_layer(self, variational_kwargs):
         if isinstance(self.variational_layer, str):
@@ -254,6 +267,7 @@ class ShaRP(tfk.Model):
         self,
         X_train: Union[tf.data.Dataset, np.ndarray],
         y_train: Optional[np.ndarray] = None,
+        X_rnd: Union[tf.data.Dataset, np.ndarray] = None,
         *args,
         **kwargs,
     ) -> tfk.callbacks.History:
@@ -268,10 +282,10 @@ class ShaRP(tfk.Model):
                 y_train_bin[range(y_train.shape[0]), y_train] = 1
             else:
                 y_train_bin = self.label_bin.fit_transform(y_train)
-            return super().fit(X_train, [y_train_bin, X_train], verbose=True,*args, **kwargs)
+            return super().fit([X_train, X_rnd], [y_train_bin, X_train], verbose=True,*args, **kwargs)
 
     def call(self, inputs, training):
-        encoded = self.encoder(inputs)
+        encoded = self.encoder(inputs[0])
         # try:
         #     tf.debugging.check_numerics(encoded, "encoded")
         # except Exception:
@@ -279,13 +293,18 @@ class ShaRP(tfk.Model):
         #         tf.print(v)
         #         input()
         z_mean, z_log_var, z = self.variational(encoded)
+
         # if isinstance(self.variational, SphericalSampling):
         #     z = self.variational._map_to_angles(z)
-        decoded = self.decoder(z)
+        decoded = self.decoder(tfkl.Concatenate(axis=1)([z, inputs[1]]))#
         # tf.debugging.check_numerics(decoded, "decoded")
 
         reconstructed = self.reconstructor(decoded)
+
+        
         main_output = self.classifier(decoded)
+
+        
         # if training:
         #     # tf.maximum(z_log_var, 0.0)
         #     loss_log_var = tfnn.leaky_relu(z_log_var, self.var_leaky_relu_alpha)

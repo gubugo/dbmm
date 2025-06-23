@@ -165,27 +165,33 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
     print(os.path.abspath(os.path.join(output_dir, dataset_name, model_name, method)))
     
     # ugh refactor this ugly shit
+    if method == "noise":
+        noise = tf.random.Generator.from_seed(360).normal(stddev=1, shape=(X_train.shape[0],2))
+    else:
+        noise = tf.zeros((X_train.shape[0],0))
+    # print(noise)
     if model_name != "nninv":
         if method == "noise":
             try:
                 _model.load_weights(export_path=os.path.join(output_dir, dataset_name, model_name, method))
             except:
-                _model.fit_random(X_train, y_train, epochs=epochs)
+                _model.fit(X_train, y_train, noise, epochs=epochs)
                 _model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
-            X_rand = np.random.normal(0.0, 1.0, (X_test.shape[0],2))
-            X_model_res = _model.transform([X_test, X_rand])
+            X_model_res = _model.transform(X_test)
+            X_model_2d = X_model_res
+            z_min, w_min = np.round(X_model_res.min(axis=0),2)
+            z_max, w_max = np.round(X_model_res.max(axis=0),2)
         else:
             try:
                 _model.load_weights(export_path=os.path.abspath(os.path.join(output_dir, dataset_name, model_name, method)))
             except:
-                _model.fit(X_train, y_train, epochs=epochs)
+                _model.fit(X_train, y_train, noise, epochs=epochs)
                 _model.save_weights(export_path=os.path.abspath(os.path.join(output_dir, dataset_name, model_name, method)))
 
             X_model_res = _model.transform(X_test)
-
-        X_model_2d = np.array([[i[2], i[3]] for i in X_model_res])
-        z_min, w_min, _, _ = np.round(X_model_res.min(axis=0),2)
-        z_max, w_max, _, _ = np.round(X_model_res.max(axis=0),2)
+            X_model_2d = np.array([[i[0], i[1]] for i in X_model_res])
+            _, _, z_min, w_min = np.round(X_model_res.min(axis=0),2)
+            _, _, z_max, w_max = np.round(X_model_res.max(axis=0),2)
     else:
         if method == "noise":
             try:
@@ -193,11 +199,6 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
             except:
                 X_model_res = _model.fit_transform(X_test)
                 dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData2d.joblib')
-            # try:
-            #     X_model_res = load(f'{output_dir}/{dataset_name}/tsneData4d.joblib')
-            # except:
-            #     X_model_res = _model.fit_transform(X_test)
-            #     dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData4d.joblib')
             try:
                 _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
             except:

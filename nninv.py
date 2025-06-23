@@ -45,14 +45,14 @@ class NNInv:
         K.clear_session()
 
     def fit(self, X, y=None, epochs=300, **kwargs):
-        main_input = Input(shape=(self.latent_dims,), name="main_input")
+        main_input = Input(shape=(self.latent_dims,), name="main_input", dtype=tf.float32)
         x = Dense(
             2048,
             activation="relu",
             # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
-            name="l1"
+            name="l1", dtype=tf.float32
         )(main_input)
         x = Dense(
             2048,
@@ -60,7 +60,7 @@ class NNInv:
             # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
-            name="l2"
+            name="l2", dtype=tf.float32
         )(x)
         x = Dense(
             2048,
@@ -68,7 +68,7 @@ class NNInv:
             # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
-            name="l3"
+            name="l3", dtype=tf.float32
         )(x)
         x = Dense(
             2048,
@@ -76,7 +76,7 @@ class NNInv:
             # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
-            name="l4"
+            name="l4", dtype=tf.float32
         )(x)
         x = Dense(
             y.shape[1],
@@ -84,7 +84,7 @@ class NNInv:
             kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
-            name="output"
+            name="output", dtype=tf.float32
         )(x)
 
         if self.dropout:
@@ -99,7 +99,7 @@ class NNInv:
         self.model.fit(
             X,
             y,
-            batch_size=16,
+            batch_size=64,
             epochs=epochs,
             verbose=self.verbose,
             validation_split=0.05,
@@ -120,10 +120,10 @@ class NNInv:
         self.is_fitted = True
 
     def fit_random(self, X, y=None, epochs=300, **kwargs):
-        X_rand = tf.random.Generator.from_seed(360).normal(stddev=1, shape=(X.shape[0],2), dtype=tf.float64)
+        X_rand = tf.random.Generator.from_seed(360).normal(stddev=1, shape=(X.shape[0],2), dtype=tf.float32)
 
-        main_input = Input(shape=(self.latent_dims,), name="main_input", dtype=tf.float64)
-        second_input = Input(shape=(2,), name="second_input", dtype=tf.float64)
+        main_input = Input(shape=(self.latent_dims,), name="main_input", dtype=tf.float32)
+        second_input = Input(shape=(2,), name="second_input", dtype=tf.float32)
         x = Concatenate(axis=1)([main_input, second_input])
         x = Dense(
             2048,
@@ -132,7 +132,7 @@ class NNInv:
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
             name="l1",
-            dtype=tf.float64
+            dtype=tf.float32
         )(x)
         x = Dense(
             2048,
@@ -141,7 +141,7 @@ class NNInv:
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
             name="l2",
-            dtype=tf.float64
+            dtype=tf.float32
         )(x)
         x = Dense(
             2048,
@@ -150,7 +150,7 @@ class NNInv:
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
             name="l3",
-            dtype=tf.float64
+            dtype=tf.float32
         )(x)
         x = Dense(
             2048,
@@ -159,7 +159,7 @@ class NNInv:
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
             name="l4",
-            dtype=tf.float64
+            dtype=tf.float32
         )(x)
         x = Dense(
             y.shape[1],
@@ -168,7 +168,7 @@ class NNInv:
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
             name="output",
-            dtype=tf.float64
+            dtype=tf.float32
         )(x)
 
         if self.dropout:
@@ -183,7 +183,7 @@ class NNInv:
         self.model.fit(
             [X, X_rand],
             y,
-            batch_size=16,
+            batch_size=64,
             epochs=epochs,
             verbose=self.verbose,
             validation_split=0.05,
