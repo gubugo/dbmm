@@ -171,6 +171,7 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
         noise = tf.zeros((X_train.shape[0],0))
     # print(noise)
     if model_name != "nninv":
+        ## SSNP and ShaRP
         if method == "noise":
             try:
                 _model.load_weights(export_path=os.path.join(output_dir, dataset_name, model_name, method))
@@ -190,9 +191,10 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
 
             X_model_res = _model.transform(X_test)
             X_model_2d = np.array([[i[0], i[1]] for i in X_model_res])
-            _, _, z_min, w_min = np.round(X_model_res.min(axis=0),2)
-            _, _, z_max, w_max = np.round(X_model_res.max(axis=0),2)
+            z_min, w_min, _, _ = np.round(X_model_res.min(axis=0),2)
+            z_max, w_max, _, _ = np.round(X_model_res.max(axis=0),2)
     else:
+        ## NNInv
         if method == "noise":
             try:
                 X_model_res = load(f'{output_dir}/{dataset_name}/tsneData2d.joblib')
