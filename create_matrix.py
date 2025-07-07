@@ -24,7 +24,6 @@ from MulticoreTSNE import MulticoreTSNE as TSNE
 
 # from ipycanvas import canvas
 
-import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
@@ -54,7 +53,7 @@ def dbm_for_estimator(
     inverter: Union[sharp.ShaRP, ssnp.SSNP, nninv.NNInv],
     bounding_box: tuple[float, float, float, float],
     grid_res: int,
-    # ax: Axes,
+    ax: Axes,
     v1: float,
     v2: float, 
     cmap=cmap,
@@ -64,16 +63,14 @@ def dbm_for_estimator(
 
     classes = model.predict(aux).astype(np.uint8)
 
-    cmapped = cmap(classes)*255
-
-    fig = px.imshow(np.reshape(cmapped,(grid_res, grid_res, 4)))
-    fig.update_layout(
-      hovermode=False,
-      xaxis=dict(visible=False),  # Hide x-axis
-      yaxis=dict(visible=False),  # Hide y-axis
-      margin=dict(l=0, r=0, t=0, b=0)  # Remove margins
+    cmapped = cmap(classes)
+    ax.imshow(
+        cmapped.reshape((grid_res, grid_res, 4)),
+        origin="lower",
+        interpolation="none",
+        resample=False,
     )
-    return fig
+    ax.axis("off")
 
 def get_bounding_box(X_proj: np.ndarray) -> tuple[float, float, float, float]:
     x_min, y_min = X_proj.min(axis=0)
@@ -92,13 +89,13 @@ def gen_and_save_dbm(
     v1: float,
     v2: float,
 ):
-    # fig, ax = plt.subplots(figsize=(20, 20))
+    fig, ax = plt.subplots(5,5,figsize=(20, 20))
     fig = dbm_for_estimator(
         classifier,
         inverter,
         get_bounding_box(X_2d),
         grid_res=grid_res,
-        # ax=ax,
+        ax=ax,
         v1=v1,
         v2=v2,
         cmap=cmap if len(classifier.classes_) <= 10 else plt.get_cmap("tab20"),
@@ -134,13 +131,54 @@ def plot(X, y, figname=None):
     del fig
     del ax
 
+def plot_matrix(classifier, inverter, bounding_box, grid_res, matrix_side_size, matrix_origin, step, figname=None):
+    format_dec =  (0 if np.floor(np.log10(step[0])) >= 0 else np.abs(np.floor(np.log10(step[0]))), 
+                   0 if np.floor(np.log10(step[1])) >= 0 else np.abs(np.floor(np.log10(step[1]))))
+    fig, ax = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
+
+    for i in range(matrix_side_size):
+        for j in range(matrix_side_size):
+            grid = make_grid(*bounding_box, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], grid_res)
+            aux = inverter.inverse_transform(grid)
+
+            classes = classifier.predict(aux).astype(np.uint8)
+
+            cmapped = cmap(classes)
+
+            # fig.subplot(matrix_side_size, matrix_side_size, (j+1)+(i)*matrix_side_size)
+            ax[i,j].imshow(
+                cmapped.reshape((grid_res, grid_res, 4)),
+                origin="lower",
+                interpolation="none",
+                resample=False,
+            )
+
+            
+            a = f"({np.round(matrix_origin[0]+i*step[0],np.uint8(format_dec[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_dec[1]))})"
+            ax[i,j].axis("off") 
+            ax[i,j].set_title(a, fontsize=grid_res/10, x=0.5, y=1-5/grid_res) 
+            plt.subplots()
+            plt.imshow(
+                cmapped.reshape((grid_res, grid_res, 4)),
+                origin="lower",
+                interpolation="none",
+                resample=False,
+            )
+            plt.axis("off")
+            plt.title(a, fontsize=grid_res/10, x=0.5, y=1)
+            a = a.replace(",","_")
+            plt.savefig(os.path.join(figname,f"{a}.png"))
+    #plt.show()
+    fig.savefig(figname)
+
+    plt.close("all")
+
 # @st.cache_resource
 def Load_data(path, dataset):
     X = np.load(os.path.join(path, dataset, "X.npy"))
     y = np.load(os.path.join(path, dataset, "y.npy"))
     return X, y
 
-@st.cache_resource
 def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, method, epochs):
     verbose = False
 
@@ -241,12 +279,25 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
 if __name__ == "__main__":
 
     output_dir = "weights"
-    model_name = st.sidebar.selectbox("Inverse Projection Method", ("ssnp", "sharp", "nninv"))
+    model_name_ops = ["ssnp", "sharp", "nninv"]
+    model_name = model_name_ops[1]
     # dataset = "mnist"
-    dataset = st.sidebar.selectbox("Dataset Used", ("mnist", "fashionmnist")) # , "har", "reuters"
+    dataset_ops = ["mnist", "fashionmnist"] # , "har", "reuters"
+    dataset = dataset_ops[0]
 
-    method = st.sidebar.selectbox("Training Method Used", ("latent_space", "noise")) # , "har", "reuters"
+    method_ops = ["latent_space", "noise"] # , "har", "reuters"
+    method = method_ops[0] # , "har", "reuters"
     
+    grid_res_ops = [100, 150, 200, 300, 500]
+    grid_res = grid_res_ops[2]
+
+
+    matrix_size = 5
+
+    matrix_origin = (0,0)
+
+    matrix_step = (0.1,0.1)
+
     epochs_dataset = {}
     epochs_dataset["fashionmnist"] = 10
     epochs_dataset["mnist"] = 10
@@ -334,25 +385,21 @@ if __name__ == "__main__":
     slidery_step = np.floor(np.log10(limits[3]-limits[2]))-2
 
     # print("here", sliderx_step, slidery_step)
-    x = st.sidebar.slider('x', limits[0], limits[1], 0.0, step=10**(sliderx_step), format=f"%0.{np.array([np.abs(sliderx_step)], dtype=np.int8)[0]}f")
-    y = st.sidebar.slider('y', limits[2], limits[3], 0.0, step=10**(slidery_step), format=f"%0.{np.array([np.abs(slidery_step)], dtype=np.int8)[0]}f")
-
-    grid_res = st.sidebar.selectbox("DBM Resolution", (50, 75, 100, 150, 200))
-
-    fig = gen_and_save_dbm(results_2d, clf, inv_model, output_dir, grid_res, "reuters", method, x, y)
-    st.plotly_chart(fig, use_container_width=True)
+    if not os.path.exists(f"./matrices/matrices_{model_name}_{method}_{grid_res}"):
+        os.makedirs(f"./matrices/matrices_{model_name}_{method}_{grid_res}")
+    fig = plot_matrix(clf, inv_model, get_bounding_box(results_2d), grid_res, matrix_size, matrix_origin, matrix_step, figname=f"./matrices/matrices_{model_name}_{method}_{grid_res}")
+  
 
 
 
+"""
 
-        
-        # canvas = st.canvas(size=(200, 200))
-        # # bg = load_image('test.png')
-        # canvas.draw_image([1,1,1,1], 50, 50)
+1. define projection+inverse projection methods (SSNP, ShaRP, t-SNE+NNInv)
+2. define augmentation method (4D proj or noise addition)
+3. define classifier, we're using only a MLP one
+4. define grid resolution (n x n, with n being an integer), normally something like 100x100, 200x200, 500x500
+5. define matrix size, odd squared number preferably (using 5x5)
+6. define matrices origin, and x and y steps
+example: start in position (0,0), with steps 0.1 and 0.2. With a 5x5 matrix, we would create 25 dbms, with augmented dimesions with domain: [0, 0.1, 0.2, 0.3, 0.4]x[0, 0.2, 0.4, 0.6, 0.8]
 
-        # canvas.fill_rect(0, 0, 50, 50)
-
-        # def handle_mouse_down(x, y):
-        #     print("im here")
-        #     pass
-        # canvas.on_mouse_down(handle_mouse_down)
+"""

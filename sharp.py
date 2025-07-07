@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import metrics
 import numpy as np
 import pylab
-import radial
+#import radial
 import tensorflow as tf
 from sampling_layers import get_layer_builder, SphericalSampling
 from sklearn.preprocessing import LabelBinarizer
@@ -514,7 +514,7 @@ def gen_plotly_plots(X, X_proj, y, y_key):
     )
     fig.write_html("plotly_tsne_3d.html")
 
-
+"""
 def main():
     if "code" not in os.getcwd():
         os.chdir("./code")
@@ -664,3 +664,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+"""

@@ -206,7 +206,6 @@ class NNInv:
         )
         self.is_fitted = True
 
-        #this is unnecessary, but to fit into my pipeline it had to be done I guess
         encoded_input = Input(shape=(self.latent_dims+2,))
         l = self.model.get_layer("l1")(encoded_input)
         l = self.model.get_layer("l2")(l)

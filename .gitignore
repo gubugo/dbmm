@@ -178,4 +178,6 @@ cython_debug/
 data/
 results_inverse/
 Resultados_relatorio/
+matrices/
+teste/
 todo

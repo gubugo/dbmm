@@ -9,7 +9,7 @@ from keras.models import Model, Sequential, load_model
 
 # from ipycanvas import canvas
 
-
+print("%.1f %.2f" % (12.4, 5.56))
 
 empty_tensor_1 = tf.random.Generator.from_seed(360).normal(stddev=1, shape=(2,5))
 empty_tensor_2 = tf.zeros((5,0))
