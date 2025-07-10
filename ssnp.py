@@ -3,7 +3,8 @@ import os
 
 import numpy as np
 import tensorflow as tf
-from sklearn.neighbors import DistanceMetric, NearestNeighbors
+from sklearn.metrics import DistanceMetric
+from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import LabelBinarizer, MultiLabelBinarizer
 from keras import backend as K
 from keras import datasets as kdatasets

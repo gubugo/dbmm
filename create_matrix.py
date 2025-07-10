@@ -22,12 +22,7 @@ from sklearn.model_selection import train_test_split
 from joblib import dump, load
 from MulticoreTSNE import MulticoreTSNE as TSNE
 
-# from ipycanvas import canvas
 
-import plotly.graph_objects as go
-import plotly.express as px
-import plotly.io as pio
-pio.templates.default = 'plotly' 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 
@@ -131,10 +126,14 @@ def plot(X, y, figname=None):
     del fig
     del ax
 
-def plot_matrix(classifier, inverter, bounding_box, grid_res, matrix_side_size, matrix_origin, step, figname=None):
-    format_dec =  (0 if np.floor(np.log10(step[0])) >= 0 else np.abs(np.floor(np.log10(step[0]))), 
-                   0 if np.floor(np.log10(step[1])) >= 0 else np.abs(np.floor(np.log10(step[1]))))
+def plot_matrix(classifier, inverter, bounding_box, grid_res, matrix_side_size, matrix_origin, format_or, step, format_step, figname=None):
     fig, ax = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
+    # print(figname)
+
+    xx, yy = np.meshgrid(
+        np.linspace(limits[0], limits[1], matrix_size), np.linspace(limits[2], limits[3], matrix_size)
+    )
+    values = np.c_[xx.ravel(), yy.ravel()]
 
     for i in range(matrix_side_size):
         for j in range(matrix_side_size):
@@ -154,9 +153,9 @@ def plot_matrix(classifier, inverter, bounding_box, grid_res, matrix_side_size, 
             )
 
             
-            a = f"({np.round(matrix_origin[0]+i*step[0],np.uint8(format_dec[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_dec[1]))})"
+            coords = f"({np.round(matrix_origin[0]+i*step[0],np.uint8(format_step[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_step[1]))})"
             ax[i,j].axis("off") 
-            ax[i,j].set_title(a, fontsize=grid_res/10, x=0.5, y=1-5/grid_res) 
+            ax[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
             plt.subplots()
             plt.imshow(
                 cmapped.reshape((grid_res, grid_res, 4)),
@@ -165,13 +164,51 @@ def plot_matrix(classifier, inverter, bounding_box, grid_res, matrix_side_size, 
                 resample=False,
             )
             plt.axis("off")
-            plt.title(a, fontsize=grid_res/10, x=0.5, y=1)
-            a = a.replace(",","_")
-            plt.savefig(os.path.join(figname,f"{a}.png"))
+            plt.title(coords, fontsize="medium", x=0.5, y=1)
+            coords = coords.replace(",","_")
+            plt.savefig(os.path.join(figname,f"{coords}.png"))
     #plt.show()
-    fig.savefig(figname)
+    
+    fig.savefig(f"{figname}.png")
 
     plt.close("all")
+    """
+    for i, index in enumerate(values):
+        grid = make_grid(*bounding_box, i[0], i[1], grid_res)
+        aux = inverter.inverse_transform(grid)
+
+        classes = classifier.predict(aux).astype(np.uint8)
+
+        cmapped = cmap(classes)
+
+        # fig.subplot(matrix_side_size, matrix_side_size, (j+1)+(i)*matrix_side_size)
+        ax[index//matrix_side_size,index%matrix_side_size].imshow(
+            cmapped.reshape((grid_res, grid_res, 4)),
+            origin="lower",
+            interpolation="none",
+            resample=False,
+        )
+        
+        coords = f"({np.round(i[0],np.uint8(format_step[0]))},{np.round(i[1],np.uint8(format_step[1]))})"
+        ax[index//matrix_side_size,index%matrix_side_size].axis("off") 
+        ax[index//matrix_side_size,index%matrix_side_size].set_title(coords, fontsize=grid_res/10, x=0.5, y=1-5/grid_res) 
+        plt.subplots()
+        plt.imshow(
+            cmapped.reshape((grid_res, grid_res, 4)),
+            origin="lower",
+            interpolation="none",
+            resample=False,
+        )
+        plt.axis("off")
+        plt.title(coords, fontsize="medium", x=0.5, y=1)
+        coords = coords.replace(",","_")
+        plt.savefig(os.path.join(figname,f"{coords}.png"))
+    #plt.show()
+    
+    fig.savefig(f"{figname}.png")
+
+    plt.close("all")
+    """
 
 # @st.cache_resource
 def Load_data(path, dataset):
@@ -280,7 +317,7 @@ if __name__ == "__main__":
 
     output_dir = "weights"
     model_name_ops = ["ssnp", "sharp", "nninv"]
-    model_name = model_name_ops[1]
+    model_name = model_name_ops[0]
     # dataset = "mnist"
     dataset_ops = ["mnist", "fashionmnist"] # , "har", "reuters"
     dataset = dataset_ops[0]
@@ -291,12 +328,11 @@ if __name__ == "__main__":
     grid_res_ops = [100, 150, 200, 300, 500]
     grid_res = grid_res_ops[2]
 
+    matrix_size = 9
 
-    matrix_size = 5
+    matrix_origin = (-2.0,-2.0)
 
-    matrix_origin = (0,0)
-
-    matrix_step = (0.1,0.1)
+    matrix_step = (0.5,0.5)
 
     epochs_dataset = {}
     epochs_dataset["fashionmnist"] = 10
@@ -381,13 +417,18 @@ if __name__ == "__main__":
         )
 
         # model.fit(X=)
-    sliderx_step = np.floor(np.log10(limits[1]-limits[0]))-2
-    slidery_step = np.floor(np.log10(limits[3]-limits[2]))-2
 
+    
+    # print(np.size(np.c_[xx.ravel(), yy.ravel()]))
+    format_step =  (0 if np.floor(np.log10(matrix_step[0])) >= 0 else np.abs(np.floor(np.log10(matrix_step[0]))), 
+                   0 if np.floor(np.log10(matrix_step[1])) >= 0 else np.abs(np.floor(np.log10(matrix_step[1]))))
+    format_or =  (0 if np.floor(np.log10(matrix_origin[0])) >= 0 else np.abs(np.floor(np.log10(matrix_origin[0]))), 
+                   0 if np.floor(np.log10(matrix_origin[1])) >= 0 else np.abs(np.floor(np.log10(matrix_origin[1]))))
+    txt = f"({np.round(matrix_origin[0],np.uint8(format_or[0]))}_{np.round(matrix_origin[1],np.uint8(format_or[1]))})_({np.round(matrix_step[0],np.uint8(format_step[0]))}_{np.round(matrix_step[1],np.uint8(format_step[1]))})"
     # print("here", sliderx_step, slidery_step)
-    if not os.path.exists(f"./matrices/matrices_{model_name}_{method}_{grid_res}"):
-        os.makedirs(f"./matrices/matrices_{model_name}_{method}_{grid_res}")
-    fig = plot_matrix(clf, inv_model, get_bounding_box(results_2d), grid_res, matrix_size, matrix_origin, matrix_step, figname=f"./matrices/matrices_{model_name}_{method}_{grid_res}")
+    if not os.path.exists(f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}"):
+        os.makedirs(f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}")
+    fig = plot_matrix(clf, inv_model, get_bounding_box(results_2d), grid_res, matrix_size, matrix_origin, format_or, matrix_step, format_step, figname=f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}")
   
 
 
@@ -400,6 +441,10 @@ if __name__ == "__main__":
 4. define grid resolution (n x n, with n being an integer), normally something like 100x100, 200x200, 500x500
 5. define matrix size, odd squared number preferably (using 5x5)
 6. define matrices origin, and x and y steps
-example: start in position (0,0), with steps 0.1 and 0.2. With a 5x5 matrix, we would create 25 dbms, with augmented dimesions with domain: [0, 0.1, 0.2, 0.3, 0.4]x[0, 0.2, 0.4, 0.6, 0.8]
+example: start in position (0,0), with steps 0.1 and 0.2. With a 5x5 matrix, we would create 25 dbms, with augmented dimesions domain: [0, 0.1, 0.2, 0.3, 0.4]x[0, 0.2, 0.4, 0.6, 0.8]
 
 """
+
+#ponto d treino mais próximo 
+
+#projetar os pontos em cima do DBM
