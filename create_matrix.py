@@ -7,6 +7,7 @@ from time import sleep
 from typing import Union
 import warnings
 
+from sklearn.neighbors import NearestNeighbors
 import tensorflow as tf
 from sklearn.decomposition import PCA 
 from sklearn.base import ClassifierMixin
@@ -31,8 +32,10 @@ from MulticoreTSNE import MulticoreTSNE as TSNE
 import sharp
 import ssnp
 import nninv
+import metrics
 
 cmap = plt.get_cmap("tab10")
+cmap2 = plt.get_cmap("viridis")
 
 def make_grid(
     x_min: float, x_max: float, y_min: float, y_max: float, v1: float, v2: float, side_length: int
@@ -126,36 +129,37 @@ def plot(X, y, figname=None):
     del fig
     del ax
 
-def plot_matrix(classifier, inverter, bounding_box, grid_res, matrix_side_size, matrix_origin, format_or, step, format_step, figname=None):
-    fig, ax = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
+def plot_matrix(classifier, inverter, neighbor_finder, bounding_box, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
+    fig_main, ax_main = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
+    fig_metric, ax_metric = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
     # print(figname)
 
-    xx, yy = np.meshgrid(
-        np.linspace(limits[0], limits[1], matrix_size), np.linspace(limits[2], limits[3], matrix_size)
-    )
-    values = np.c_[xx.ravel(), yy.ravel()]
-
+    metric_matrix = np.zeros((matrix_side_size*matrix_side_size,grid_res*grid_res))
+    print(metric_matrix)
+    print(np.size(metric_matrix[0]))
     for i in range(matrix_side_size):
         for j in range(matrix_side_size):
             grid = make_grid(*bounding_box, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], grid_res)
-            aux = inverter.inverse_transform(grid)
+            inverted_grid = inverter.inverse_transform(grid)
 
-            classes = classifier.predict(aux).astype(np.uint8)
+            classes = classifier.predict(inverted_grid).astype(np.uint8)
 
             cmapped = cmap(classes)
 
             # fig.subplot(matrix_side_size, matrix_side_size, (j+1)+(i)*matrix_side_size)
-            ax[i,j].imshow(
+            ax_main[i,j].imshow(
                 cmapped.reshape((grid_res, grid_res, 4)),
                 origin="lower",
                 interpolation="none",
                 resample=False,
             )
-
             
             coords = f"({np.round(matrix_origin[0]+i*step[0],np.uint8(format_step[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_step[1]))})"
-            ax[i,j].axis("off") 
-            ax[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
+            ax_main[i,j].axis("off") 
+            ax_main[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
+            
+            metric_matrix[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
+            
             plt.subplots()
             plt.imshow(
                 cmapped.reshape((grid_res, grid_res, 4)),
@@ -168,47 +172,26 @@ def plot_matrix(classifier, inverter, bounding_box, grid_res, matrix_side_size, 
             coords = coords.replace(",","_")
             plt.savefig(os.path.join(figname,f"{coords}.png"))
     #plt.show()
-    
-    fig.savefig(f"{figname}.png")
+    cmapped2 = cmap2((metric_matrix-np.min(metric_matrix))/(np.max(metric_matrix)-np.min(metric_matrix)),)
+    print(cmapped2)
+    print(np.shape(cmapped2))
+    print(np.size(cmapped2))
+    for i in range(matrix_side_size):
+        for j in range(matrix_side_size):
+            ax_metric[i,j].imshow(
+                cmapped2[matrix_side_size*i+j].reshape((grid_res, grid_res, 4)),
+                origin="lower",
+                interpolation="none",
+                resample=False,
+            )
+            coords = f"({np.round(matrix_origin[0]+i*step[0],np.uint8(format_step[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_step[1]))})"
+            ax_metric[i,j].axis("off") 
+            ax_metric[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
+    fig_main.savefig(f"{figname}.png")
+    fig_metric.savefig(f"{figname}_metric_nn.png")
 
     plt.close("all")
-    """
-    for i, index in enumerate(values):
-        grid = make_grid(*bounding_box, i[0], i[1], grid_res)
-        aux = inverter.inverse_transform(grid)
 
-        classes = classifier.predict(aux).astype(np.uint8)
-
-        cmapped = cmap(classes)
-
-        # fig.subplot(matrix_side_size, matrix_side_size, (j+1)+(i)*matrix_side_size)
-        ax[index//matrix_side_size,index%matrix_side_size].imshow(
-            cmapped.reshape((grid_res, grid_res, 4)),
-            origin="lower",
-            interpolation="none",
-            resample=False,
-        )
-        
-        coords = f"({np.round(i[0],np.uint8(format_step[0]))},{np.round(i[1],np.uint8(format_step[1]))})"
-        ax[index//matrix_side_size,index%matrix_side_size].axis("off") 
-        ax[index//matrix_side_size,index%matrix_side_size].set_title(coords, fontsize=grid_res/10, x=0.5, y=1-5/grid_res) 
-        plt.subplots()
-        plt.imshow(
-            cmapped.reshape((grid_res, grid_res, 4)),
-            origin="lower",
-            interpolation="none",
-            resample=False,
-        )
-        plt.axis("off")
-        plt.title(coords, fontsize="medium", x=0.5, y=1)
-        coords = coords.replace(",","_")
-        plt.savefig(os.path.join(figname,f"{coords}.png"))
-    #plt.show()
-    
-    fig.savefig(f"{figname}.png")
-
-    plt.close("all")
-    """
 
 # @st.cache_resource
 def Load_data(path, dataset):
@@ -216,17 +199,87 @@ def Load_data(path, dataset):
     y = np.load(os.path.join(path, dataset, "y.npy"))
     return X, y
 
-def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, method, epochs):
-    verbose = False
 
+def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name, method, epochs):
     data_dir = "./data/"
-    # dataset_name = "mnist"
+
     d = dataset_name
 
     X, y = Load_data(data_dir, d)
 
-    # print(X.shape)
-    # print(y.shape)
+    n_samples = X.shape[0]
+
+    train_size = min(int(n_samples * 0.9), 10000)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=train_size, random_state=10, stratify=y
+    )
+
+    neighbor_finder = NearestNeighbors(
+        n_neighbors=5
+    ) 
+    neighbor_finder.fit(X_train)
+    
+
+    if method == "noise":
+        if os.path.exists(f'{output_dir}/{dataset_name}/tsneData2d_train.joblib'):
+            tsne_proj = load(f'{output_dir}/{dataset_name}/tsneData2d_train.joblib')
+        else:
+            tsne_proj = _model.fit_transform(X_train)
+            dump(tsne_proj, f'{output_dir}/{dataset_name}/tsneData2d_train.joblib')
+        
+        if os.path.exists(f'{output_dir}/{dataset_name}/tsneData2d_test.joblib'):
+            X_model_res = load(f'{output_dir}/{dataset_name}/tsneData2d_test.joblib')
+        else:
+            X_model_res = _model.fit_transform(X_test)
+            dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData2d_test.joblib')
+
+        if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
+            _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
+        else:
+            _inv_model.fit_random(tsne_proj, X_train, epochs=epochs)
+            _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
+        
+        X_model_2d = X_model_res
+        z_min, w_min = -2, -2
+        z_max, w_max =  2,  2
+    else:
+        if os.path.exists(f'{output_dir}/{dataset_name}/tsneData4d_train.joblib'):
+            tsne_proj = load(f'{output_dir}/{dataset_name}/tsneData4d_train.joblib')
+        else:
+            tsne_proj = _model.fit_transform(X_train)
+            dump(tsne_proj, f'{output_dir}/{dataset_name}/tsneData4d_train.joblib')
+        
+        if os.path.exists(f'{output_dir}/{dataset_name}/tsneData4d_test.joblib'):
+            X_model_res = load(f'{output_dir}/{dataset_name}/tsneData4d_test.joblib')
+        else:
+            X_model_res = _model.fit_transform(X_test)
+            dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData4d_test.joblib')
+
+        if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
+            _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
+        else:
+            _inv_model.fit(tsne_proj, X_train, epochs=epochs)
+            _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
+        
+        X_model_2d = np.array([[i[0], i[1]] for i in X_model_res])
+        _, _, z_min, w_min = np.round(X_model_res.min(axis=0),2)
+        _, _, z_max, w_max = np.round(X_model_res.max(axis=0),2)
+
+    if os.path.exists(f'{output_dir}/{dataset_name}/class.joblib'):
+        clf = load(f'{output_dir}/{dataset_name}/class.joblib')
+    else:
+        clf = make_and_fit_mlp(X_train, y_train)
+        dump(clf, f'{output_dir}/{dataset_name}/class.joblib')
+
+    return X_model_2d, clf, _inv_model, neighbor_finder,[float(z_min), float(z_max), float(w_min), float(w_max)]
+
+def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, epochs):
+    data_dir = "./data/"
+
+    d = dataset_name
+
+    X, y = Load_data(data_dir, d)
 
     n_samples = X.shape[0]
 
@@ -236,82 +289,46 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
         X, y, train_size=train_size, random_state=10, stratify=y
     )
 
-    # print(X_train.shape, X_test.shape, y_train.shape)
-    # if method == "noise":
-    
-    print(os.path.abspath(os.path.join(output_dir, dataset_name, model_name, method)))
+    neighbor_finder = NearestNeighbors(
+        n_neighbors=5
+    )
+    neighbor_finder.fit(X_train)
     
     # ugh refactor this ugly shit
     if method == "noise":
         noise = tf.random.Generator.from_seed(360).normal(stddev=1, shape=(X_train.shape[0],2))
     else:
         noise = tf.zeros((X_train.shape[0],0))
-    # print(noise)
-    if model_name != "nninv":
-        ## SSNP and ShaRP
-        if method == "noise":
-            try:
-                _model.load_weights(export_path=os.path.join(output_dir, dataset_name, model_name, method))
-            except:
-                _model.fit(X_train, y_train, noise, epochs=epochs)
-                _model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
-            X_model_res = _model.transform(X_test)
-            X_model_2d = X_model_res
-            z_min, w_min = -2, -2
-            z_max, w_max =  2,  2
-        else:
-            try:
-                _model.load_weights(export_path=os.path.abspath(os.path.join(output_dir, dataset_name, model_name, method)))
-            except:
-                _model.fit(X_train, y_train, noise, epochs=epochs)
-                _model.save_weights(export_path=os.path.abspath(os.path.join(output_dir, dataset_name, model_name, method)))
 
-            X_model_res = _model.transform(X_test)
-            X_model_2d = np.array([[i[2], i[3]] for i in X_model_res])
-            z_min, w_min, _, _ = np.round(X_model_res.min(axis=0),2)
-            z_max, w_max, _, _ = np.round(X_model_res.max(axis=0),2)
+    if method == "noise":
+        if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
+            _model.load_weights(export_path=os.path.join(output_dir, dataset_name, model_name, method))
+        else:
+            _model.fit(X_train, y_train, noise, epochs=epochs)
+            _model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
+        X_model_res = _model.transform(X_test)
+        X_model_2d = X_model_res
+        z_min, w_min = -2, -2
+        z_max, w_max =  2,  2
     else:
-        ## NNInv
-        if method == "noise":
-            try:
-                X_model_res = load(f'{output_dir}/{dataset_name}/tsneData2d.joblib')
-            except:
-                X_model_res = _model.fit_transform(X_test)
-                dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData2d.joblib')
-            try:
-                _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
-            except:
-                print(X_model_res.shape)
-                _inv_model.fit_random(X_model_res, X_test, epochs=epochs)
-                _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
-            
-            X_model_2d = X_model_res
-            z_min, w_min = -2, -2
-            z_max, w_max =  2,  2
-
+        if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
+            _model.load_weights(export_path=os.path.abspath(os.path.join(output_dir, dataset_name, model_name, method)))
         else:
-            try:
-                X_model_res = load(f'{output_dir}/{dataset_name}/tsneData4d.joblib')
-            except:
-                X_model_res = _model.fit_transform(X_test)
-                dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData4d.joblib')
-            try:
-                _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
-            except:
-                _inv_model.fit(X_model_res, X_test, epochs=epochs)
-                _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
-            
-            X_model_2d = np.array([[i[2], i[3]] for i in X_model_res])
-            z_min, w_min, _, _ = np.round(X_model_res.min(axis=0),2)
-            z_max, w_max, _, _ = np.round(X_model_res.max(axis=0),2)
+            _model.fit(X_train, y_train, noise, epochs=epochs)
+            _model.save_weights(export_path=os.path.abspath(os.path.join(output_dir, dataset_name, model_name, method)))
 
-    try:
+        X_model_res = _model.transform(X_test)
+        X_model_2d = np.array([[i[0], i[1]] for i in X_model_res])
+        _, _, z_min, w_min = np.round(X_model_res.min(axis=0),2)
+        _, _, z_max, w_max = np.round(X_model_res.max(axis=0),2)
+    
+    if os.path.exists(f'{output_dir}/{dataset_name}/class.joblib'):
         clf = load(f'{output_dir}/{dataset_name}/class.joblib')
-    except:
+    else:
         clf = make_and_fit_mlp(X_train, y_train)
         dump(clf, f'{output_dir}/{dataset_name}/class.joblib')
 
-    return X_model_2d, clf, _model, _inv_model, [float(z_min), float(z_max), float(w_min), float(w_max)]
+    return X_model_2d, clf, _model, neighbor_finder,[float(z_min), float(z_max), float(w_min), float(w_max)]
 
 if __name__ == "__main__":
 
@@ -323,16 +340,10 @@ if __name__ == "__main__":
     dataset = dataset_ops[0]
 
     method_ops = ["latent_space", "noise"] # , "har", "reuters"
-    method = method_ops[0] # , "har", "reuters"
+    method = method_ops[1] # , "har", "reuters"
     
     grid_res_ops = [100, 150, 200, 300, 500]
     grid_res = grid_res_ops[2]
-
-    matrix_size = 9
-
-    matrix_origin = (-2.0,-2.0)
-
-    matrix_step = (0.5,0.5)
 
     epochs_dataset = {}
     epochs_dataset["fashionmnist"] = 10
@@ -353,7 +364,7 @@ if __name__ == "__main__":
         dims = sharp_dims_classes[dataset][0]
         classes = sharp_dims_classes[dataset][1]
 
-        results_2d, clf, inv_model, _, limits = get_inv_proj_data( #get_inv_proj_data_sharp(output_dir)
+        results_2d, clf, inv_model, neighbor_finder, limits = get_inv_proj_data_pi( #get_inv_proj_data_sharp(output_dir)
             output_dir, 
             sharp.ShaRP(
                 # dims,
@@ -375,7 +386,6 @@ if __name__ == "__main__":
                 bottleneck_l1=0.0,
                 bottleneck_l2=0.1,
             ),
-            {},
             dataset,
             model_name,
             method,
@@ -383,7 +393,7 @@ if __name__ == "__main__":
         )
 
     if model_name == "ssnp":
-        results_2d, clf, inv_model, _, limits = get_inv_proj_data(
+        results_2d, clf, inv_model, neighbor_finder, limits = get_inv_proj_data_pi(
             output_dir, 
             ssnp.SSNP(
                 verbose=True,
@@ -392,7 +402,6 @@ if __name__ == "__main__":
                 opt="adam",
                 bottleneck_activation="linear",
             ),
-            {},
             dataset,
             model_name,
             method,
@@ -400,7 +409,7 @@ if __name__ == "__main__":
         )
 
     if model_name == "nninv":
-        results_2d, clf, _, inv_model, limits = get_inv_proj_data(
+        results_2d, clf, inv_model, neighbor_finder, limits = get_inv_proj_data_i(
             output_dir, 
             TSNE(
                 n_jobs=4, 
@@ -418,6 +427,16 @@ if __name__ == "__main__":
 
         # model.fit(X=)
 
+    matrix_size = 9
+    if method == "noise":
+        matrix_origin = (-2.0,-2.0)
+
+        matrix_step = (0.5,0.5)
+    else:
+        matrix_origin = (limits[0],limits[2])
+
+        matrix_step = ((limits[1]-limits[0])/matrix_size,(limits[3]-limits[2])/matrix_size)
+
     
     # print(np.size(np.c_[xx.ravel(), yy.ravel()]))
     format_step =  (0 if np.floor(np.log10(matrix_step[0])) >= 0 else np.abs(np.floor(np.log10(matrix_step[0]))), 
@@ -428,7 +447,7 @@ if __name__ == "__main__":
     # print("here", sliderx_step, slidery_step)
     if not os.path.exists(f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}"):
         os.makedirs(f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}")
-    fig = plot_matrix(clf, inv_model, get_bounding_box(results_2d), grid_res, matrix_size, matrix_origin, format_or, matrix_step, format_step, figname=f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}")
+    fig = plot_matrix(clf, inv_model, neighbor_finder, get_bounding_box(results_2d), grid_res, matrix_size, matrix_origin, matrix_step, format_step, figname=f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}")
   
 
 

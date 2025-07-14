@@ -1,6 +1,12 @@
-from decision_boundary_mapper import GUI
-from decision_boundary_mapper import DBM_usage_example, SDBM_usage_example
+import numpy as np
 
-GUI().start()
-DBM_usage_example() # run the first example
-SDBM_usage_example() # run the second example
+# Create a NumPy array
+arr = np.array([10, 20, 30, 40, 50])
+
+# Define the scalar value to subtract
+scalar_value = 5
+
+# Subtract the scalar value from all elements
+result_arr = arr - scalar_value
+
+print(result_arr)

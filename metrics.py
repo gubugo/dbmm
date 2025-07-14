@@ -9,7 +9,7 @@ import numpy as np
 from matplotlib.collections import LineCollection
 from scipy import spatial, stats
 from sklearn.ensemble import IsolationForest
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neighbors import KNeighborsClassifier, NearestNeighbors
 from sklearn.preprocessing import LabelEncoder
 
 
@@ -26,6 +26,13 @@ def nan_when_raises(func):
 @nan_when_raises
 def compute_distance_list(X):
     return spatial.distance.pdist(X, "euclidean")
+
+
+def metric_distance_to_nearest_neighbor(inverted_grid, nearest_neighbor):
+    dist, _ = nearest_neighbor.kneighbors(
+        inverted_grid, n_neighbors=1, return_distance=True
+    )
+    return dist.reshape(np.shape(dist)[0])
 
 
 # TODO handle precomputed distances. Euclidean doesn't make sense for spherical.

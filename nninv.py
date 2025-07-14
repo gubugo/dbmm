@@ -119,7 +119,7 @@ class NNInv:
         #this is unnecessary, but to fit into my pipeline it had to be done I guess
         encoded_input = Input(shape=(self.latent_dims,))
         l = self.model.get_layer("l1")(encoded_input)
-        l = self.model.get_layer("a1")(encoded_input)
+        l = self.model.get_layer("a1")(l)
         l = self.model.get_layer("l2")(l)
         l = self.model.get_layer("a2")(l)
         l = self.model.get_layer("l3")(l)

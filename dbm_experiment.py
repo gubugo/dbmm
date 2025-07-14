@@ -20,7 +20,8 @@ from matplotlib.axes import Axes
 import numpy as np
 from sklearn.model_selection import train_test_split
 from joblib import dump, load
-from MulticoreTSNE import MulticoreTSNE as TSNE
+# from MulticoreTSNE import MulticoreTSNE as TSNE # testing smt
+from sklearn.manifold import TSNE
 
 # from ipycanvas import canvas
 
@@ -141,17 +142,81 @@ def Load_data(path, dataset):
     return X, y
 
 @st.cache_resource
-def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, method, epochs):
-    verbose = False
-
+def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name, method, epochs):
     data_dir = "./data/"
-    # dataset_name = "mnist"
+
     d = dataset_name
 
     X, y = Load_data(data_dir, d)
 
-    # print(X.shape)
-    # print(y.shape)
+    n_samples = X.shape[0]
+
+    train_size = min(int(n_samples * 0.9), 10000)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=train_size, random_state=10, stratify=y
+    )
+
+    if method == "noise":
+        if os.path.exists(f'{output_dir}/{dataset_name}/tsneData2d_train.joblib'):
+            tsne_proj = load(f'{output_dir}/{dataset_name}/tsneData2d_train.joblib')
+        else:
+            tsne_proj = _model.fit_transform(X_train)
+            dump(tsne_proj, f'{output_dir}/{dataset_name}/tsneData2d_train.joblib')
+        
+        if os.path.exists(f'{output_dir}/{dataset_name}/tsneData2d_test.joblib'):
+            X_model_res = load(f'{output_dir}/{dataset_name}/tsneData2d_test.joblib')
+        else:
+            X_model_res = _model.fit_transform(X_test)
+            dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData2d_test.joblib')
+
+        if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
+            _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
+        else:
+            _inv_model.fit_random(tsne_proj, X_train, epochs=epochs)
+            _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
+        
+        X_model_2d = X_model_res
+        z_min, w_min = -2, -2
+        z_max, w_max =  2,  2
+    else:
+        if os.path.exists(f'{output_dir}/{dataset_name}/tsneData4d_train.joblib'):
+            tsne_proj = load(f'{output_dir}/{dataset_name}/tsneData4d_train.joblib')
+        else:
+            tsne_proj = _model.fit_transform(X_train)
+            dump(tsne_proj, f'{output_dir}/{dataset_name}/tsneData4d_train.joblib')
+        
+        if os.path.exists(f'{output_dir}/{dataset_name}/tsneData4d_test.joblib'):
+            X_model_res = load(f'{output_dir}/{dataset_name}/tsneData4d_test.joblib')
+        else:
+            X_model_res = _model.fit_transform(X_test)
+            dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData4d_test.joblib')
+
+        if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
+            _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
+        else:
+            _inv_model.fit(tsne_proj, X_train, epochs=epochs)
+            _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
+        
+        X_model_2d = np.array([[i[0], i[1]] for i in X_model_res])
+        _, _, z_min, w_min = np.round(X_model_res.min(axis=0),2)
+        _, _, z_max, w_max = np.round(X_model_res.max(axis=0),2)
+
+    if os.path.exists(f'{output_dir}/{dataset_name}/class.joblib'):
+        clf = load(f'{output_dir}/{dataset_name}/class.joblib')
+    else:
+        clf = make_and_fit_mlp(X_train, y_train)
+        dump(clf, f'{output_dir}/{dataset_name}/class.joblib')
+
+    return X_model_2d, clf, _inv_model, [float(z_min), float(z_max), float(w_min), float(w_max)]
+
+@st.cache_resource
+def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, epochs):
+    data_dir = "./data/"
+
+    d = dataset_name
+
+    X, y = Load_data(data_dir, d)
 
     n_samples = X.shape[0]
 
@@ -160,83 +225,42 @@ def get_inv_proj_data(output_dir, _model, _inv_model, dataset_name, model_name, 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, train_size=train_size, random_state=10, stratify=y
     )
-
-    # print(X_train.shape, X_test.shape, y_train.shape)
-    # if method == "noise":
-    
-    print(os.path.abspath(os.path.join(output_dir, dataset_name, model_name, method)))
     
     # ugh refactor this ugly shit
     if method == "noise":
         noise = tf.random.Generator.from_seed(360).normal(stddev=1, shape=(X_train.shape[0],2))
     else:
         noise = tf.zeros((X_train.shape[0],0))
-    # print(noise)
-    if model_name != "nninv":
-        ## SSNP and ShaRP
-        if method == "noise":
-            try:
-                _model.load_weights(export_path=os.path.join(output_dir, dataset_name, model_name, method))
-            except:
-                _model.fit(X_train, y_train, noise, epochs=epochs)
-                _model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
-            X_model_res = _model.transform(X_test)
-            X_model_2d = X_model_res
-            z_min, w_min = -2, -2
-            z_max, w_max =  2,  2
-        else:
-            try:
-                _model.load_weights(export_path=os.path.abspath(os.path.join(output_dir, dataset_name, model_name, method)))
-            except:
-                _model.fit(X_train, y_train, noise, epochs=epochs)
-                _model.save_weights(export_path=os.path.abspath(os.path.join(output_dir, dataset_name, model_name, method)))
 
-            X_model_res = _model.transform(X_test)
-            X_model_2d = np.array([[i[2], i[3]] for i in X_model_res])
-            z_min, w_min, _, _ = np.round(X_model_res.min(axis=0),2)
-            z_max, w_max, _, _ = np.round(X_model_res.max(axis=0),2)
+    if method == "noise":
+        if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
+            _model.load_weights(export_path=os.path.join(output_dir, dataset_name, model_name, method))
+        else:
+            _model.fit(X_train, y_train, noise, epochs=epochs)
+            _model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
+        X_model_res = _model.transform(X_test)
+        X_model_2d = X_model_res
+        z_min, w_min = -2, -2
+        z_max, w_max =  2,  2
     else:
-        ## NNInv
-        if method == "noise":
-            try:
-                X_model_res = load(f'{output_dir}/{dataset_name}/tsneData2d.joblib')
-            except:
-                X_model_res = _model.fit_transform(X_test)
-                dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData2d.joblib')
-            try:
-                _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
-            except:
-                print(X_model_res.shape)
-                _inv_model.fit_random(X_model_res, X_test, epochs=epochs)
-                _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
-            
-            X_model_2d = X_model_res
-            z_min, w_min = -2, -2
-            z_max, w_max =  2,  2
-
+        if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
+            _model.load_weights(export_path=os.path.abspath(os.path.join(output_dir, dataset_name, model_name, method)))
         else:
-            try:
-                X_model_res = load(f'{output_dir}/{dataset_name}/tsneData4d.joblib')
-            except:
-                X_model_res = _model.fit_transform(X_test)
-                dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData4d.joblib')
-            try:
-                _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
-            except:
-                _inv_model.fit(X_model_res, X_test, epochs=epochs)
-                _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
-            
-            X_model_2d = np.array([[i[2], i[3]] for i in X_model_res])
-            z_min, w_min, _, _ = np.round(X_model_res.min(axis=0),2)
-            z_max, w_max, _, _ = np.round(X_model_res.max(axis=0),2)
+            _model.fit(X_train, y_train, noise, epochs=epochs)
+            _model.save_weights(export_path=os.path.abspath(os.path.join(output_dir, dataset_name, model_name, method)))
 
-    try:
+        X_model_res = _model.transform(X_test)
+        X_model_2d = np.array([[i[0], i[1]] for i in X_model_res])
+        _, _, z_min, w_min = np.round(X_model_res.min(axis=0),2)
+        _, _, z_max, w_max = np.round(X_model_res.max(axis=0),2)
+    
+    if os.path.exists(f'{output_dir}/{dataset_name}/class.joblib'):
         clf = load(f'{output_dir}/{dataset_name}/class.joblib')
-    except:
+    else:
         clf = make_and_fit_mlp(X_train, y_train)
         dump(clf, f'{output_dir}/{dataset_name}/class.joblib')
 
-    return X_model_2d, clf, _model, _inv_model, [float(z_min), float(z_max), float(w_min), float(w_max)]
+    return X_model_2d, clf, _model, [float(z_min), float(z_max), float(w_min), float(w_max)]
 
 if __name__ == "__main__":
 
@@ -266,7 +290,7 @@ if __name__ == "__main__":
         dims = sharp_dims_classes[dataset][0]
         classes = sharp_dims_classes[dataset][1]
 
-        results_2d, clf, inv_model, _, limits = get_inv_proj_data( #get_inv_proj_data_sharp(output_dir)
+        results_2d, clf, inv_model, limits = get_inv_proj_data_pi( #get_inv_proj_data_sharp(output_dir)
             output_dir, 
             sharp.ShaRP(
                 # dims,
@@ -288,7 +312,6 @@ if __name__ == "__main__":
                 bottleneck_l1=0.0,
                 bottleneck_l2=0.1,
             ),
-            {},
             dataset,
             model_name,
             method,
@@ -296,7 +319,7 @@ if __name__ == "__main__":
         )
 
     if model_name == "ssnp":
-        results_2d, clf, inv_model, _, limits = get_inv_proj_data(
+        results_2d, clf, inv_model, limits = get_inv_proj_data_pi(
             output_dir, 
             ssnp.SSNP(
                 verbose=True,
@@ -305,7 +328,6 @@ if __name__ == "__main__":
                 opt="adam",
                 bottleneck_activation="linear",
             ),
-            {},
             dataset,
             model_name,
             method,
@@ -313,7 +335,7 @@ if __name__ == "__main__":
         )
 
     if model_name == "nninv":
-        results_2d, clf, _, inv_model, limits = get_inv_proj_data(
+        results_2d, clf, inv_model, limits = get_inv_proj_data_i(
             output_dir, 
             TSNE(
                 n_jobs=4, 
