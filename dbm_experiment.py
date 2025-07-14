@@ -3,6 +3,7 @@
 
 import math
 import os
+import sys
 from time import sleep
 from typing import Union
 import warnings
@@ -265,8 +266,9 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
 
 if __name__ == "__main__":
 
+    python_executable = sys.executable
     if not os.path.exists("data"):
-        subprocess.run(["python3", "get_data.py"])
+        subprocess.run([python_executable, "get_data.py"])
 
     output_dir = "weights"
     model_name = st.sidebar.selectbox("Inverse Projection Method", ("ssnp", "sharp", "nninv"))
