@@ -1,12 +1,7 @@
-import numpy as np
+import get_data
+import subprocess
 
-# Create a NumPy array
-arr = np.array([10, 20, 30, 40, 50])
+subprocess.run(["python", "get_data.py"])
 
-# Define the scalar value to subtract
-scalar_value = 5
-
-# Subtract the scalar value from all elements
-result_arr = arr - scalar_value
-
-print(result_arr)
+for i in range(100):
+  print(i)

@@ -6,6 +6,7 @@ import os
 from time import sleep
 from typing import Union
 import warnings
+import subprocess
 
 import tensorflow as tf
 from sklearn.decomposition import PCA 
@@ -263,6 +264,9 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
     return X_model_2d, clf, _model, [float(z_min), float(z_max), float(w_min), float(w_max)]
 
 if __name__ == "__main__":
+
+    if not os.path.exists("data"):
+        subprocess.run(["python", "get_data.py"])
 
     output_dir = "weights"
     model_name = st.sidebar.selectbox("Inverse Projection Method", ("ssnp", "sharp", "nninv"))
