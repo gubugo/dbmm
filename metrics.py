@@ -34,6 +34,27 @@ def metric_distance_to_nearest_neighbor(inverted_grid, nearest_neighbor):
     )
     return dist.reshape(np.shape(dist)[0])
 
+def metric_distance_to_nearest_same_class_neighbor(inverted_grid, n_classes, classes, grid_points, per_class_neighbor_finder):
+    # this retains the data type, which might be handy.
+    distances = np.zeros((grid_points,), dtype=np.float32)
+
+    #inverted_grid = self.inverter(self.grid)
+    # inverted_grid_classes = self.classifier.classify(inverted_grid)
+    # inverted_grid = inverted_grid.cpu().numpy()
+    # inverted_grid_classes = inverted_grid_classes.cpu().numpy()
+    for cl in range(n_classes):
+        mask = classes == cl
+        if not np.any(mask):
+            continue
+        dist, _ = per_class_neighbor_finder[cl].kneighbors(
+            inverted_grid[classes == cl],
+            n_neighbors=1,
+            return_distance=True,
+        )
+        dist = dist.squeeze()
+        distances[mask] = dist
+
+    return distances#.reshape((self.grid_width, self.grid_width)).copy()
 
 # TODO handle precomputed distances. Euclidean doesn't make sense for spherical.
 @nan_when_raises

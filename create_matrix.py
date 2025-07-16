@@ -129,14 +129,16 @@ def plot(X, y, figname=None):
     del fig
     del ax
 
-def plot_matrix(classifier, inverter, neighbor_finder, bounding_box, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
+def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder, bounding_box, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
     fig_main, ax_main = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
     fig_metric, ax_metric = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
+    fig_metric2, ax_metric2 = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
     # print(figname)
 
     metric_matrix = np.zeros((matrix_side_size*matrix_side_size,grid_res*grid_res))
-    print(metric_matrix)
-    print(np.size(metric_matrix[0]))
+    metric_matrix2 = np.zeros((matrix_side_size*matrix_side_size,grid_res*grid_res))
+    # print(metric_matrix)
+    # print(np.size(metric_matrix[0]))
     for i in range(matrix_side_size):
         for j in range(matrix_side_size):
             grid = make_grid(*bounding_box, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], grid_res)
@@ -144,51 +146,63 @@ def plot_matrix(classifier, inverter, neighbor_finder, bounding_box, grid_res, m
 
             classes = classifier.predict(inverted_grid).astype(np.uint8)
 
-            cmapped = cmap(classes)
+            # cmapped = cmap(classes)
 
             # fig.subplot(matrix_side_size, matrix_side_size, (j+1)+(i)*matrix_side_size)
-            ax_main[i,j].imshow(
-                cmapped.reshape((grid_res, grid_res, 4)),
-                origin="lower",
-                interpolation="none",
-                resample=False,
-            )
+            # ax_main[i,j].imshow(
+            #     cmapped.reshape((grid_res, grid_res, 4)),
+            #     origin="lower",
+            #     interpolation="none",
+            #     resample=False,
+            # )
             
             coords = f"({np.round(matrix_origin[0]+i*step[0],np.uint8(format_step[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_step[1]))})"
-            ax_main[i,j].axis("off") 
-            ax_main[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
-            
+            # ax_main[i,j].axis("off") 
+            # ax_main[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
+            n_classes = 10 # im lazy asf
             metric_matrix[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
-            
-            plt.subplots()
-            plt.imshow(
-                cmapped.reshape((grid_res, grid_res, 4)),
-                origin="lower",
-                interpolation="none",
-                resample=False,
-            )
-            plt.axis("off")
-            plt.title(coords, fontsize="medium", x=0.5, y=1)
-            coords = coords.replace(",","_")
-            plt.savefig(os.path.join(figname,f"{coords}.png"))
+            metric_matrix2[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_same_class_neighbor(inverted_grid, n_classes, classes, np.shape(grid)[0], per_class_neighbor_finder)
+            # plt.subplots()
+            # plt.imshow(
+            #     cmapped.reshape((grid_res, grid_res, 4)),
+            #     origin="lower",
+            #     interpolation="none",
+            #     resample=False,
+            # )
+            # plt.axis("off")
+            # plt.title(coords, fontsize="medium", x=0.5, y=1)
+            # coords = coords.replace(",","_")
+            # plt.savefig(os.path.join(figname,f"{coords}.png"))
     #plt.show()
     cmapped2 = cmap2((metric_matrix-np.min(metric_matrix))/(np.max(metric_matrix)-np.min(metric_matrix)),)
-    print(cmapped2)
-    print(np.shape(cmapped2))
-    print(np.size(cmapped2))
+    cmapped3 = cmap2((metric_matrix2-np.min(metric_matrix2))/(np.max(metric_matrix2)-np.min(metric_matrix2)),)
+    # print(cmapped2)
+    # print(np.shape(cmapped2))
+    # print(np.size(cmapped2))
     for i in range(matrix_side_size):
         for j in range(matrix_side_size):
+            coords = f"({np.round(matrix_origin[0]+i*step[0],np.uint8(format_step[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_step[1]))})"
+
             ax_metric[i,j].imshow(
                 cmapped2[matrix_side_size*i+j].reshape((grid_res, grid_res, 4)),
                 origin="lower",
                 interpolation="none",
                 resample=False,
             )
-            coords = f"({np.round(matrix_origin[0]+i*step[0],np.uint8(format_step[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_step[1]))})"
             ax_metric[i,j].axis("off") 
-            ax_metric[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
-    fig_main.savefig(f"{figname}.png")
+            ax_metric[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res)
+
+            ax_metric2[i,j].imshow(
+                cmapped3[matrix_side_size*i+j].reshape((grid_res, grid_res, 4)),
+                origin="lower",
+                interpolation="none",
+                resample=False,
+            )
+            ax_metric2[i,j].axis("off") 
+            ax_metric2[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res)  
+    # fig_main.savefig(f"{figname}.png")
     fig_metric.savefig(f"{figname}_metric_nn.png")
+    fig_metric2.savefig(f"{figname}_metric_nn2.png")
 
     plt.close("all")
 
@@ -220,6 +234,12 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
     ) 
     neighbor_finder.fit(X_train)
     
+    n_classes = len(np.unique(y_train))
+    per_class_neighbor_finder = {}
+    for cl in range(n_classes):
+        neighbor_finder2 = NearestNeighbors(n_neighbors=5)
+        neighbor_finder2.fit(X_train[y_train == cl])
+        per_class_neighbor_finder[cl] = neighbor_finder2
 
     if method == "noise":
         if os.path.exists(f'{output_dir}/{dataset_name}/tsneData2d_train.joblib'):
@@ -272,7 +292,7 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
         clf = make_and_fit_mlp(X_train, y_train)
         dump(clf, f'{output_dir}/{dataset_name}/class.joblib')
 
-    return X_model_2d, clf, _inv_model, neighbor_finder,[float(z_min), float(z_max), float(w_min), float(w_max)]
+    return X_model_2d, clf, _inv_model, neighbor_finder, per_class_neighbor_finder,[float(z_min), float(z_max), float(w_min), float(w_max)]
 
 def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, epochs):
     data_dir = "./data/"
@@ -293,6 +313,13 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
         n_neighbors=5
     )
     neighbor_finder.fit(X_train)
+
+    n_classes = len(np.unique(y_train))
+    per_class_neighbor_finder = {}
+    for cl in range(n_classes):
+        neighbor_finder2 = NearestNeighbors(n_neighbors=5)
+        neighbor_finder2.fit(X_train[y_train == cl])
+        per_class_neighbor_finder[cl] = neighbor_finder2
     
     # ugh refactor this ugly shit
     if method == "noise":
@@ -328,19 +355,19 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
         clf = make_and_fit_mlp(X_train, y_train)
         dump(clf, f'{output_dir}/{dataset_name}/class.joblib')
 
-    return X_model_2d, clf, _model, neighbor_finder,[float(z_min), float(z_max), float(w_min), float(w_max)]
+    return X_model_2d, clf, _model, neighbor_finder, per_class_neighbor_finder,[float(z_min), float(z_max), float(w_min), float(w_max)]
 
 if __name__ == "__main__":
 
     output_dir = "weights"
     model_name_ops = ["ssnp", "sharp", "nninv"]
-    model_name = model_name_ops[0]
+    model_name = model_name_ops[2]
     # dataset = "mnist"
     dataset_ops = ["mnist", "fashionmnist"] # , "har", "reuters"
     dataset = dataset_ops[0]
 
     method_ops = ["latent_space", "noise"] # , "har", "reuters"
-    method = method_ops[1] # , "har", "reuters"
+    method = method_ops[0] # , "har", "reuters"
     
     grid_res_ops = [100, 150, 200, 300, 500]
     grid_res = grid_res_ops[2]
@@ -364,7 +391,7 @@ if __name__ == "__main__":
         dims = sharp_dims_classes[dataset][0]
         classes = sharp_dims_classes[dataset][1]
 
-        results_2d, clf, inv_model, neighbor_finder, limits = get_inv_proj_data_pi( #get_inv_proj_data_sharp(output_dir)
+        results_2d, clf, inv_model, neighbor_finder, per_class_neighbor_finder, limits = get_inv_proj_data_pi( #get_inv_proj_data_sharp(output_dir)
             output_dir, 
             sharp.ShaRP(
                 # dims,
@@ -393,7 +420,7 @@ if __name__ == "__main__":
         )
 
     if model_name == "ssnp":
-        results_2d, clf, inv_model, neighbor_finder, limits = get_inv_proj_data_pi(
+        results_2d, clf, inv_model, neighbor_finder, per_class_neighbor_finder, limits = get_inv_proj_data_pi(
             output_dir, 
             ssnp.SSNP(
                 verbose=True,
@@ -409,7 +436,7 @@ if __name__ == "__main__":
         )
 
     if model_name == "nninv":
-        results_2d, clf, inv_model, neighbor_finder, limits = get_inv_proj_data_i(
+        results_2d, clf, inv_model, neighbor_finder, per_class_neighbor_finder, limits = get_inv_proj_data_i(
             output_dir, 
             TSNE(
                 n_jobs=4, 
@@ -447,7 +474,7 @@ if __name__ == "__main__":
     # print("here", sliderx_step, slidery_step)
     if not os.path.exists(f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}"):
         os.makedirs(f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}")
-    fig = plot_matrix(clf, inv_model, neighbor_finder, get_bounding_box(results_2d), grid_res, matrix_size, matrix_origin, matrix_step, format_step, figname=f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}")
+    fig = plot_matrix(clf, inv_model, neighbor_finder, per_class_neighbor_finder, get_bounding_box(results_2d), grid_res, matrix_size, matrix_origin, matrix_step, format_step, figname=f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}")
   
 
 
