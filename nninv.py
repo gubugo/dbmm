@@ -1,7 +1,7 @@
 import os
 
 from sklearn.decomposition import PCA
-
+import numpy as np
 import keras
 import tensorflow as tf
 from keras import backend as K
@@ -9,8 +9,38 @@ from keras.callbacks import EarlyStopping
 from keras.initializers import Constant
 from keras.layers import Dense, Dropout, Input, Concatenate, Activation
 from keras.models import Sequential, Model, load_model
-from keras import regularizers, optimizers
+from keras import regularizers, optimizers, losses
 
+class Custom_BCE(losses.Loss):
+    def __init__(self, name="custom_bce_loss"):
+        super().__init__(name=name)
+        # self.x_values = x_values
+
+
+    def call(self, y_true, y_pred):
+        # Check and handle shape mismatch
+        # if y_true.shape != y_pred.shape:
+        #     y_true = tf.reshape(y_true, y_pred.shape)
+
+        # # Check and handle undefined tensors
+        # y_true = tf.where(tf.math.is_finite(y_true), y_true, tf.zeros_like(y_true))
+        
+        n_dims = np.shape(y_true)[1]-2
+        b_size = 64#np.shape(y_true)[0]
+
+        y_rand = tf.gather(y_true, [n_dims, n_dims+1], axis=1)
+        y_true = y_true[:, 0:n_dims]
+
+        # Define weights
+        # y_rand = self.x_values
+        y_weight = tf.norm(y_rand, ord=2, axis=1)
+
+        # Calculate loss
+        res = tf.norm(tf.subtract(y_pred,y_true), ord=2, axis=1)#(-y_true * tf.math.log(y_pred) - (tf.math.subtract(1.0, y_true)) * tf.math.log(tf.math.subtract(1.0, y_pred)))#mse(y_true, y_pred)#
+        loss = tf.math.divide(res, tf.add(y_weight,1))
+        # loss = bce(y_true, y_pred)
+
+        return loss#tf.reduce_sum(loss)#tf.reduce_mean(loss)
 
 class NNInv:
     def __init__(
@@ -21,14 +51,14 @@ class NNInv:
         loss="mean_squared_error",
         opt=keras.optimizers.Adam(learning_rate=0.001),
         l1=0.0,
-        l2=0.1,
+        l2=0.05,
         dropout=False,
         latent_dims=2,
         verbose=1,
         **kwargs,
     ):
         self.stop = EarlyStopping(
-            verbose=0, min_delta=0.00001, mode="min", patience=20, restore_best_weights=True
+            verbose=0, min_delta=0.00000001, mode="min", patience=20, restore_best_weights=True
         )
         self.callbacks = [self.stop]
         self.verbose = verbose
@@ -46,53 +76,47 @@ class NNInv:
         K.clear_session()
 
     def fit(self, X, y=None, epochs=300, **kwargs):
-        main_input = Input(shape=(self.latent_dims,), name="main_input", dtype=tf.float64)
+        main_input = Input(shape=(self.latent_dims,), name="main_input")
         x = Dense(
-            2048,
+            1024,
+            activation="relu",
             # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
-            name="l1", 
-            dtype=tf.float64,
+            name="l1",
         )(main_input)
-        x = Activation("relu", dtype='float64', name='a1')(x)
         x = Dense(
-            2048,
+            1024,
+            activation="relu",
             # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
-            name="l2", 
-            dtype=tf.float64,
+            name="l2",
         )(x)
-        x = Activation("relu", dtype='float64', name='a2')(x)
         x = Dense(
-            2048,
+            1024,
+            activation="relu",
             # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
-            name="l3", 
-            dtype=tf.float64,
+            name="l3",
         )(x)
-        x = Activation("relu", dtype='float64', name='a3')(x)
         x = Dense(
-            2048,
+            1024,
+            activation="relu",
             # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
-            name="l4", 
-            dtype=tf.float64,
+            name="l4",
         )(x)
-        x = Activation("relu", dtype='float64', name='a4')(x)
         x = Dense(
             y.shape[1],
-            # activation=Activation("sigmoid", dtype='float64'),
-            kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
+            activation="sigmoid",
+            # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
-            name="output", 
-            dtype=tf.float64,
+            name="output",
         )(x)
-        x = Activation("sigmoid", dtype='float64', name='a5')(x)
 
         if self.dropout:
             x = Dropout(0.5)(x)
@@ -119,13 +143,9 @@ class NNInv:
         #this is unnecessary, but to fit into my pipeline it had to be done I guess
         encoded_input = Input(shape=(self.latent_dims,))
         l = self.model.get_layer("l1")(encoded_input)
-        l = self.model.get_layer("a1")(l)
         l = self.model.get_layer("l2")(l)
-        l = self.model.get_layer("a2")(l)
         l = self.model.get_layer("l3")(l)
-        l = self.model.get_layer("a3")(l)
         l = self.model.get_layer("l4")(l)
-        l = self.model.get_layer("a4")(l)
         l = self.model.get_layer("output")(l)
         decoder_layer = self.model.get_layer("a5")(l)
 
@@ -134,55 +154,53 @@ class NNInv:
         self.is_fitted = True
 
     def fit_random(self, X, y=None, epochs=300, **kwargs):
-        X_rand = tf.random.Generator.from_seed(360).normal(stddev=1, shape=(X.shape[0],2), dtype=tf.float32)
+        X_rand = tf.random.stateless_uniform(seed=(420,420), minval=-1, maxval=1, shape=(X.shape[0],2))
+        # X_rand = tf.random.Generator.from_seed(360).normal(stddev=1, shape=(X.shape[0],2))
 
-        main_input = Input(shape=(self.latent_dims,), name="main_input", dtype=tf.float32)
-        second_input = Input(shape=(2,), name="second_input", dtype=tf.float32)
+        main_input = Input(shape=(self.latent_dims,), name="main_input")
+        second_input = Input(shape=(2,), name="second_input")
         x = Concatenate(axis=1)([main_input, second_input])
+        # x = Dropout(0.75, name='do1')(x)
         x = Dense(
-            2048,
+            1024,
             activation="relu",
             # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
             name="l1",
-            dtype=tf.float32
         )(x)
         x = Dense(
-            2048,
+            1024,
             activation="relu",
             # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
             name="l2",
-            dtype=tf.float32
         )(x)
+        # x = Dropout(0.75, name='do2')(x)
         x = Dense(
-            2048,
+            1024,
             activation="relu",
             # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
             name="l3",
-            dtype=tf.float32
         )(x)
         x = Dense(
-            2048,
+            1024,
             activation="relu",
-            # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
+            # kernel_regularizer=regularizers.l1_l2(l1=0.01, l2=0.0),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
             name="l4",
-            dtype=tf.float32
         )(x)
         x = Dense(
             y.shape[1],
             activation="sigmoid",
-            kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
+            kernel_regularizer=regularizers.l1_l2(l1=0.0, l2=0.05),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
             name="output",
-            dtype=tf.float32
         )(x)
 
         if self.dropout:
@@ -191,9 +209,14 @@ class NNInv:
 
         self.model = Model(inputs=[main_input, second_input], outputs=x)
 
-        self.model.compile(loss=self.loss, optimizer=self.opt)
+        custom_loss = Custom_BCE()
+
+        self.model.compile(loss=custom_loss, optimizer=self.opt)
 
         # self.fwd = Model(inputs=[main_input, second_input], outputs=x)
+
+        y = np.concatenate((y, X_rand.numpy()), axis=1)
+
         self.model.fit(
             [X, X_rand],
             y,
@@ -207,8 +230,10 @@ class NNInv:
         self.is_fitted = True
 
         encoded_input = Input(shape=(self.latent_dims+2,))
+        # l = self.model.get_layer("do1")(encoded_input)
         l = self.model.get_layer("l1")(encoded_input)
         l = self.model.get_layer("l2")(l)
+        # l = self.model.get_layer("do2")(l)
         l = self.model.get_layer("l3")(l)
         l = self.model.get_layer("l4")(l)
         decoder_layer = self.model.get_layer("output")(l)

@@ -21,7 +21,8 @@ from matplotlib.axes import Axes
 import numpy as np
 from sklearn.model_selection import train_test_split
 from joblib import dump, load
-from MulticoreTSNE import MulticoreTSNE as TSNE
+# from MulticoreTSNE import MulticoreTSNE as TSNE
+from sklearn.manifold import TSNE
 
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -146,19 +147,12 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
 
             classes = classifier.predict(inverted_grid).astype(np.uint8)
 
-            # cmapped = cmap(classes)
+            cmapped = cmap(classes)
+            # print(cmapped)
+            # print(np.shape(cmapped))
 
             # fig.subplot(matrix_side_size, matrix_side_size, (j+1)+(i)*matrix_side_size)
-            # ax_main[i,j].imshow(
-            #     cmapped.reshape((grid_res, grid_res, 4)),
-            #     origin="lower",
-            #     interpolation="none",
-            #     resample=False,
-            # )
             
-            coords = f"({np.round(matrix_origin[0]+i*step[0],np.uint8(format_step[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_step[1]))})"
-            # ax_main[i,j].axis("off") 
-            # ax_main[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
             n_classes = 10 # im lazy asf
             metric_matrix[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
             metric_matrix2[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_same_class_neighbor(inverted_grid, n_classes, classes, np.shape(grid)[0], per_class_neighbor_finder)
@@ -173,6 +167,54 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             # plt.title(coords, fontsize="medium", x=0.5, y=1)
             # coords = coords.replace(",","_")
             # plt.savefig(os.path.join(figname,f"{coords}.png"))
+            # print(inverted_grid)
+            # print(np.shape(inverted_grid))
+            # print(np.shape(inverted_grid[0]))
+            
+            # if i == 4 and j == 4:
+            #     for k, image in enumerate(inverted_grid):
+            #         m = metric_matrix[matrix_side_size*i+j]
+            #         m2 = metric_matrix2[matrix_side_size*i+j]
+            #         if m[k] > 6.5:
+            #             name = f"{classes[k]}_({k%grid_res},{k//grid_res})_nn_{m[k]}_nn2_{m2[k]}"
+            #             plt.subplots()
+            #             plt.imshow(
+            #                 inverted_grid[k].reshape((28, 28, 1)),
+            #                 origin="lower",
+            #                 interpolation="none",
+            #                 resample=False,
+            #             )
+            #             plt.axis("off")
+            #             plt.title(name, fontsize="medium", x=0.5, y=1)
+            #             plt.savefig(os.path.join("images",f"{name}.png"))
+            #             plt.close("all")
+            #         else:
+            #             cmapped[k] = [0.0,0.0,0.0,0.0]
+            #         if m2[k] > 6.0:
+            #             name = f"{classes[k]}_({k%grid_res},{k//grid_res})_nn_{m[k]}_nn2_{m2[k]}"
+            #             plt.subplots()
+            #             plt.imshow(
+            #                 inverted_grid[k].reshape((28, 28, 1)),
+            #                 origin="lower",
+            #                 interpolation="none",
+            #                 resample=False,
+            #             )
+            #             plt.axis("off")
+            #             plt.title(name, fontsize="medium", x=0.5, y=1)
+            #             plt.savefig(os.path.join("images2",f"{name}.png"))
+            #             plt.close("all")
+
+            ax_main[i,j].imshow(
+                cmapped.reshape((grid_res, grid_res, 4)),
+                origin="lower",
+                interpolation="none",
+                resample=False,
+            )
+            
+            coords = f"({np.round(matrix_origin[0]+i*step[0],np.uint8(format_step[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_step[1]))})"
+            ax_main[i,j].axis("off") 
+            ax_main[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
+
     #plt.show()
     cmapped2 = cmap2((metric_matrix-np.min(metric_matrix))/(np.max(metric_matrix)-np.min(metric_matrix)),)
     cmapped3 = cmap2((metric_matrix2-np.min(metric_matrix2))/(np.max(metric_matrix2)-np.min(metric_matrix2)),)
@@ -200,10 +242,10 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             )
             ax_metric2[i,j].axis("off") 
             ax_metric2[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res)  
-    # fig_main.savefig(f"{figname}.png")
+
+    fig_main.savefig(f"{figname}.png")
     fig_metric.savefig(f"{figname}_metric_nn.png")
     fig_metric2.savefig(f"{figname}_metric_nn2.png")
-
     plt.close("all")
 
 
@@ -226,7 +268,7 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
     train_size = min(int(n_samples * 0.9), 10000)
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=train_size, random_state=10, stratify=y
+        X, y, train_size=train_size, random_state=420, stratify=y
     )
 
     neighbor_finder = NearestNeighbors(
@@ -306,7 +348,7 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
     train_size = min(int(n_samples * 0.9), 5000)
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=train_size, random_state=10, stratify=y
+        X, y, train_size=train_size, random_state=420, stratify=y
     )
 
     neighbor_finder = NearestNeighbors(
@@ -323,7 +365,8 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
     
     # ugh refactor this ugly shit
     if method == "noise":
-        noise = tf.random.Generator.from_seed(360).normal(stddev=1, shape=(X_train.shape[0],2))
+        noise = tf.random.stateless_uniform(seed=(420,420), minval=-1, maxval=1, shape=(X_train.shape[0],2))
+        # noise = tf.random.Generator.from_seed(420).normal(stddev=1, shape=(X_train.shape[0],2))
     else:
         noise = tf.zeros((X_train.shape[0],0))
 
@@ -349,6 +392,8 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
         _, _, z_min, w_min = np.round(X_model_res.min(axis=0),2)
         _, _, z_max, w_max = np.round(X_model_res.max(axis=0),2)
     
+    # plot(X_model_2d, y, figname=None)
+
     if os.path.exists(f'{output_dir}/{dataset_name}/class.joblib'):
         clf = load(f'{output_dir}/{dataset_name}/class.joblib')
     else:
@@ -361,16 +406,16 @@ if __name__ == "__main__":
 
     output_dir = "weights"
     model_name_ops = ["ssnp", "sharp", "nninv"]
-    model_name = model_name_ops[2]
+    model_name = model_name_ops[1]
     # dataset = "mnist"
     dataset_ops = ["mnist", "fashionmnist"] # , "har", "reuters"
     dataset = dataset_ops[0]
 
     method_ops = ["latent_space", "noise"] # , "har", "reuters"
-    method = method_ops[0] # , "har", "reuters"
+    method = method_ops[1] # , "har", "reuters"
     
     grid_res_ops = [100, 150, 200, 300, 500]
-    grid_res = grid_res_ops[2]
+    grid_res = grid_res_ops[0]
 
     epochs_dataset = {}
     epochs_dataset["fashionmnist"] = 10
@@ -456,9 +501,9 @@ if __name__ == "__main__":
 
     matrix_size = 9
     if method == "noise":
-        matrix_origin = (-2.0,-2.0)
+        matrix_origin = (-10.0,-10.0)
 
-        matrix_step = (0.5,0.5)
+        matrix_step = (2.5,2.5)
     else:
         matrix_origin = (limits[0],limits[2])
 
