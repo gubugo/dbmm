@@ -37,13 +37,14 @@ class Custom_BCE(tfk.losses.Loss):
         # tf.print(y_true.dtype)
         y_rand = tf.gather(y_true, [n_dims, n_dims+1], axis=1)
         y_true = y_true[:, 0:n_dims]
-
+        # bce_loss = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
         # Define weights
         # y_rand = self.x_values
         y_weight = tf.norm(y_rand, ord=2.0, axis=1)
 
         # Calculate loss
-        res = tf.norm(tf.subtract(y_pred,y_true), ord=2, axis=1)#(-y_true * tf.math.log(y_pred) - (tf.math.subtract(1.0, y_true)) * tf.math.log(tf.math.subtract(1.0, y_pred)))#mse(y_true, y_pred)#
+        # res = bce_loss(y_pred,y_true)
+        res = tf.norm(tf.subtract(y_pred,y_true), ord=1, axis=1)#(-y_true * tf.math.log(y_pred) - (tf.math.subtract(1.0, y_true)) * tf.math.log(tf.math.subtract(1.0, y_pred)))#mse(y_true, y_pred)#
         loss = tf.math.divide(res, tf.add(y_weight,1))
         # loss = bce(y_true, y_pred)
 

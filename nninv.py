@@ -33,14 +33,14 @@ class Custom_BCE(losses.Loss):
 
         # Define weights
         # y_rand = self.x_values
-        y_weight = tf.norm(y_rand, ord=2, axis=1)
+        y_weight = tf.norm(y_rand, ord=1, axis=1)
 
         # Calculate loss
         res = tf.norm(tf.subtract(y_pred,y_true), ord=2, axis=1)#(-y_true * tf.math.log(y_pred) - (tf.math.subtract(1.0, y_true)) * tf.math.log(tf.math.subtract(1.0, y_pred)))#mse(y_true, y_pred)#
-        loss = tf.math.divide(res, tf.add(y_weight,1))
+        loss = tf.math.divide(res, y_weight)
         # loss = bce(y_true, y_pred)
 
-        return loss#tf.reduce_sum(loss)#tf.reduce_mean(loss)
+        return tf.reduce_mean(loss)
 
 class NNInv:
     def __init__(
@@ -160,7 +160,7 @@ class NNInv:
         main_input = Input(shape=(self.latent_dims,), name="main_input")
         second_input = Input(shape=(2,), name="second_input")
         x = Concatenate(axis=1)([main_input, second_input])
-        # x = Dropout(0.75, name='do1')(x)
+        x = Dropout(0.10, name='do1')(x)
         x = Dense(
             1024,
             activation="relu",
@@ -177,7 +177,7 @@ class NNInv:
             bias_initializer=Constant(0.01),
             name="l2",
         )(x)
-        # x = Dropout(0.75, name='do2')(x)
+        x = Dropout(0.05, name='do3')(x)
         x = Dense(
             1024,
             activation="relu",
@@ -230,10 +230,10 @@ class NNInv:
         self.is_fitted = True
 
         encoded_input = Input(shape=(self.latent_dims+2,))
-        # l = self.model.get_layer("do1")(encoded_input)
-        l = self.model.get_layer("l1")(encoded_input)
+        l = self.model.get_layer("do1")(encoded_input)
+        l = self.model.get_layer("l1")(l)
         l = self.model.get_layer("l2")(l)
-        # l = self.model.get_layer("do2")(l)
+        l = self.model.get_layer("do3")(l)
         l = self.model.get_layer("l3")(l)
         l = self.model.get_layer("l4")(l)
         decoder_layer = self.model.get_layer("output")(l)

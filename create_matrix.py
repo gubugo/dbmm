@@ -265,7 +265,7 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
 
     n_samples = X.shape[0]
 
-    train_size = min(int(n_samples * 0.9), 10000)
+    train_size = min(int(n_samples * 0.9), 20000)
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, train_size=train_size, random_state=420, stratify=y
@@ -345,7 +345,7 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
 
     n_samples = X.shape[0]
 
-    train_size = min(int(n_samples * 0.9), 5000)
+    train_size = min(int(n_samples * 0.9), 10000)
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, train_size=train_size, random_state=420, stratify=y
@@ -406,7 +406,7 @@ if __name__ == "__main__":
 
     output_dir = "weights"
     model_name_ops = ["ssnp", "sharp", "nninv"]
-    model_name = model_name_ops[1]
+    model_name = model_name_ops[2]
     # dataset = "mnist"
     dataset_ops = ["mnist", "fashionmnist"] # , "har", "reuters"
     dataset = dataset_ops[0]
@@ -415,11 +415,11 @@ if __name__ == "__main__":
     method = method_ops[1] # , "har", "reuters"
     
     grid_res_ops = [100, 150, 200, 300, 500]
-    grid_res = grid_res_ops[0]
+    grid_res = 100#grid_res_ops[3]
 
     epochs_dataset = {}
     epochs_dataset["fashionmnist"] = 10
-    epochs_dataset["mnist"] = 10
+    epochs_dataset["mnist"] = 20
     epochs_dataset["har"] = 10
     epochs_dataset["hatespeech"] = 20
     epochs_dataset["reuters"] = 30
@@ -501,9 +501,9 @@ if __name__ == "__main__":
 
     matrix_size = 9
     if method == "noise":
-        matrix_origin = (-10.0,-10.0)
+        matrix_origin = (-2.0,-2.0)
 
-        matrix_step = (2.5,2.5)
+        matrix_step = (0.5,0.5)
     else:
         matrix_origin = (limits[0],limits[2])
 
