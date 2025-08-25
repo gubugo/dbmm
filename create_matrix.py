@@ -139,12 +139,20 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
     fig_metric2, ax_metric2 = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
     fig_scatter, ax_scatter = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
     fig_scatter2, ax_scatter2 = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
+    fig_diff, ax_diff = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
     # print(figname)
 
     metric_matrix = np.zeros((matrix_side_size*matrix_side_size,grid_res*grid_res))
     metric_matrix2 = np.zeros((matrix_side_size*matrix_side_size,grid_res*grid_res))
     # print(metric_matrix)
     # print(np.size(metric_matrix[0]))
+
+    # for difs
+    grid = make_grid(*bounding_box, 0, 0, grid_res)
+    inverted_grid = inverter.inverse_transform(grid)
+    classes = classifier.predict(inverted_grid).astype(np.uint8)
+    cmapped_base = cmap(classes)
+
     for i in range(matrix_side_size):
         for j in range(matrix_side_size):
             grid = make_grid(*bounding_box, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], grid_res)
@@ -161,8 +169,16 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             n_classes = 10 # im lazy asf
             metric_matrix[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
             metric_matrix2[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_same_class_neighbor(inverted_grid, n_classes, classes, np.shape(grid)[0], per_class_neighbor_finder)
-            scatterplot.plot_decision_map_with_points(classes.reshape((grid_res, grid_res, 1)), x_test_global, y_test_global, grid_res, cmap='tab10', fig=ax_scatter[i,j], save_path=None)
-            scatterplot.plot_decision_map_with_accuracy(classes.reshape((grid_res, grid_res, 1)), x_test_global, y_test_global, inverter, classifier, grid_res, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], fig=ax_scatter2[i,j])
+            scatterplot.plot_decision_map_with_points(classes.reshape((grid_res, grid_res, 1)), x_test_global, y_test_global, grid_res, matrix_side_size, cmap='tab10', fig=ax_scatter[i,j], save_path=None)
+            scatterplot.plot_decision_map_with_accuracy(classes.reshape((grid_res, grid_res, 1)), x_test_global, y_test_global, inverter, classifier, grid_res, matrix_side_size, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], fig=ax_scatter2[i,j])
+            subbed = np.subtract(cmapped_base[:, 0:3], cmapped[:, 0:3])
+            if len(np.nonzero(subbed.flatten())) == 0:
+                ax_diff[i,j].imshow(cmapped_base, interpolation='none', resample=False, origin='lower')
+            else:
+                ax_diff[i,j].imshow(np.abs(subbed).reshape((grid_res, grid_res, 3)), interpolation='none', resample=False, origin='lower')
+            # ax_diff[i,j].set_title(f'Test')
+            ax_diff[i,j].grid(False)
+            ax_diff[i,j].axis("off") 
             # plt.subplots()
             # plt.imshow(
             #     cmapped.reshape((grid_res, grid_res, 4)),
@@ -221,6 +237,7 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             coords = f"({np.round(matrix_origin[0]+i*step[0],np.uint8(format_step[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_step[1]))})"
             ax_main[i,j].axis("off") 
             ax_main[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
+            ax_diff[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
 
     #plt.show()
     cmapped2 = cmap2((metric_matrix-np.min(metric_matrix))/(np.max(metric_matrix)-np.min(metric_matrix)),)
@@ -250,11 +267,12 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             ax_metric2[i,j].axis("off") 
             ax_metric2[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res)  
 
-    fig_main.savefig(f"{figname}.png")
-    fig_metric.savefig(f"{figname}_metric_nn.png")
-    fig_metric2.savefig(f"{figname}_metric_nn2.png")
-    fig_scatter.savefig(f"{figname}_scatter.png")
-    fig_scatter2.savefig(f"{figname}_scatter2.png")
+    # fig_main.savefig(f"{figname}.png")
+    # fig_metric.savefig(f"{figname}_metric_nn.png")
+    # fig_metric2.savefig(f"{figname}_metric_nn2.png")
+    # fig_scatter.savefig(f"{figname}_scatter.png")
+    # fig_scatter2.savefig(f"{figname}_scatter2.png")
+    fig_diff.savefig(f"{figname}_difference.png")
     plt.close("all")
 
 

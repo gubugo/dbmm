@@ -179,7 +179,7 @@ class NNInv:
             bias_initializer=Constant(0.01),
             name="l2",
         )(x)
-        x = Dropout(0.10, name='do3')(x)
+        # x = Dropout(0.10, name='do3')(x)
         x = Dense(
             1024,
             activation="relu",

@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 def plot_decision_map_with_accuracy(decision_map, coordinates, true_labels, 
-                                    nninv_model, classifier, map_size, v1, v2, fig=None, batch_size=128,
+                                    nninv_model, classifier, map_size, matrix_side, v1, v2, fig=None, batch_size=128,
                                     cmap='tab10', figsize=(10, 8), save_path=None):
 
     # predict raw data positions
@@ -38,16 +38,16 @@ def plot_decision_map_with_accuracy(decision_map, coordinates, true_labels,
     points2 = coordinates[correct_mask, 1]
     fig.scatter(map_size*(points1-np.min(points1))/(np.max(points1)-np.min(points1)), 
                 map_size*(points2-np.min(points2))/(np.max(points2)-np.min(points2)),
-                c='lime', s=12, label='Acerto', alpha=0.7, edgecolor='k', linewidth=0.2)
+                c='lime', s=36/(matrix_side), label='Acerto', alpha=0.7, edgecolor='k', linewidth=0.2)
 
     #misses
     points1 = coordinates[~correct_mask, 0]
     points2 = coordinates[~correct_mask, 1]
     fig.scatter(map_size*(points1-np.min(points1))/(np.max(points1)-np.min(points1)), 
                 map_size*(points2-np.min(points2))/(np.max(points2)-np.min(points2)),
-                c='red', s=12, label='Erro', alpha=0.7, edgecolor='k', linewidth=0.2)
+                c='red', s=36/(matrix_side), label='Erro', alpha=0.7, edgecolor='k', linewidth=0.2)
 
-    fig.set_title(f'DBM accuracy: {np.mean(correct_mask):.2%}')
+    fig.set_title(f'DBM accuracy: {np.mean(correct_mask):.2%}', fontsize=map_size/(2*matrix_side), x=0.5, y=1-5/map_size)
     fig.grid(False)
     fig.axis("off") 
     # if save_path:
@@ -57,16 +57,16 @@ def plot_decision_map_with_accuracy(decision_map, coordinates, true_labels,
     # return np.mean(correct_mask)
 
 
-def plot_decision_map_with_points(decision_map, points, labels, map_size, cmap='tab10', fig=None, save_path=None):
+def plot_decision_map_with_points(decision_map, points, labels, map_size, matrix_side, cmap='tab10', fig=None, save_path=None):
     # putting the dbm in the background
     fig.imshow(decision_map, interpolation='none', cmap='tab10',  vmin=0, vmax=9, origin='lower')
 
     # scatter points above the dbm
-    print(labels)
-    print(points)
+    # print(labels)
+    # print(points)
     scatter = fig.scatter(map_size*(points[:, 0]-np.min(points[:, 0]))/(np.max(points[:, 0])-np.min(points[:, 0])), 
                           map_size*(points[:, 1]-np.min(points[:, 1]))/(np.max(points[:, 1])-np.min(points[:, 1])), 
-                          c=labels, cmap=cmap, s=15, edgecolor='k', linewidth=0.2, alpha=0.7)
+                          c=labels, cmap=cmap, s=36/(matrix_side), edgecolor='k', linewidth=0.2, alpha=0.7)
 
     # cbar = fig.colorbar(img, ticks=range(10))
     fig.grid(False)
