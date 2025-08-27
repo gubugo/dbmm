@@ -1,21 +1,22 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-def plot_decision_map_with_accuracy(decision_map, coordinates, true_labels, 
+def plot_decision_map_with_accuracy(decision_map, coordinates, true_labels, predictions,
                                     nninv_model, classifier, map_size, matrix_side, v1, v2, fig=None, batch_size=128,
                                     cmap='tab10', figsize=(10, 8), save_path=None):
 
+    ### For simplicity, inv transform of data points will be done only with 0,0 augmented pos (before calling func)
     # predict raw data positions
-    preds = []
-    for i in range(0, len(coordinates), batch_size):
-        batch_coords = coordinates[i:i + batch_size]
-        gen_imgs = nninv_model.inverse_transform(np.array([[i[0], i[1], v1, v2] for i in batch_coords]))
-        # gen_imgs = gen_imgs.reshape(-1, 28, 28, 1).astype('float32')
-        batch_preds = classifier.predict(gen_imgs)
-        # print(batch_preds)
-        preds.append(batch_preds)
-    # print(preds)
-    predictions = np.concatenate(preds)
+    # preds = []
+    # for i in range(0, len(coordinates), batch_size):
+    #     batch_coords = coordinates[i:i + batch_size]
+    #     gen_imgs = nninv_model.inverse_transform(np.array([[i[0], i[1], v1, v2] for i in batch_coords]))
+    #     # gen_imgs = gen_imgs.reshape(-1, 28, 28, 1).astype('float32')
+    #     batch_preds = classifier.predict(gen_imgs)
+    #     # print(batch_preds)
+    #     preds.append(batch_preds)
+    # # print(preds)
+    # predictions = np.concatenate(preds)
 
     # verify if it is equal
     correct_mask = predictions == true_labels

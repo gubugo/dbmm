@@ -36,6 +36,9 @@ import nninv
 import metrics
 import scatterplot
 
+tf.random.set_seed(420)
+
+
 cmap = plt.get_cmap("tab10")
 cmap2 = plt.get_cmap("viridis")
 x_test_global = None
@@ -48,7 +51,7 @@ def make_grid(
         np.linspace(x_min, x_max, side_length), np.linspace(y_min, y_max, side_length)
     )
     
-    return np.array([[i[0], i[1], v1, v2] for i in np.c_[xx.ravel(), yy.ravel()]])
+    return np.c_[xx.ravel(), yy.ravel()]# np.array([[i[0], i[1], v1, v2] for i in np.c_[xx.ravel(), yy.ravel()]])
 
 def dbm_for_estimator(
     model: MLPClassifier,
@@ -153,6 +156,24 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
     classes = classifier.predict(inverted_grid).astype(np.uint8)
     cmapped_base = cmap(classes)
 
+    # predict raw data positions (get inverse points)
+    preds = []
+    for i in range(0, len(x_test_global), 128):
+        batch_coords = x_test_global[i:i + 128]
+        gen_imgs = inverter.inverse_transform(np.array([[i[0], i[1]] for i in batch_coords])) #, 0, 0
+        # gen_imgs = gen_imgs.reshape(-1, 28, 28, 1).astype('float32')
+        batch_preds = classifier.predict(gen_imgs)
+        # print(batch_preds)
+        preds.append(batch_preds)
+        # for j in range(np.shape(batch_preds)[0]):
+        #     # if batch_preds[j] == 1:
+        #     plt.figure()
+        #     plt.imshow(gen_imgs[j,:].reshape((28,28,1)),origin="lower",interpolation="none",resample=False)
+        #     plt.savefig(f"test{i+j}_classPred{batch_preds[j]}.png")
+
+    # print(preds)
+    predictions = np.concatenate(preds)
+
     for i in range(matrix_side_size):
         for j in range(matrix_side_size):
             grid = make_grid(*bounding_box, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], grid_res)
@@ -170,7 +191,7 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             metric_matrix[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
             metric_matrix2[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_same_class_neighbor(inverted_grid, n_classes, classes, np.shape(grid)[0], per_class_neighbor_finder)
             scatterplot.plot_decision_map_with_points(classes.reshape((grid_res, grid_res, 1)), x_test_global, y_test_global, grid_res, matrix_side_size, cmap='tab10', fig=ax_scatter[i,j], save_path=None)
-            scatterplot.plot_decision_map_with_accuracy(classes.reshape((grid_res, grid_res, 1)), x_test_global, y_test_global, inverter, classifier, grid_res, matrix_side_size, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], fig=ax_scatter2[i,j])
+            scatterplot.plot_decision_map_with_accuracy(classes.reshape((grid_res, grid_res, 1)), x_test_global, y_test_global, predictions, inverter, classifier, grid_res, matrix_side_size, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], fig=ax_scatter2[i,j])
             subbed = np.subtract(cmapped_base[:, 0:3], cmapped[:, 0:3])
             if len(np.nonzero(subbed.flatten())) == 0:
                 ax_diff[i,j].imshow(cmapped_base, interpolation='none', resample=False, origin='lower')
@@ -239,6 +260,10 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             ax_main[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
             ax_diff[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
 
+    """
+    Decision Bondary Mapas offer an ..., however they are limited to the number of dimensions of the latent space,
+    """
+
     #plt.show()
     cmapped2 = cmap2((metric_matrix-np.min(metric_matrix))/(np.max(metric_matrix)-np.min(metric_matrix)),)
     cmapped3 = cmap2((metric_matrix2-np.min(metric_matrix2))/(np.max(metric_matrix2)-np.min(metric_matrix2)),)
@@ -267,11 +292,11 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             ax_metric2[i,j].axis("off") 
             ax_metric2[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res)  
 
-    # fig_main.savefig(f"{figname}.png")
-    # fig_metric.savefig(f"{figname}_metric_nn.png")
-    # fig_metric2.savefig(f"{figname}_metric_nn2.png")
-    # fig_scatter.savefig(f"{figname}_scatter.png")
-    # fig_scatter2.savefig(f"{figname}_scatter2.png")
+    fig_main.savefig(f"{figname}.png")
+    fig_metric.savefig(f"{figname}_metric_nn.png")
+    fig_metric2.savefig(f"{figname}_metric_nn2.png")
+    fig_scatter.savefig(f"{figname}_scatter.png")
+    fig_scatter2.savefig(f"{figname}_scatter2.png")
     fig_diff.savefig(f"{figname}_difference.png")
     plt.close("all")
 
@@ -294,12 +319,12 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
     train_size = min(int(n_samples * 0.9), 10000)
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=5000, test_size=2500, random_state=420, stratify=y
+        X, y, train_size=30000, test_size=1250, random_state=420, stratify=y
     )
-    print(np.shape(X_train))
-    print(np.shape(X_test))
-    print(np.shape(y_train))
-    print(np.shape(y_test))
+    # print(np.shape(X_train))
+    # print(np.shape(X_test))
+    # print(np.shape(y_train))
+    # print(np.shape(y_test))
     global y_test_global
     y_test_global = y_test
 
@@ -319,7 +344,7 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
         if os.path.exists(f'{output_dir}/{dataset_name}/tsneData2d_train.joblib'):
             tsne_proj = load(f'{output_dir}/{dataset_name}/tsneData2d_train.joblib')
         else:
-            tsne_proj = _model.fit_transform(X_test)
+            tsne_proj = _model.fit_transform(X_train)
             dump(tsne_proj, f'{output_dir}/{dataset_name}/tsneData2d_train.joblib')
         
         if os.path.exists(f'{output_dir}/{dataset_name}/tsneData2d_test.joblib'):
@@ -333,7 +358,7 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
         else:
             print(np.shape(tsne_proj))
             print(np.shape(X_train))
-            _inv_model.fit_random(tsne_proj, X_test, epochs=epochs)
+            _inv_model.fit_random(tsne_proj, y=X_train, epochs=epochs)
             _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
         
         X_model_2d = X_model_res
@@ -382,8 +407,11 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
     train_size = min(int(n_samples * 0.9), 10000)
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=train_size, random_state=420, stratify=y
+        X, y, train_size=10000, test_size=1250, random_state=420, stratify=y
     )
+
+    global y_test_global
+    y_test_global = y_test
 
     neighbor_finder = NearestNeighbors(
         n_neighbors=5
@@ -533,9 +561,9 @@ if __name__ == "__main__":
 
         # model.fit(X=)
 
-    matrix_size = 9
+    matrix_size = 3
     if method == "noise":
-        matrix_origin = (2.0,2.0)
+        matrix_origin = (0.5,0.5)
 
         matrix_step = (-0.5,-0.5)
     else:
