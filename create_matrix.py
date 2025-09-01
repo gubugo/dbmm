@@ -51,7 +51,7 @@ def make_grid(
         np.linspace(x_min, x_max, side_length), np.linspace(y_min, y_max, side_length)
     )
     
-    return np.c_[xx.ravel(), yy.ravel()]# np.array([[i[0], i[1], v1, v2] for i in np.c_[xx.ravel(), yy.ravel()]])
+    return np.array([[i[0], i[1], v1, v2] for i in np.c_[xx.ravel(), yy.ravel()]])
 
 def dbm_for_estimator(
     model: MLPClassifier,
@@ -160,7 +160,7 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
     preds = []
     for i in range(0, len(x_test_global), 128):
         batch_coords = x_test_global[i:i + 128]
-        gen_imgs = inverter.inverse_transform(np.array([[i[0], i[1]] for i in batch_coords])) #, 0, 0
+        gen_imgs = inverter.inverse_transform(np.array([[i[0], i[1], 0, 0] for i in batch_coords])) #
         # gen_imgs = gen_imgs.reshape(-1, 28, 28, 1).astype('float32')
         batch_preds = classifier.predict(gen_imgs)
         # print(batch_preds)
@@ -191,10 +191,11 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             metric_matrix[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
             metric_matrix2[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_same_class_neighbor(inverted_grid, n_classes, classes, np.shape(grid)[0], per_class_neighbor_finder)
             scatterplot.plot_decision_map_with_points(classes.reshape((grid_res, grid_res, 1)), x_test_global, y_test_global, grid_res, matrix_side_size, cmap='tab10', fig=ax_scatter[i,j], save_path=None)
-            scatterplot.plot_decision_map_with_accuracy(classes.reshape((grid_res, grid_res, 1)), x_test_global, y_test_global, predictions, inverter, classifier, grid_res, matrix_side_size, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], fig=ax_scatter2[i,j])
+            # scatterplot.plot_decision_map_with_accuracy(classes.reshape((grid_res, grid_res, 1)), x_test_global, y_test_global, predictions, inverter, classifier, grid_res, matrix_side_size, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], fig=ax_scatter2[i,j])
             subbed = np.subtract(cmapped_base[:, 0:3], cmapped[:, 0:3])
-            if len(np.nonzero(subbed.flatten())) == 0:
-                ax_diff[i,j].imshow(cmapped_base, interpolation='none', resample=False, origin='lower')
+            print(np.size(np.nonzero(subbed.flatten())))
+            if np.size(np.nonzero(subbed.flatten())) == 0:
+                ax_diff[i,j].imshow(cmapped_base.reshape((grid_res, grid_res, 4)), interpolation='none', resample=False, origin='lower')
             else:
                 ax_diff[i,j].imshow(np.abs(subbed).reshape((grid_res, grid_res, 3)), interpolation='none', resample=False, origin='lower')
             # ax_diff[i,j].set_title(f'Test')
@@ -260,10 +261,6 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             ax_main[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
             ax_diff[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
 
-    """
-    Decision Bondary Mapas offer an ..., however they are limited to the number of dimensions of the latent space,
-    """
-
     #plt.show()
     cmapped2 = cmap2((metric_matrix-np.min(metric_matrix))/(np.max(metric_matrix)-np.min(metric_matrix)),)
     cmapped3 = cmap2((metric_matrix2-np.min(metric_matrix2))/(np.max(metric_matrix2)-np.min(metric_matrix2)),)
@@ -281,7 +278,7 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
                 resample=False,
             )
             ax_metric[i,j].axis("off") 
-            ax_metric[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res)
+            ax_metric[i,j].set_title(f"{coords}_{np.round(np.max(metric_matrix[i*matrix_side_size+j,:]),3)}", fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res)
 
             ax_metric2[i,j].imshow(
                 cmapped3[matrix_side_size*i+j].reshape((grid_res, grid_res, 4)),
@@ -290,13 +287,13 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
                 resample=False,
             )
             ax_metric2[i,j].axis("off") 
-            ax_metric2[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res)  
+            ax_metric2[i,j].set_title(f"{coords}_{np.round(np.max(metric_matrix[i*matrix_side_size+j,:]),3)}", fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res)  
 
     fig_main.savefig(f"{figname}.png")
     fig_metric.savefig(f"{figname}_metric_nn.png")
     fig_metric2.savefig(f"{figname}_metric_nn2.png")
     fig_scatter.savefig(f"{figname}_scatter.png")
-    fig_scatter2.savefig(f"{figname}_scatter2.png")
+    # fig_scatter2.savefig(f"{figname}_scatter2.png")
     fig_diff.savefig(f"{figname}_difference.png")
     plt.close("all")
 
@@ -319,14 +316,14 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
     train_size = min(int(n_samples * 0.9), 10000)
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=30000, test_size=1250, random_state=420, stratify=y
+        X, y, train_size=10000, test_size=1250, random_state=420, stratify=y
     )
     # print(np.shape(X_train))
     # print(np.shape(X_test))
     # print(np.shape(y_train))
     # print(np.shape(y_test))
     global y_test_global
-    y_test_global = y_test
+    y_test_global = y_train#y_test
 
     neighbor_finder = NearestNeighbors(
         n_neighbors=5
@@ -350,7 +347,7 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
         if os.path.exists(f'{output_dir}/{dataset_name}/tsneData2d_test.joblib'):
             X_model_res = load(f'{output_dir}/{dataset_name}/tsneData2d_test.joblib')
         else:
-            X_model_res = _model.fit_transform(X_test)
+            X_model_res = _model.fit_transform(X_train)
             dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData2d_test.joblib')
 
         if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
@@ -561,11 +558,11 @@ if __name__ == "__main__":
 
         # model.fit(X=)
 
-    matrix_size = 3
+    matrix_size = 7
     if method == "noise":
-        matrix_origin = (0.5,0.5)
+        matrix_origin = (-15.0,-15.0)
 
-        matrix_step = (-0.5,-0.5)
+        matrix_step = (5.0,5.0)
     else:
         matrix_origin = (limits[0],limits[2])
 
@@ -574,11 +571,11 @@ if __name__ == "__main__":
     #lazy
     x_test_global = results_2d
     # print(np.size(np.c_[xx.ravel(), yy.ravel()]))
-    format_step =  (0 if np.floor(np.log10(matrix_step[0])) >= 0 else np.abs(np.floor(np.log10(matrix_step[0]))), 
-                   0 if np.floor(np.log10(matrix_step[1])) >= 0 else np.abs(np.floor(np.log10(matrix_step[1]))))
-    format_or =  (0 if np.floor(np.log10(matrix_origin[0])) >= 0 else np.abs(np.floor(np.log10(matrix_origin[0]))), 
-                   0 if np.floor(np.log10(matrix_origin[1])) >= 0 else np.abs(np.floor(np.log10(matrix_origin[1]))))
-    txt = f"({np.round(matrix_origin[0],np.uint8(format_or[0]))}_{np.round(matrix_origin[1],np.uint8(format_or[1]))})_({np.round(matrix_step[0],np.uint8(format_step[0]))}_{np.round(matrix_step[1],np.uint8(format_step[1]))})"
+    format_step =  ((0 if np.floor(np.log10(matrix_step[0])) >= 0 else np.abs(np.floor(np.log10(matrix_step[0])))) +1, 
+                   (0 if np.floor(np.log10(matrix_step[1])) >= 0 else np.abs(np.floor(np.log10(matrix_step[1])))) +1) 
+    # format_or =  (0 if np.floor(np.log10(matrix_origin[0])) >= 0 else np.abs(np.floor(np.log10(matrix_origin[0]))), 
+    #                0 if np.floor(np.log10(matrix_origin[1])) >= 0 else np.abs(np.floor(np.log10(matrix_origin[1]))))
+    txt = f"({np.round(matrix_origin[0],np.uint8(format_step[0]))}_{np.round(matrix_origin[1],np.uint8(format_step[1]))})_({np.round(matrix_step[0],np.uint8(format_step[0]))}_{np.round(matrix_step[1],np.uint8(format_step[1]))})"
     # print("here", sliderx_step, slidery_step)
     if not os.path.exists(f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}"):
         os.makedirs(f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}")
