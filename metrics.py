@@ -56,6 +56,14 @@ def metric_distance_to_nearest_same_class_neighbor(inverted_grid, n_classes, cla
 
     return distances#.reshape((self.grid_width, self.grid_width)).copy()
 
+def metric_difference_dbms(base_colors, colors, grid_res, ax):
+    subbed = np.subtract(base_colors[:, 0:3], colors[:, 0:3])
+    if np.size(np.nonzero(subbed.flatten())) == 0:
+        ax.imshow(base_colors.reshape((grid_res, grid_res, 4)), interpolation='none', resample=False, origin='lower')
+    else:
+        ax.imshow(np.abs(subbed).reshape((grid_res, grid_res, 3)), interpolation='none', resample=False, origin='lower')
+    
+
 # TODO handle precomputed distances. Euclidean doesn't make sense for spherical.
 @nan_when_raises
 def metric_neighborhood_hit(X, y, k=7, precomputed=False):
