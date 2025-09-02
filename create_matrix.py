@@ -164,14 +164,15 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
         batch_coords = x_data[i:i + 128]
         gen_imgs = inverter.inverse_transform(np.array([[i[0], i[1], 0, 0] for i in batch_coords])) #
         # gen_imgs = gen_imgs.reshape(-1, 28, 28, 1).astype('float32')
+        
         batch_preds = classifier.predict(gen_imgs)
         # print(batch_preds)
         preds.append(batch_preds)
-        # for j in range(np.shape(batch_preds)[0]):
-        #     # if batch_preds[j] == 1:
-        #     plt.figure()
-        #     plt.imshow(gen_imgs[j,:].reshape((28,28,1)),origin="lower",interpolation="none",resample=False)
-        #     plt.savefig(f"test{i+j}_classPred{batch_preds[j]}.png")
+        for j in range(np.shape(batch_preds)[0]):
+            if batch_preds[j] == 2:
+                plt.figure()
+                plt.imshow(gen_imgs[j,:].reshape((28,28,1)),origin="lower",interpolation="none",resample=False)
+                plt.savefig(f"test{i+j}_classPred{batch_preds[j]}.png")
 
     # print(preds)
     predictions = np.concatenate(preds)
@@ -184,13 +185,15 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             classes = classifier.predict(inverted_grid).astype(np.uint8)
 
             cmapped = cmap(classes)
+
+            print(y_data)
             
-            n_classes = 10 # im lazy asf
-            metric_matrix[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
-            metric_matrix2[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_same_class_neighbor(inverted_grid, n_classes, classes, np.shape(grid)[0], per_class_neighbor_finder)
-            scatterplot.plot_decision_map_with_points(classes.reshape((grid_res, grid_res, 1)), x_data, y_data, grid_res, matrix_side_size, cmap='tab10', fig=ax_scatter[i,j], save_path=None)
+            n_classes = 3 # im lazy asf
+            # metric_matrix[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
+            # metric_matrix2[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_same_class_neighbor(inverted_grid, n_classes, classes, np.shape(grid)[0], per_class_neighbor_finder)
+            # scatterplot.plot_decision_map_with_points(classes.reshape((grid_res, grid_res, 1)), x_data, y_data, grid_res, matrix_side_size, cmap='tab10', fig=ax_scatter[i,j], save_path=None)
             # scatterplot.plot_decision_map_with_accuracy(classes.reshape((grid_res, grid_res, 1)), x_data, y_data, predictions, inverter, classifier, grid_res, matrix_side_size, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], fig=ax_scatter2[i,j])
-            metrics.metric_difference_dbms(cmapped_base, cmapped, grid_res, ax_diff[i,j])
+            # metrics.metric_difference_dbms(cmapped_base, cmapped, grid_res, ax_diff[i,j])
             
             # plt.subplots()
             # plt.imshow(
@@ -287,6 +290,20 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
     plt.close("all")
 
 
+def include_classes(X_data, y_data, classes):
+    if len(classes) == 0:
+        return X_data, y_data
+    
+    X_train2 = []
+    y_train2 = []
+    
+    for i in range(np.shape(X_data)[0]):
+        if y_data[i] in classes:
+            X_train2.append(X_data[i,:])
+            y_train2.append(y_data[i])
+
+    return np.array(X_train2), np.array(y_train2)
+
 # @st.cache_resource
 def Load_data(path, dataset):
     X = np.load(os.path.join(path, dataset, "X.npy"))
@@ -305,10 +322,13 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
     train_size = min(int(n_samples * 0.9), 10000)
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=10000, test_size=1250, random_state=420, stratify=y
+        X, y, train_size=50000, test_size=1250, random_state=420, stratify=y
     )
 
-    y_test = y_train#y_test
+    X_train, y_train = include_classes(X_train, y_train, [0,1,2])
+    X_test, y_test = include_classes(X_test, y_test, [0,1,2])
+
+    # y_test = y_train#y_test
 
     neighbor_finder = NearestNeighbors(
         n_neighbors=5
@@ -332,14 +352,12 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
         if os.path.exists(f'{output_dir}/{dataset_name}/tsneData2d_test.joblib'):
             X_model_res = load(f'{output_dir}/{dataset_name}/tsneData2d_test.joblib')
         else:
-            X_model_res = _model.fit_transform(X_train)
+            X_model_res = _model.fit_transform(X_test)
             dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData2d_test.joblib')
 
         if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
             _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
         else:
-            print(np.shape(tsne_proj))
-            print(np.shape(X_train))
             _inv_model.fit_random(tsne_proj, y=X_train, epochs=epochs)
             _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
         
@@ -542,9 +560,9 @@ if __name__ == "__main__":
 
         # model.fit(X=)
 
-    matrix_size = 7
+    matrix_size = 5
     if method == "noise":
-        matrix_origin = (-15.0,-15.0)
+        matrix_origin = (-10.0,-10.0)
 
         matrix_step = (5.0,5.0)
     else:

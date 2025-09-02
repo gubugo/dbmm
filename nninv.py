@@ -167,7 +167,7 @@ class NNInv:
 
         self.is_fitted = True
 
-    def fit_random(self, X, y=None, epochs=300, **kwargs):
+    def fit_random(self, X, y=None, epochs=300, **kwargs):    
         X_rand = tf.random.stateless_uniform(seed=(420,420), minval=-1, maxval=1, shape=(X.shape[0],2))
         # X_rand = tf.random.Generator.from_seed(360).normal(stddev=1, shape=(X.shape[0],2))
 
@@ -213,6 +213,15 @@ class NNInv:
         )(x)
         x = BatchNormalizationV2(name="bn4")(x)
         x = Dense(
+            2048,
+            activation="relu",
+            kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
+            kernel_initializer="he_uniform",
+            bias_initializer=Constant(0.01),
+            name="l5",
+        )(x)
+        x = BatchNormalizationV2(name="bn5")(x)
+        x = Dense(
             y.shape[1],
             activation="sigmoid",
             # kernel_regularizer=regularizers.l1_l2(l1=0.0, l2=0.05),
@@ -226,6 +235,12 @@ class NNInv:
 
 
         self.model = Model(inputs=[main_input, second_input], outputs=x)#
+
+        custom_loss = Custom_Loss()
+
+        self.model.compile(loss=custom_loss, optimizer=self.opt, metrics=['accuracy'])
+
+        # self.fwdModel(inputs=[main_input, second_input], outputs=x)#
 
         custom_loss = Custom_Loss()
 
@@ -259,6 +274,8 @@ class NNInv:
         l = self.model.get_layer("bn3")(l)
         l = self.model.get_layer("l4")(l)
         l = self.model.get_layer("bn4")(l)
+        l = self.model.get_layer("l5")(l)
+        l = self.model.get_layer("bn5")(l)
         decoder_layer = self.model.get_layer("output")(l)
         self.inv = Model(inputs=encoded_input, outputs=decoder_layer)
 
