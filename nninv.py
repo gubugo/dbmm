@@ -34,7 +34,7 @@ class Custom_Loss(losses.Loss):
         # Define weights
         # y_rand = self.x_values
 
-        y_weight = tf.norm(y_rand, ord=1, axis=1)
+        y_weight = tf.add(tf.norm(y_rand, ord=1, axis=1),1)
 
         # Calculate loss
         loss = tf.norm(tf.square(y_true - y_pred), ord=1, axis=1)
@@ -43,7 +43,7 @@ class Custom_Loss(losses.Loss):
 
         # res = tf.norm(loss, ord=2, axis=1)#(-y_true * tf.math.log(y_pred) - (tf.math.subtract(1.0, y_true)) * tf.math.log(tf.math.subtract(1.0, y_pred)))#mse(y_true, y_pred)#
         
-        loss = tf.math.divide(loss, y_weight)
+        loss = tf.math.multiply(loss, y_weight)
         # loss = bce(y_true, y_pred)
 
         return tf.reduce_mean(loss)
@@ -172,9 +172,9 @@ class NNInv:
         # X_rand = tf.random.Generator.from_seed(360).normal(stddev=1, shape=(X.shape[0],2))
 
         main_input = Input(shape=(self.latent_dims,), name="main_input")
-        # second_input = Input(shape=(2,), name="second_input")
-        # x = Concatenate(axis=1)([main_input, second_input])
-        # x = Dropout(0.25, name='do1')(x)
+        second_input = Input(shape=(2,), name="second_input")
+        x = Concatenate(axis=1)([main_input, second_input])
+        x = Dropout(0.25, name='do1')(x)
         x = Dense(
             2048,
             activation="relu",
@@ -182,7 +182,7 @@ class NNInv:
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
             name="l1",
-        )(main_input)
+        )(x)
         # x = BatchNormalizationV2(name="bn1")(x)
         x = Dense(
             2048,
@@ -193,7 +193,7 @@ class NNInv:
             name="l2",
         )(x)
         # x = BatchNormalizationV2(name="bn2")(x)
-        # x = Dropout(0.10, name='do3')(x)
+        x = Dropout(0.10, name='do3')(x)
         x = Dense(
             2048,
             activation="relu",
@@ -225,18 +225,18 @@ class NNInv:
         # x = Dropout(0.5)(x)
 
 
-        self.model = Model(inputs=main_input, outputs=x)#[main_input, second_input]
+        self.model = Model(inputs=[main_input, second_input], outputs=x)#
 
         custom_loss = Custom_Loss()
 
-        self.model.compile(loss="mse", optimizer=self.opt, metrics=['accuracy'])#custom_loss
+        self.model.compile(loss=custom_loss, optimizer=self.opt, metrics=['accuracy'])#custom_loss
 
         # self.fwdModel(inputs=[main_input, second_input], outputs=x)#
 
-        # y = np.concatenate((y, X_rand.numpy()), axis=1)
+        y = np.concatenate((y, X_rand.numpy()), axis=1)
 
         self.model.fit(
-            X, #[X, X_rand],
+            [X, X_rand],
             y,
             batch_size=128,
             epochs=epochs,
@@ -248,13 +248,13 @@ class NNInv:
         )
         self.is_fitted = True
 
-        encoded_input = Input(shape=(self.latent_dims,))#+2
-        # l = self.model.get_layer("do1")(encoded_input)
-        l = self.model.get_layer("l1")(encoded_input)
+        encoded_input = Input(shape=(self.latent_dims+2,))#
+        l = self.model.get_layer("do1")(encoded_input)
+        l = self.model.get_layer("l1")(l)
         # l = self.model.get_layer("bn1")(l)
         l = self.model.get_layer("l2")(l)
         # l = self.model.get_layer("bn2")(l)
-        # l = self.model.get_layer("do3")(l)
+        l = self.model.get_layer("do3")(l)
         l = self.model.get_layer("l3")(l)
         # l = self.model.get_layer("bn3")(l)
         l = self.model.get_layer("l4")(l)

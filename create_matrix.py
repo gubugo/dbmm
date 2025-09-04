@@ -12,6 +12,7 @@ import tensorflow as tf
 from sklearn.decomposition import PCA 
 from sklearn.base import ClassifierMixin
 from sklearn.neural_network import MLPClassifier
+from sklearn.preprocessing import minmax_scale
 
 warnings.filterwarnings("ignore")
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
@@ -168,11 +169,11 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
         batch_preds = classifier.predict(gen_imgs)
         # print(batch_preds)
         preds.append(batch_preds)
-        for j in range(np.shape(batch_preds)[0]):
-            if batch_preds[j] == 2:
-                plt.figure()
-                plt.imshow(gen_imgs[j,:].reshape((28,28,1)),origin="lower",interpolation="none",resample=False)
-                plt.savefig(f"test{i+j}_classPred{batch_preds[j]}.png")
+        # for j in range(np.shape(batch_preds)[0]):
+        #     if batch_preds[j] == 2:
+        #         plt.figure()
+        #         plt.imshow(gen_imgs[j,:].reshape((28,28,1)),origin="lower",interpolation="none",resample=False)
+        #         plt.savefig(f"test{i+j}_classPred{batch_preds[j]}.png")
 
     # print(preds)
     predictions = np.concatenate(preds)
@@ -188,11 +189,11 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
 
             # print(y_data)
             
-            n_classes = 3 # im lazy asf
-            # metric_matrix[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
-            # metric_matrix2[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_same_class_neighbor(inverted_grid, n_classes, classes, np.shape(grid)[0], per_class_neighbor_finder)
+            n_classes = 10 # im lazy asf
+            metric_matrix[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
+            metric_matrix2[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_same_class_neighbor(inverted_grid, n_classes, classes, np.shape(grid)[0], per_class_neighbor_finder)
             scatterplot.plot_decision_map_with_points(classes.reshape((grid_res, grid_res, 1)), x_data, y_data, grid_res, matrix_side_size, cmap='tab10', fig=ax_scatter[i,j], save_path=None)
-            # scatterplot.plot_decision_map_with_accuracy(classes.reshape((grid_res, grid_res, 1)), x_data, y_data, predictions, inverter, classifier, grid_res, matrix_side_size, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], fig=ax_scatter2[i,j])
+            scatterplot.plot_decision_map_with_accuracy(classes.reshape((grid_res, grid_res, 1)), x_data, y_data, predictions, inverter, classifier, grid_res, matrix_side_size, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], fig=ax_scatter2[i,j])
             metrics.metric_difference_dbms(cmapped_base, cmapped, grid_res, ax_diff[i,j])
             
             # plt.subplots()
@@ -282,10 +283,10 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             ax_metric2[i,j].set_title(f"{coords}_{np.round(np.max(metric_matrix[i*matrix_side_size+j,:]),3)}", fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res)  
 
     fig_main.savefig(f"{figname}.png")
-    # fig_metric.savefig(f"{figname}_metric_nn.png")
-    # fig_metric2.savefig(f"{figname}_metric_nn2.png")
+    fig_metric.savefig(f"{figname}_metric_nn.png")
+    fig_metric2.savefig(f"{figname}_metric_nn2.png")
     fig_scatter.savefig(f"{figname}_scatter.png")
-    # fig_scatter2.savefig(f"{figname}_scatter2.png")
+    fig_scatter2.savefig(f"{figname}_scatter2.png")
     fig_diff.savefig(f"{figname}_difference.png")
     plt.close("all")
 
@@ -321,12 +322,16 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
 
     train_size = min(int(n_samples * 0.9), 10000)
 
-    X_train, X_test, y_train, y_test = train_test_split(
+    X_train, _, y_train, _ = train_test_split(
         X, y, train_size=50000, test_size=1250, random_state=420, stratify=y
     )
 
-    X_train, y_train = include_classes(X_train, y_train, [1,2])
-    X_test, y_test = include_classes(X_test, y_test, [1,2])
+    _, X_test, _, y_test = train_test_split(
+        X, y, train_size=50000, test_size=1250, random_state=420, stratify=y
+    )
+
+    # X_train, y_train = include_classes(X_train, y_train, [1,2])
+    # X_test, y_test = include_classes(X_test, y_test, [1,2])
 
     # y_test = y_train#y_test
 
@@ -337,22 +342,25 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
     
     n_classes = len(np.unique(y_train))
     per_class_neighbor_finder = {}
-    # for cl in range(n_classes):
-    #     neighbor_finder2 = NearestNeighbors(n_neighbors=5)
-    #     neighbor_finder2.fit(X_train[y_train == cl])
-    #     per_class_neighbor_finder[cl] = neighbor_finder2
+    for cl in range(n_classes):
+        neighbor_finder2 = NearestNeighbors(n_neighbors=5)
+        neighbor_finder2.fit(X_train[y_train == cl])
+        per_class_neighbor_finder[cl] = neighbor_finder2
 
     if method == "noise":
         if os.path.exists(f'{output_dir}/{dataset_name}/tsneData2d_train.joblib'):
             tsne_proj = load(f'{output_dir}/{dataset_name}/tsneData2d_train.joblib')
         else:
             tsne_proj = _model.fit_transform(X_train)
+            tsne_proj = minmax_scale(tsne_proj)
             dump(tsne_proj, f'{output_dir}/{dataset_name}/tsneData2d_train.joblib')
         
         if os.path.exists(f'{output_dir}/{dataset_name}/tsneData2d_test.joblib'):
             X_model_res = load(f'{output_dir}/{dataset_name}/tsneData2d_test.joblib')
         else:
+            # X_model_res = tsne_proj
             X_model_res = _model.fit_transform(X_test)
+            X_model_res = minmax_scale(X_model_res)
             dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData2d_test.joblib')
 
         if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
@@ -560,11 +568,11 @@ if __name__ == "__main__":
 
         # model.fit(X=)
 
-    matrix_size = 5
+    matrix_size = 9
     if method == "noise":
-        matrix_origin = (-10.0,-10.0)
+        matrix_origin = (-2.0,-2.0)
 
-        matrix_step = (5.0,5.0)
+        matrix_step = (0.5,0.5)
     else:
         matrix_origin = (limits[0],limits[2])
 
