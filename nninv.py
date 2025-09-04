@@ -64,7 +64,7 @@ class NNInv:
         **kwargs,
     ):
         self.stop = EarlyStopping(
-            verbose=0, min_delta=0.01, mode="min", patience=10, restore_best_weights=True
+            verbose=0, min_delta=0.000001, mode="min", patience=50, restore_best_weights=True
         )
         self.callbacks = [self.stop]
         self.verbose = verbose
@@ -172,9 +172,9 @@ class NNInv:
         # X_rand = tf.random.Generator.from_seed(360).normal(stddev=1, shape=(X.shape[0],2))
 
         main_input = Input(shape=(self.latent_dims,), name="main_input")
-        second_input = Input(shape=(2,), name="second_input")
-        x = Concatenate(axis=1)([main_input, second_input])
-        x = Dropout(0.25, name='do1')(x)
+        # second_input = Input(shape=(2,), name="second_input")
+        # x = Concatenate(axis=1)([main_input, second_input])
+        # x = Dropout(0.25, name='do1')(x)
         x = Dense(
             2048,
             activation="relu",
@@ -182,18 +182,18 @@ class NNInv:
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
             name="l1",
-        )(x)
-        x = BatchNormalizationV2(name="bn1")(x)
+        )(main_input)
+        # x = BatchNormalizationV2(name="bn1")(x)
         x = Dense(
             2048,
             activation="relu",
-            kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
+            # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
             name="l2",
         )(x)
-        x = BatchNormalizationV2(name="bn2")(x)
-        x = Dropout(0.10, name='do3')(x)
+        # x = BatchNormalizationV2(name="bn2")(x)
+        # x = Dropout(0.10, name='do3')(x)
         x = Dense(
             2048,
             activation="relu",
@@ -202,25 +202,16 @@ class NNInv:
             bias_initializer=Constant(0.01),
             name="l3",
         )(x)
-        x = BatchNormalizationV2(name="bn3")(x)
+        # x = BatchNormalizationV2(name="bn3")(x)
         x = Dense(
             2048,
             activation="relu",
-            kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
+            # kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
             kernel_initializer="he_uniform",
             bias_initializer=Constant(0.01),
             name="l4",
         )(x)
-        x = BatchNormalizationV2(name="bn4")(x)
-        x = Dense(
-            2048,
-            activation="relu",
-            kernel_regularizer=regularizers.l1_l2(l1=self.l1, l2=self.l2),
-            kernel_initializer="he_uniform",
-            bias_initializer=Constant(0.01),
-            name="l5",
-        )(x)
-        x = BatchNormalizationV2(name="bn5")(x)
+        # x = BatchNormalizationV2(name="bn4")(x)
         x = Dense(
             y.shape[1],
             activation="sigmoid",
@@ -234,24 +225,18 @@ class NNInv:
         # x = Dropout(0.5)(x)
 
 
-        self.model = Model(inputs=[main_input, second_input], outputs=x)#
+        self.model = Model(inputs=main_input, outputs=x)#[main_input, second_input]
 
         custom_loss = Custom_Loss()
 
-        self.model.compile(loss=custom_loss, optimizer=self.opt, metrics=['accuracy'])
+        self.model.compile(loss="mse", optimizer=self.opt, metrics=['accuracy'])#custom_loss
 
         # self.fwdModel(inputs=[main_input, second_input], outputs=x)#
 
-        custom_loss = Custom_Loss()
-
-        self.model.compile(loss=custom_loss, optimizer=self.opt, metrics=['accuracy'])
-
-        # self.fwd = Model(inputs=[main_input, second_input], outputs=x)
-
-        y = np.concatenate((y, X_rand.numpy()), axis=1)
+        # y = np.concatenate((y, X_rand.numpy()), axis=1)
 
         self.model.fit(
-            [X, X_rand],
+            X, #[X, X_rand],
             y,
             batch_size=128,
             epochs=epochs,
@@ -263,19 +248,17 @@ class NNInv:
         )
         self.is_fitted = True
 
-        encoded_input = Input(shape=(self.latent_dims+2,))#
-        l = self.model.get_layer("do1")(encoded_input)
-        l = self.model.get_layer("l1")(l)
-        l = self.model.get_layer("bn1")(l)
+        encoded_input = Input(shape=(self.latent_dims,))#+2
+        # l = self.model.get_layer("do1")(encoded_input)
+        l = self.model.get_layer("l1")(encoded_input)
+        # l = self.model.get_layer("bn1")(l)
         l = self.model.get_layer("l2")(l)
-        l = self.model.get_layer("bn2")(l)
-        l = self.model.get_layer("do3")(l)
+        # l = self.model.get_layer("bn2")(l)
+        # l = self.model.get_layer("do3")(l)
         l = self.model.get_layer("l3")(l)
-        l = self.model.get_layer("bn3")(l)
+        # l = self.model.get_layer("bn3")(l)
         l = self.model.get_layer("l4")(l)
-        l = self.model.get_layer("bn4")(l)
-        l = self.model.get_layer("l5")(l)
-        l = self.model.get_layer("bn5")(l)
+        # l = self.model.get_layer("bn4")(l)
         decoder_layer = self.model.get_layer("output")(l)
         self.inv = Model(inputs=encoded_input, outputs=decoder_layer)
 

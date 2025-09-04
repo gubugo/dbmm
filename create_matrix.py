@@ -186,14 +186,14 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
 
             cmapped = cmap(classes)
 
-            print(y_data)
+            # print(y_data)
             
             n_classes = 3 # im lazy asf
             # metric_matrix[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
             # metric_matrix2[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_same_class_neighbor(inverted_grid, n_classes, classes, np.shape(grid)[0], per_class_neighbor_finder)
-            # scatterplot.plot_decision_map_with_points(classes.reshape((grid_res, grid_res, 1)), x_data, y_data, grid_res, matrix_side_size, cmap='tab10', fig=ax_scatter[i,j], save_path=None)
+            scatterplot.plot_decision_map_with_points(classes.reshape((grid_res, grid_res, 1)), x_data, y_data, grid_res, matrix_side_size, cmap='tab10', fig=ax_scatter[i,j], save_path=None)
             # scatterplot.plot_decision_map_with_accuracy(classes.reshape((grid_res, grid_res, 1)), x_data, y_data, predictions, inverter, classifier, grid_res, matrix_side_size, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], fig=ax_scatter2[i,j])
-            # metrics.metric_difference_dbms(cmapped_base, cmapped, grid_res, ax_diff[i,j])
+            metrics.metric_difference_dbms(cmapped_base, cmapped, grid_res, ax_diff[i,j])
             
             # plt.subplots()
             # plt.imshow(
@@ -282,8 +282,8 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             ax_metric2[i,j].set_title(f"{coords}_{np.round(np.max(metric_matrix[i*matrix_side_size+j,:]),3)}", fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res)  
 
     fig_main.savefig(f"{figname}.png")
-    fig_metric.savefig(f"{figname}_metric_nn.png")
-    fig_metric2.savefig(f"{figname}_metric_nn2.png")
+    # fig_metric.savefig(f"{figname}_metric_nn.png")
+    # fig_metric2.savefig(f"{figname}_metric_nn2.png")
     fig_scatter.savefig(f"{figname}_scatter.png")
     # fig_scatter2.savefig(f"{figname}_scatter2.png")
     fig_diff.savefig(f"{figname}_difference.png")
@@ -325,8 +325,8 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
         X, y, train_size=50000, test_size=1250, random_state=420, stratify=y
     )
 
-    X_train, y_train = include_classes(X_train, y_train, [0,1,2])
-    X_test, y_test = include_classes(X_test, y_test, [0,1,2])
+    X_train, y_train = include_classes(X_train, y_train, [1,2])
+    X_test, y_test = include_classes(X_test, y_test, [1,2])
 
     # y_test = y_train#y_test
 
@@ -337,10 +337,10 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
     
     n_classes = len(np.unique(y_train))
     per_class_neighbor_finder = {}
-    for cl in range(n_classes):
-        neighbor_finder2 = NearestNeighbors(n_neighbors=5)
-        neighbor_finder2.fit(X_train[y_train == cl])
-        per_class_neighbor_finder[cl] = neighbor_finder2
+    # for cl in range(n_classes):
+    #     neighbor_finder2 = NearestNeighbors(n_neighbors=5)
+    #     neighbor_finder2.fit(X_train[y_train == cl])
+    #     per_class_neighbor_finder[cl] = neighbor_finder2
 
     if method == "noise":
         if os.path.exists(f'{output_dir}/{dataset_name}/tsneData2d_train.joblib'):
