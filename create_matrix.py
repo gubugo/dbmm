@@ -154,7 +154,7 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
     # print(np.size(metric_matrix[0]))
 
     # for difs
-    grid = make_grid(*bounding_box, 0, 0, grid_res)
+    grid = make_grid(*bounding_box, 0.5, 0.5, grid_res)
     inverted_grid = inverter.inverse_transform(grid)
     classes = classifier.predict(inverted_grid).astype(np.uint8)
     cmapped_base = cmap(classes)
@@ -577,9 +577,9 @@ if __name__ == "__main__":
 
     matrix_size = 9
     if method == "noise":
-        matrix_origin = (-5.0,-5.0)
+        matrix_origin = (0.0,0.0)
 
-        matrix_step = (1.25,1.25)
+        matrix_step = (0.125,0.125)
     else:
         matrix_origin = (limits[0],limits[2])
 

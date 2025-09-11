@@ -177,7 +177,7 @@ class NNInv:
         self.is_fitted = True
 
     def fit_random(self, X, y=None, epochs=300, **kwargs):    
-        X_rand = tf.random.stateless_uniform(seed=(420,420), minval=-5, maxval=5, shape=(X.shape[0],2))
+        X_rand = tf.random.stateless_uniform(seed=(420,420), minval=0, maxval=1, shape=(X.shape[0],2))
         # X_rand = tf.random.Generator.from_seed(360).normal(stddev=1, shape=(X.shape[0],2))
 
         main_input = Input(shape=(self.latent_dims,), name="main_input")
@@ -198,7 +198,7 @@ class NNInv:
             bias_initializer=Constant(0.01),
             name="l2",
         )(x)
-        # x = Custom_Dropout(0.10, name='do3')(x)
+        x = Custom_Dropout(0.25, name='do3')(x)
         x = Dense(
             2048,
             activation="relu",
@@ -233,16 +233,16 @@ class NNInv:
 
         # self.fwdModel(inputs=[main_input, second_input], outputs=x)#
 
-        rand_norm = tf.norm(X_rand, ord=1, axis=1)
+        rand_norm = tf.norm(X, ord=1, axis=1)
 
         # sample_weight = np.abs(0.5*(rand_norm - np.min(rand_norm))/(np.max(rand_norm) - np.min(rand_norm))+0.5)
         # print(sample_weight)
         # print(np.max(sample_weight))
         # print(np.min(sample_weight))
-        y = np.concatenate((y, tf.abs(tf.add(0.5*rand_norm,-0.75)).numpy().reshape(np.shape(rand_norm)[0],1)), axis=1)
+        y = np.concatenate((y, tf.abs(tf.divide(rand_norm,tf.add(rand_norm,1))).numpy().reshape(np.shape(rand_norm)[0],1)), axis=1)
 
         self.model.fit(
-            [X, X_rand],
+            [X, X],
             y,
             batch_size=128,
             epochs=epochs,
@@ -261,7 +261,7 @@ class NNInv:
         # l = self.model.get_layer("bn1")(l)
         l = self.model.get_layer("l2")(l)
         # l = self.model.get_layer("bn2")(l)
-        # l = self.model.get_layer("do3")(l)
+        l = self.model.get_layer("do3")(l)
         l = self.model.get_layer("l3")(l)
         # l = self.model.get_layer("bn3")(l)
         l = self.model.get_layer("l4")(l)
