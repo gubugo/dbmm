@@ -71,10 +71,10 @@ class NNInv:
         verbose=1,
         **kwargs,
     ):
-        # self.stop = EarlyStopping(
-        #     verbose=0, min_delta=0.0001, mode="min", patience=50, restore_best_weights=True
-        # )
-        # self.callbacks = [self.stop]
+        self.stop = EarlyStopping(
+            verbose=0, min_delta=0.0001, mode="min", patience=50, restore_best_weights=True
+        )
+        self.callbacks = [self.stop]
         self.verbose = verbose
         self.init = init
         self.dropout = dropout
@@ -176,11 +176,10 @@ class NNInv:
         self.is_fitted = True
 
     def fit_random(self, X, y=None, epochs=300, **kwargs):    
-        # pca = PCA(n_components=2)
-
-        # X_rand = pca.fit_transform(y)
-        # X_rand = minmax_scale(X_rand)
-        X_rand = tf.random.stateless_uniform(seed=(420,420), minval=-1, maxval=1, shape=(X.shape[0],2))
+        pca = PCA(n_components=2)
+        X_rand = pca.fit_transform(y)
+        X_rand = minmax_scale(X_rand)
+        # X_rand = tf.random.stateless_uniform(seed=(420,420), minval=0, maxval=1, shape=(X.shape[0],2))
         # X_rand = X
 
         main_input = Input(shape=(self.latent_dims,), name="main_input")
@@ -236,15 +235,11 @@ class NNInv:
 
         # self.fwdModel(inputs=[main_input, second_input], outputs=x)#
 
-        rand_norm = tf.norm(X_rand, ord=1, axis=1)
-        # 0,1 -> 0,0.75 -> -1.5,-0.75
+        rand_norm = tf.norm(X_rand-0.5, ord=1, axis=1)
         sample_weight = (rand_norm - np.min(rand_norm))/(np.max(rand_norm) - np.min(rand_norm))
         sample_weight = 0.25+np.abs(np.log(0.25+0.5*sample_weight))
-        # print(sample_weight)
-        # print(np.max(sample_weight))
-        # print(np.min(sample_weight))
         sample_weight = sample_weight.reshape(np.shape(rand_norm)[0],1)
-        y = np.concatenate((y, sample_weight), axis=1)
+        y = np.concatenate((y, np.ones((X.shape[0],1))), axis=1)#sample_weight
 
         self.model.fit(
             [X, X_rand],
@@ -253,7 +248,7 @@ class NNInv:
             epochs=epochs,
             verbose=self.verbose,
             validation_split=0.1,
-            # callbacks=self.callbacks,
+            callbacks=self.callbacks,
             # sample_weight=sample_weight,
             shuffle=True,
             **kwargs

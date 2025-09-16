@@ -154,7 +154,7 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
     # print(np.size(metric_matrix[0]))
 
     # for difs
-    grid = make_grid(*bounding_box, 0, 0, grid_res)
+    grid = make_grid(*bounding_box, 0.5, 0.5, grid_res)
     inverted_grid = inverter.inverse_transform(grid)
     classes = classifier.predict(inverted_grid).astype(np.uint8)
     cmapped_base = cmap(classes)
@@ -177,6 +177,8 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
 
     # # print(preds)
     # predictions = np.concatenate(preds)
+
+    scatterplot.plot_generated_images_grid_with_dbm(classes.reshape(grid_res,grid_res), inverter)
 
     for i in range(matrix_side_size):
         for j in range(matrix_side_size):
@@ -418,11 +420,11 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
     train_size = min(int(n_samples * 0.9), 10000)
 
     X_train, _, y_train, _ = train_test_split(
-        X, y, train_size=1000, test_size=500, random_state=420, stratify=y
+        X, y, train_size=10000, test_size=500, random_state=420, stratify=y
     )
 
     _, X_test, _, y_test = train_test_split(
-        X_train, y_train, train_size=2000, test_size=1000, random_state=420, stratify=y_train
+        X_train, y_train, train_size=100, test_size=1000, random_state=420, stratify=y_train
     )
 
     # X_train, y_train = include_classes(X_train, y_train, [1,2])
@@ -444,7 +446,7 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
     
     # ugh refactor this ugly shit
     if method == "noise":
-        noise = tf.random.stateless_uniform(seed=(420,420), minval=-1, maxval=1, shape=(X_train.shape[0],2))
+        noise = tf.random.stateless_uniform(seed=(420,420), minval=0, maxval=1, shape=(X_train.shape[0],2))
         # noise = tf.random.Generator.from_seed(420).normal(stddev=1, shape=(X_train.shape[0],2))
     else:
         noise = tf.zeros((X_train.shape[0],0))
@@ -485,7 +487,7 @@ if __name__ == "__main__":
 
     output_dir = "weights"
     model_name_ops = ["ssnp", "sharp", "nninv"]
-    model_name = model_name_ops[2]
+    model_name = model_name_ops[1]
     # dataset = "mnist"
     dataset_ops = ["mnist", "fashionmnist"] # , "har", "reuters"
     dataset = dataset_ops[0]
@@ -580,9 +582,9 @@ if __name__ == "__main__":
 
     matrix_size = 9
     if method == "noise":
-        matrix_origin = (-1.0,-1.0)
+        matrix_origin = (0.0,0.0)
 
-        matrix_step = (0.25,0.25)
+        matrix_step = (0.125,0.125)
     else:
         matrix_origin = (limits[0],limits[2])
 

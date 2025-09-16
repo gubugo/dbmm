@@ -2,13 +2,14 @@ import os
 from typing import Callable, Optional, Union
 
 import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
 import metrics
 import numpy as np
 import pylab
 #import radial
 import tensorflow as tf
 from sampling_layers import get_layer_builder, SphericalSampling
-from sklearn.preprocessing import LabelBinarizer
+from sklearn.preprocessing import LabelBinarizer, minmax_scale
 
 # from tensorflow import keras as tfk
 import keras as tfk
@@ -18,38 +19,69 @@ from keras import layers as tfkl
 from keras import regularizers
 from keras.initializers import Constant
 
-class Custom_BCE(tfk.losses.Loss):
-    def __init__(self, name="custom_bce_loss"):
+class Custom_Dropout(tfkl.Layer):
+    def __init__(self, rate, **kwargs):
+        super().__init__(**kwargs)
+        self.rate = rate
+
+    def call(self, inputs, training=False):
+        if training:
+            return tf.nn.dropout(inputs, rate=self.rate)
+        
+        return inputs
+
+class Custom_Loss(tfk.losses.Loss):
+    def __init__(self, name="Custom_Loss"):
         super().__init__(name=name)
         # self.x_values = x_values
 
 
-    def call(self, y_true: tf.float32, y_pred: tf.float32):
+    def call(self, y_true, y_pred):
         # Check and handle shape mismatch
         # if y_true.shape != y_pred.shape:
         #     y_true = tf.reshape(y_true, y_pred.shape)
 
         # # Check and handle undefined tensors
         # y_true = tf.where(tf.math.is_finite(y_true), y_true, tf.zeros_like(y_true))
-        
-        n_dims = np.shape(y_true)[1]-2
-        b_size = 32#np.shape(y_true)[0]
-        # tf.print(y_true.dtype)
-        y_rand = tf.gather(y_true, [n_dims, n_dims+1], axis=1)
+        ###
+        n_dims = np.shape(y_true)[1]-1
+        # b_size = 64#np.shape(y_true)[0]
+
+        y_weight = y_true[:, n_dims:n_dims+1]#tf.gather(y_true, [n_dims, n_dims], axis=1)
         y_true = y_true[:, 0:n_dims]
-        # bce_loss = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
+        ###
+
         # Define weights
         # y_rand = self.x_values
-        y_weight = tf.norm(y_rand, ord=2.0, axis=1)
 
         # Calculate loss
-        # res = bce_loss(y_pred,y_true)
-        res = tf.norm(tf.subtract(y_pred,y_true), ord=1, axis=1)#(-y_true * tf.math.log(y_pred) - (tf.math.subtract(1.0, y_true)) * tf.math.log(tf.math.subtract(1.0, y_pred)))#mse(y_true, y_pred)#
-        loss = tf.math.divide(res, tf.add(y_weight,1))
+        #mse
+        loss = tf.norm(tf.square(y_true - y_pred), ord=1, axis=1)
+
+        #bce
+        # loss = -y_true*tf.math.log(y_pred)-(1-y_true)*tf.math.log(1-y_pred)
+
+        # res = tf.norm(loss, ord=2, axis=1)#(-y_true * tf.math.log(y_pred) - (tf.math.subtract(1.0, y_true)) * tf.math.log(tf.math.subtract(1.0, y_pred)))#mse(y_true, y_pred)#
+        loss = tf.math.multiply(loss, y_weight)
         # loss = bce(y_true, y_pred)
 
         return tf.reduce_mean(loss)
 
+class Custom_CCE(tfk.losses.Loss):
+    def __init__(self, name="Custom_Categorical_Cross_Entropy"):
+        super().__init__(name=name)
+        # self.x_values = x_values
+
+
+    def call(self, y_true, y_pred):
+        n_dims = np.shape(y_true)[1]-1
+        
+        y_true = y_true[:, 0:n_dims]
+        
+        cce = tfk.losses.CategoricalCrossentropy()
+        loss = cce(y_true, y_pred)
+        
+        return tf.reduce_mean(loss)
 
 class Encoder(tfkl.Layer):
     def __init__(
@@ -205,12 +237,13 @@ class ShaRP(tfk.Model):
         optimizer_obj = optimizers.get(self.opt)
         optimizer_obj.global_clipnorm = 1.0
 
-        custom_loss = Custom_BCE()
+        custom_loss = Custom_Loss()
+        custom_cce = Custom_CCE()
 
         
         self.compile(
             optimizer=optimizer_obj,
-            loss=[custom_loss],
+            loss=[custom_cce, custom_loss],
             # loss_weights=[1.0, 3.0],  # TODO Changed.
             metrics=[["accuracy"]], run_eagerly=True
         )
@@ -308,7 +341,17 @@ class ShaRP(tfk.Model):
             else:
                 y_train_bin = self.label_bin.fit_transform(y_train)
 
-            X_res = np.concatenate((X_train, X_rnd.numpy()), axis=1, dtype=np.float32)
+            # pca = PCA(n_components=2)
+            # X_rnd = pca.fit_transform(X_train)
+            # X_rnd = minmax_scale(X_rnd)
+            
+            rand_norm = tf.norm(X_rnd-0.5, ord=1, axis=1)
+            sample_weight = (rand_norm - np.min(rand_norm))/(np.max(rand_norm) - np.min(rand_norm))
+            sample_weight = 0.25+np.abs(np.log(0.25+0.5*sample_weight))
+            sample_weight = sample_weight.reshape(np.shape(rand_norm)[0],1)
+            X_res = np.concatenate((X_train, sample_weight), axis=1)#np.ones((X.shape[0],1))
+
+            # X_res = np.concatenate((X_train, X_rnd.numpy()), axis=1, dtype=np.float32)
             return super().fit([X_train, X_rnd], X_res, verbose=True,*args, **kwargs)
 
     def call(self, inputs, training):

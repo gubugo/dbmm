@@ -2,10 +2,11 @@ import gc
 import os
 
 import numpy as np
+from sklearn.decomposition import PCA
 import tensorflow as tf
 from sklearn.metrics import DistanceMetric
 from sklearn.neighbors import NearestNeighbors
-from sklearn.preprocessing import LabelBinarizer, MultiLabelBinarizer
+from sklearn.preprocessing import LabelBinarizer, MultiLabelBinarizer, minmax_scale
 from keras import backend as K
 from keras import datasets as kdatasets
 from keras import losses, optimizers, regularizers, layers
@@ -44,18 +45,20 @@ class Custom_Loss(losses.Loss):
         ###
         n_dims = np.shape(y_true)[1]-1
         # b_size = 64#np.shape(y_true)[0]
-        # tf.print(np.shape(y_true))
-        y_rand = y_true[:, n_dims:n_dims+1]#tf.gather(y_true, [n_dims, n_dims], axis=1)
+
+        y_weight = y_true[:, n_dims:n_dims+1]#tf.gather(y_true, [n_dims, n_dims], axis=1)
         y_true = y_true[:, 0:n_dims]
         ###
 
         # Define weights
         # y_rand = self.x_values
 
-        y_weight = y_rand
-
         # Calculate loss
-        loss = tf.norm(tf.square(y_true - y_pred), ord=1, axis=1)
+        #mse
+        #loss = tf.norm(tf.square(y_true - y_pred), ord=1, axis=1)
+
+        #bce
+        loss = -y_true*tf.math.log(y_pred)-(1-y_true)*tf.math.log(1-y_pred)
 
         # res = tf.norm(loss, ord=2, axis=1)#(-y_true * tf.math.log(y_pred) - (tf.math.subtract(1.0, y_true)) * tf.math.log(tf.math.subtract(1.0, y_pred)))#mse(y_true, y_pred)#
         loss = tf.math.multiply(loss, y_weight)
@@ -111,6 +114,10 @@ class SSNP:
     
 
     def fit(self, X, y=None, X_rand=tf.zeros((1,1)), epochs=0):
+        # pca = PCA(n_components=2)
+        # X_rand = pca.fit_transform(X)
+        # X_rand = minmax_scale(X_rand)
+
         if y is None and self.init_labels == "precomputed":
             raise Exception("Must provide labels when using init_labels = precomputed")
 
@@ -229,12 +236,13 @@ class SSNP:
         else:
             callbacks = []
 
-            
-
-        rand_norm = tf.norm(X_rand, ord=1, axis=1)
-
-        X_res = np.concatenate((X, tf.add(0.5*rand_norm,0.5).numpy().reshape(np.shape(rand_norm)[0],1)), axis=1)
-            
+        
+        rand_norm = tf.norm(X_rand-0.5, ord=1, axis=1)
+        sample_weight = (rand_norm - np.min(rand_norm))/(np.max(rand_norm) - np.min(rand_norm))
+        sample_weight = 0.25+np.abs(np.log(0.25+0.5*sample_weight))
+        sample_weight = sample_weight.reshape(np.shape(rand_norm)[0],1)
+        X_res = np.concatenate((X, sample_weight), axis=1)#np.ones((X.shape[0],1))
+        
         hist = model.fit(
             [X, X_rand],
             [self.label_bin.transform(y), X_res],
