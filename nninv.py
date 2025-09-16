@@ -3,6 +3,7 @@ import os
 from sklearn.decomposition import PCA
 import numpy as np
 import keras
+from sklearn.preprocessing import minmax_scale
 import tensorflow as tf
 from keras import backend as K
 from keras.callbacks import EarlyStopping
@@ -39,14 +40,12 @@ class Custom_Loss(losses.Loss):
         n_dims = np.shape(y_true)[1]-1
         # b_size = 64#np.shape(y_true)[0]
 
-        y_rand = y_true[:, n_dims:n_dims+1]#tf.gather(y_true, [n_dims, n_dims], axis=1)
+        y_weight = y_true[:, n_dims:n_dims+1]#tf.gather(y_true, [n_dims, n_dims], axis=1)
         y_true = y_true[:, 0:n_dims]
         ###
 
         # Define weights
         # y_rand = self.x_values
-
-        y_weight = y_rand
 
         # Calculate loss
         loss = tf.norm(tf.square(y_true - y_pred), ord=1, axis=1)
@@ -73,7 +72,7 @@ class NNInv:
         **kwargs,
     ):
         # self.stop = EarlyStopping(
-        #     verbose=0, min_delta=0.000001, mode="min", patience=50, restore_best_weights=True
+        #     verbose=0, min_delta=0.0001, mode="min", patience=50, restore_best_weights=True
         # )
         # self.callbacks = [self.stop]
         self.verbose = verbose
@@ -177,8 +176,12 @@ class NNInv:
         self.is_fitted = True
 
     def fit_random(self, X, y=None, epochs=300, **kwargs):    
-        X_rand = tf.random.stateless_uniform(seed=(420,420), minval=0, maxval=1, shape=(X.shape[0],2))
-        # X_rand = tf.random.Generator.from_seed(360).normal(stddev=1, shape=(X.shape[0],2))
+        # pca = PCA(n_components=2)
+
+        # X_rand = pca.fit_transform(y)
+        # X_rand = minmax_scale(X_rand)
+        X_rand = tf.random.stateless_uniform(seed=(420,420), minval=-1, maxval=1, shape=(X.shape[0],2))
+        # X_rand = X
 
         main_input = Input(shape=(self.latent_dims,), name="main_input")
         second_input = Input(shape=(2,), name="second_input")
@@ -198,7 +201,7 @@ class NNInv:
             bias_initializer=Constant(0.01),
             name="l2",
         )(x)
-        x = Custom_Dropout(0.25, name='do3')(x)
+        # x = Custom_Dropout(0.25, name='do3')(x)
         x = Dense(
             2048,
             activation="relu",
@@ -233,16 +236,18 @@ class NNInv:
 
         # self.fwdModel(inputs=[main_input, second_input], outputs=x)#
 
-        rand_norm = tf.norm(X, ord=1, axis=1)
-
-        # sample_weight = np.abs(0.5*(rand_norm - np.min(rand_norm))/(np.max(rand_norm) - np.min(rand_norm))+0.5)
+        rand_norm = tf.norm(X_rand, ord=1, axis=1)
+        # 0,1 -> 0,0.75 -> -1.5,-0.75
+        sample_weight = (rand_norm - np.min(rand_norm))/(np.max(rand_norm) - np.min(rand_norm))
+        sample_weight = 0.25+np.abs(np.log(0.25+0.5*sample_weight))
         # print(sample_weight)
         # print(np.max(sample_weight))
         # print(np.min(sample_weight))
-        y = np.concatenate((y, tf.abs(tf.divide(rand_norm,tf.add(rand_norm,1))).numpy().reshape(np.shape(rand_norm)[0],1)), axis=1)
+        sample_weight = sample_weight.reshape(np.shape(rand_norm)[0],1)
+        y = np.concatenate((y, sample_weight), axis=1)
 
         self.model.fit(
-            [X, X],
+            [X, X_rand],
             y,
             batch_size=128,
             epochs=epochs,
@@ -261,7 +266,7 @@ class NNInv:
         # l = self.model.get_layer("bn1")(l)
         l = self.model.get_layer("l2")(l)
         # l = self.model.get_layer("bn2")(l)
-        l = self.model.get_layer("do3")(l)
+        # l = self.model.get_layer("do3")(l)
         l = self.model.get_layer("l3")(l)
         # l = self.model.get_layer("bn3")(l)
         l = self.model.get_layer("l4")(l)

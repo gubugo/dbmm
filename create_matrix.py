@@ -154,7 +154,7 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
     # print(np.size(metric_matrix[0]))
 
     # for difs
-    grid = make_grid(*bounding_box, 0.5, 0.5, grid_res)
+    grid = make_grid(*bounding_box, 0, 0, grid_res)
     inverted_grid = inverter.inverse_transform(grid)
     classes = classifier.predict(inverted_grid).astype(np.uint8)
     cmapped_base = cmap(classes)
@@ -323,17 +323,20 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
     train_size = min(int(n_samples * 0.9), 10000)
 
     X_train, _, y_train, _ = train_test_split(
-        X, y, train_size=30000, test_size=1250, random_state=420, stratify=y
+        X, y, train_size=30000, test_size=10, random_state=420, stratify=y
     )
 
     _, X_test, _, y_test = train_test_split(
-        X_train, y_train, train_size=10000, test_size=1250, random_state=420, stratify=y_train
+        X_train, y_train, train_size=10, test_size=2000, random_state=420, stratify=y_train
     )
 
     # X_train, y_train = include_classes(X_train, y_train, [1,2])
     # X_test, y_test = include_classes(X_test, y_test, [1,2])
 
     # y_test = y_train#y_test
+    # pca = PCA(n_components=2)
+    # res = pca.fit_transform(X_test)
+    # plot(res,y_test,"test2")
 
     neighbor_finder = NearestNeighbors(
         n_neighbors=5
@@ -577,9 +580,9 @@ if __name__ == "__main__":
 
     matrix_size = 9
     if method == "noise":
-        matrix_origin = (0.0,0.0)
+        matrix_origin = (-1.0,-1.0)
 
-        matrix_step = (0.125,0.125)
+        matrix_step = (0.25,0.25)
     else:
         matrix_origin = (limits[0],limits[2])
 
