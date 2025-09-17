@@ -178,7 +178,7 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
     # # print(preds)
     # predictions = np.concatenate(preds)
 
-    scatterplot.plot_generated_images_grid_with_dbm(classes.reshape(grid_res,grid_res), inverter)
+    scatterplot.plot_generated_images_grid_with_dbm(inverter, classifier, grid_res, bounding_box)
 
     for i in range(matrix_side_size):
         for j in range(matrix_side_size):
@@ -420,7 +420,7 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
     train_size = min(int(n_samples * 0.9), 10000)
 
     X_train, _, y_train, _ = train_test_split(
-        X, y, train_size=10000, test_size=500, random_state=420, stratify=y
+        X, y, train_size=5000, test_size=500, random_state=420, stratify=y
     )
 
     _, X_test, _, y_test = train_test_split(

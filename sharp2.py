@@ -2,14 +2,13 @@ import os
 from typing import Callable, Optional, Union
 
 import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA
 import metrics
 import numpy as np
 import pylab
 #import radial
 import tensorflow as tf
 from sampling_layers import get_layer_builder, SphericalSampling
-from sklearn.preprocessing import LabelBinarizer, minmax_scale
+from sklearn.preprocessing import LabelBinarizer
 
 # from tensorflow import keras as tfk
 import keras as tfk
@@ -19,69 +18,6 @@ from keras import layers as tfkl
 from keras import regularizers
 from keras.initializers import Constant
 
-class Custom_Dropout(tfkl.Layer):
-    def __init__(self, rate, **kwargs):
-        super().__init__(**kwargs)
-        self.rate = rate
-
-    def call(self, inputs, training=False):
-        if training:
-            return tf.nn.dropout(inputs, rate=self.rate)
-        
-        return inputs
-
-class Custom_Loss(tfk.losses.Loss):
-    def __init__(self, name="Custom_Loss"):
-        super().__init__(name=name)
-        # self.x_values = x_values
-
-
-    def call(self, y_true, y_pred):
-        # Check and handle shape mismatch
-        # if y_true.shape != y_pred.shape:
-        #     y_true = tf.reshape(y_true, y_pred.shape)
-
-        # # Check and handle undefined tensors
-        # y_true = tf.where(tf.math.is_finite(y_true), y_true, tf.zeros_like(y_true))
-        ###
-        n_dims = np.shape(y_true)[1]-1
-        # b_size = 64#np.shape(y_true)[0]
-
-        # y_weight = y_true[:, n_dims:n_dims+1]#tf.gather(y_true, [n_dims, n_dims], axis=1)
-        # y_true = y_true[:, 0:n_dims]
-        ###
-
-        # Define weights
-        # y_rand = self.x_values
-
-        # Calculate loss
-        #mse
-        loss = tf.square(y_true - y_pred)#tf.norm(tf.square(y_true - y_pred), ord=1, axis=1)
-
-        #bce
-        # loss = -y_true*tf.math.log(y_pred)-(1-y_true)*tf.math.log(1-y_pred)
-
-        # res = tf.norm(loss, ord=2, axis=1)#(-y_true * tf.math.log(y_pred) - (tf.math.subtract(1.0, y_true)) * tf.math.log(tf.math.subtract(1.0, y_pred)))#mse(y_true, y_pred)#
-        # loss = tf.math.multiply(loss, y_weight)
-        # loss = bce(y_true, y_pred)
-
-        return tf.reduce_mean(loss)
-
-class Custom_CCE(tfk.losses.Loss):
-    def __init__(self, name="Custom_Categorical_Cross_Entropy"):
-        super().__init__(name=name)
-        # self.x_values = x_values
-
-
-    def call(self, y_true, y_pred):
-        n_dims = np.shape(y_true)[1]
-        
-        y_true = y_true[:, 0:n_dims]
-        
-        cce = tfk.losses.CategoricalCrossentropy()
-        loss = cce(y_true, y_pred)
-        
-        return tf.reduce_mean(loss)
 
 class Encoder(tfkl.Layer):
     def __init__(
@@ -221,9 +157,9 @@ class ShaRP(tfk.Model):
             "l2_reg": self.bottleneck_l2,
         }
 
-        self.encoder = Encoder(act=act, init=init, bias=bias, dtype=tf.float32)
+        self.encoder = Encoder(act=act, init=init, bias=bias)
         self.variational = self._build_variational_layer(self.variational_layer_kwargs)
-        self.decoder = Decoder(act=act, init=init, bias=bias, dtype=tf.float32)
+        self.decoder = Decoder(act=act, init=init, bias=bias)
 
         self.reconstructor = tfkl.Dense(
             original_dim,
@@ -231,7 +167,6 @@ class ShaRP(tfk.Model):
             activation="sigmoid",
             kernel_initializer=self.init,
             bias_initializer=Constant(self.bias),
-            dtype=tf.float32
         )
         self.classifier = tfkl.Dense(
             n_classes,
@@ -244,15 +179,11 @@ class ShaRP(tfk.Model):
         optimizer_obj = optimizers.get(self.opt)
         optimizer_obj.global_clipnorm = 1.0
 
-        custom_loss = Custom_Loss()
-        custom_cce = Custom_CCE()
-
-        
         self.compile(
             optimizer=optimizer_obj,
-            loss=[custom_cce, custom_loss],#custom_cce
+            loss=["categorical_crossentropy", "binary_crossentropy"],
             loss_weights=[1.0, 3.0],  # TODO Changed.
-            metrics=[["accuracy"]], #run_eagerly=True
+            metrics=[["accuracy"], ["mean_absolute_error"]],
         )
 
         self.main_input = tfk.Input(self.original_dim)
@@ -268,13 +199,17 @@ class ShaRP(tfk.Model):
             )
             concat = tfkl.Concatenate(axis=1)([self.encoded_input, self.encoded_input_rnd])
             rev = self.decoder(concat)
+            classes = self.classifier(rev)
             rev = self.reconstructor(rev)
             self.inv = tfk.Model(inputs=concat, outputs=rev)
+            self.class_model = tfk.Model(inputs=concat, outputs=classes)
         
         else:
             rev = self.decoder(self.encoded_input)
+            classes = self.classifier(rev)
             rev = self.reconstructor(rev)
             self.inv = tfk.Model(inputs=self.encoded_input, outputs=rev)
+            self.class_model = tfk.Model(inputs=self.encoded_input, outputs=classes)
 
         self.log_var_model = tfk.Model(inputs=self.main_input, outputs=log_var)
         self.mu_model = tfk.Model(inputs=self.main_input, outputs=mu)
@@ -336,36 +271,20 @@ class ShaRP(tfk.Model):
         *args,
         **kwargs,
     ) -> tfk.callbacks.History:
-        # if isinstance(X_train, tf.data.Dataset):
-        #     return super().fit(X_train, verbose=True,*args, **kwargs)
-        # else:
-        assert (
-            y_train is not None
-        ), "either provide a Dataset or both X_train and y_train"
-        if self.n_classes == 2:
-            y_train_bin = np.zeros((y_train.shape[0], 2), dtype=np.uint8)
-            y_train_bin[range(y_train.shape[0]), y_train] = 1
+        if isinstance(X_train, tf.data.Dataset):
+            return super().fit(X_train, verbose=True,*args, **kwargs)
         else:
-            y_train_bin = self.label_bin.fit_transform(y_train)
-        # pca = PCA(n_components=2)
-        # X_rnd = pca.fit_transform(X_train)
-        # X_rnd = minmax_scale(X_rnd)
-        
-        rand_norm = tf.norm(X_rnd-0.5, ord=1, axis=1)
-        sample_weight = (rand_norm - np.min(rand_norm))/(np.max(rand_norm) - np.min(rand_norm))
-        sample_weight = 0.25+np.abs(np.log(0.25+0.5*sample_weight))
-        sample_weight = sample_weight.reshape(np.shape(rand_norm)[0],1)
-        X_res = np.concatenate((X_train, sample_weight), axis=1)#np.ones((X.shape[0],1))
-
-        # X_res = np.concatenate((X_train, X_rnd.numpy()), axis=1, dtype=np.float32)[y_train_bin, X_res]
-        return super().fit([X_train, X_rnd], [y_train_bin, X_train], verbose=True,*args, **kwargs)
+            assert (
+                y_train is not None
+            ), "either provide a Dataset or both X_train and y_train"
+            if self.n_classes == 2:
+                y_train_bin = np.zeros((y_train.shape[0], 2), dtype=np.uint8)
+                y_train_bin[range(y_train.shape[0]), y_train] = 1
+            else:
+                y_train_bin = self.label_bin.fit_transform(y_train)
+            return super().fit([X_train, X_rnd], [y_train_bin, X_train], verbose=True,*args, **kwargs)
 
     def call(self, inputs, training):
-        tf.print("TESTE")
-        tf.print(inputs)
-        print(inputs[0])
-        print(inputs[1])
-        print("TESTE")
         encoded = self.encoder(inputs[0])
         # try:
         #     tf.debugging.check_numerics(encoded, "encoded")
@@ -373,29 +292,18 @@ class ShaRP(tfk.Model):
         #     for v in self.encoder.trainable_variables:
         #         tf.print(v)
         #         input()
-        # tf.print("TEST")
-        print(encoded)
         z_mean, z_log_var, z = self.variational(encoded)
 
         # if isinstance(self.variational, SphericalSampling):
         #     z = self.variational._map_to_angles(z)
-        print("TESTE")
-        print(z)
         decoded = self.decoder(tfkl.Concatenate(axis=1)([z, inputs[1]]))#
         # tf.debugging.check_numerics(decoded, "decoded")
-        print("TESTE")
-        print(decoded)
-        tf.print("test")
 
         reconstructed = self.reconstructor(decoded)
 
-        tf.print("test")
-        print("TESTE")
-        print(reconstructed)
+        
         main_output = self.classifier(decoded)
-        print("TESTE")
-        print(main_output)
-        tf.print("test")
+
         
         # if training:
         #     # tf.maximum(z_log_var, 0.0)
@@ -404,7 +312,7 @@ class ShaRP(tfk.Model):
         #         loss_log_var - self.kl_mu_weight * tf.square(z_mean) - tf.exp(loss_log_var) + 1
         #     )
         #     self.add_loss(self.kl_weight * kl_loss)
-        return main_output, reconstructed#
+        return main_output, reconstructed
 
     def encode(self, inputs):
         return self.fwd.predict(inputs)

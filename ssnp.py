@@ -114,9 +114,9 @@ class SSNP:
     
 
     def fit(self, X, y=None, X_rand=tf.zeros((1,1)), epochs=0):
-        # pca = PCA(n_components=2)
-        # X_rand = pca.fit_transform(X)
-        # X_rand = minmax_scale(X_rand)
+        pca = PCA(n_components=2)
+        X_rand = pca.fit_transform(X)
+        X_rand = minmax_scale(X_rand)
 
         if y is None and self.init_labels == "precomputed":
             raise Exception("Must provide labels when using init_labels = precomputed")
@@ -241,7 +241,7 @@ class SSNP:
         sample_weight = (rand_norm - np.min(rand_norm))/(np.max(rand_norm) - np.min(rand_norm))
         sample_weight = 0.25+np.abs(np.log(0.25+0.5*sample_weight))
         sample_weight = sample_weight.reshape(np.shape(rand_norm)[0],1)
-        X_res = np.concatenate((X, sample_weight), axis=1)#np.ones((X.shape[0],1))
+        X_res = np.concatenate((X, np.ones((X.shape[0],1))), axis=1)#sample_weight
         
         hist = model.fit(
             [X, X_rand],

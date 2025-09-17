@@ -3,6 +3,15 @@ from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 import matplotlib.pyplot as plt
 import numpy as np
 
+def make_grid(
+    x_min: float, x_max: float, y_min: float, y_max: float, v1: float, v2: float, side_length: int
+) -> np.ndarray:
+    xx, yy = np.meshgrid(
+        np.linspace(x_min, x_max, side_length), np.linspace(y_min, y_max, side_length)
+    )
+    
+    return np.array([[i[0], i[1], v1, v2] for i in np.c_[xx.ravel(), yy.ravel()]])
+
 def plot_decision_map_with_accuracy(decision_map, coordinates, true_labels, predictions,
                                     nninv_model, classifier, map_size, matrix_side, v1, v2, fig=None, batch_size=128,
                                     cmap='tab10', figsize=(10, 8), save_path=None):
@@ -79,59 +88,62 @@ def plot_decision_map_with_points(decision_map, points, labels, map_size, matrix
     #     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     # plt.show()
 
-def plot_generated_images_grid_with_dbm(decision_map, model_nninv, image_shape=(28,28),
-                                    latent_range=(0.0,1.0), img_size=0.05, proximity=1.4,
+def plot_generated_images_grid_with_dbm(model_nninv, classifier, grid_res, bb, image_shape=(28,28),
+                                    latent_range=(0.0,1.0), img_size=0.05, proximity=1.0,
                                     projection_technique_name="t-SNE", dataset_name="MNIST",
                                     figsize=(10,8), cmap_images='gray', cmap_dbm='tab10', save_path="generated_images_grid_with_dbm.png"):
-    fig_main, ax_main = plt.subplots(9,9,figsize=(200/10, 200/10))
+    fig_main, ax_main = plt.subplots(3,3,figsize=(grid_res/10, grid_res/10))
     
-    vals = [0, 1, 2]
 
-    for (x,y) in zip(vals,vals):
-        fig = ax_main[x,y].figure(figsize=figsize)
-        ax = ax_main[x,y].subplot(111)
+    for a in range(3):
+        for b in range(3):
+            grid = make_grid(*bb, a*0.5, b*0.5, grid_res)
+            inverted_grid = model_nninv.inverse_transform(grid)
+            decision_map = classifier.predict(inverted_grid).astype(np.uint8).reshape(grid_res,grid_res)
+            
+            ax = ax_main[a,b]#.subplot(111)
 
-        # DBM in the background
-        # plot_dbm_background(ax, decision_map, cmap=cmap_dbm, vmin=0, vmax=int(decision_map.max()))
-        ax.imshow(
-            decision_map,
-            cmap=cmap_dbm,
-            interpolation='nearest',
-            extent=[0, 1, 0, 1],
-            vmin=0,
-            vmax=int(decision_map.max()),
-            origin='lower'
-        )
+            # DBM in the background
+            # plot_dbm_background(ax, decision_map, cmap=cmap_dbm, vmin=0, vmax=int(decision_map.max()))
+            ax.imshow(
+                decision_map,
+                cmap=cmap_dbm,
+                interpolation='nearest',
+                extent=[0, 1, 0, 1],
+                vmin=0,
+                vmax=int(decision_map.max()),
+                origin='lower'
+            )
 
 
-        # generate coordinates and images
-        # coords = generate_grid_coords(latent_range, img_size, proximity)
-        
-        num_cols = int(proximity*(latent_range[1]-latent_range[0]) / img_size)
-        num_rows = int(proximity*(latent_range[1]-latent_range[0]) / img_size)
-        xs = np.linspace(latent_range[0], latent_range[1], num_cols)
-        ys = np.linspace(latent_range[0], latent_range[1], num_rows)
-        xx, yy = np.meshgrid(xs, ys)
-        coords = np.stack([xx.ravel(), yy.ravel()], axis=1)
-        coordsInv = np.array([[i[0],i[1], 0, 0] for i in coords])
+            # generate coordinates and images
+            # coords = generate_grid_coords(latent_range, img_size, proximity)
+            
+            num_cols = int(proximity*(latent_range[1]-latent_range[0]) / img_size)
+            num_rows = int(proximity*(latent_range[1]-latent_range[0]) / img_size)
+            xs = np.linspace(latent_range[0], latent_range[1], num_cols)
+            ys = np.linspace(latent_range[0], latent_range[1], num_rows)
+            xx, yy = np.meshgrid(xs, ys)
+            coords = np.stack([xx.ravel(), yy.ravel()], axis=1)
+            coordsInv = np.array([[i[0],i[1], a*0.5, b*0.5] for i in coords])
 
-        # images = generate_images_from_coords(model_nninv, coords, image_shape)
-        images = model_nninv.inverse_transform(coordsInv)
-        images = images.reshape((-1, *image_shape))
-        images = np.clip(images, 0, 1)   
-        
+            # images = generate_images_from_coords(model_nninv, coords, image_shape)
+            images = model_nninv.inverse_transform(coordsInv)
+            images = images.reshape((-1, *image_shape))
+            images = np.clip(images, 0, 1)   
+            
 
-        # plot images on grid above DBM
-        # plot_images_on_ax(ax, coords, images, img_size=img_size*10, cmap=cmap_images)
-        images = np.clip(images, 0, 1)
-        for (x, y), img in zip(coords, images):
-            img_obj = OffsetImage(img, cmap="gray", zoom=img_size*10)
-            ab = AnnotationBbox(img_obj, (x, y), frameon=False)
-            ax.add_artist(ab)
+            # plot images on grid above DBM
+            # plot_images_on_ax(ax, coords, images, img_size=img_size*10, cmap=cmap_images)
+            images = np.clip(images, 0, 1)
+            for (x, y), img in zip(coords, images):
+                img_obj = OffsetImage(img, cmap="gray", zoom=img_size*10)
+                ab = AnnotationBbox(img_obj, (x, y), frameon=False)
+                ax.add_artist(ab)
 
-        ax.set_xlim(latent_range)
-        ax.set_ylim(latent_range)
-        ax.axis('off')
+            ax.set_xlim(latent_range)
+            ax.set_ylim(latent_range)
+            ax.axis('off')
 
     # save_fig(fig, projection_technique_name=projection_technique_name, dataset_name=dataset_name, filename=save_path)
     folder = os.path.join("results", projection_technique_name, dataset_name)
