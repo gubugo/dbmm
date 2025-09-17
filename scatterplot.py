@@ -126,7 +126,7 @@ def plot_generated_images_grid_with_dbm(model_nninv, classifier, grid_res, bb, i
             xx, yy = np.meshgrid(xs, ys)
             coords = np.stack([xx.ravel(), yy.ravel()], axis=1)
             coordsInv = np.array([[i[0],i[1], a*0.5, b*0.5] for i in coords])
-
+            print(coordsInv)
             # images = generate_images_from_coords(model_nninv, coords, image_shape)
             images = model_nninv.inverse_transform(coordsInv)
             images = images.reshape((-1, *image_shape))
