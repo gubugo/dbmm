@@ -175,13 +175,8 @@ class NNInv:
 
         self.is_fitted = True
 
-    def fit_random(self, X, y=None, epochs=300, **kwargs):    
-        pca = PCA(n_components=2)
-        X_rand = pca.fit_transform(y)
-        X_rand = minmax_scale(X_rand)
-        # X_rand = tf.random.stateless_uniform(seed=(420,420), minval=0, maxval=1, shape=(X.shape[0],2))
-        # X_rand = X
-
+    def fit_random(self, X, y, X_rand, epochs=300, **kwargs):    
+        
         main_input = Input(shape=(self.latent_dims,), name="main_input")
         second_input = Input(shape=(2,), name="second_input")
         x = Concatenate(axis=1)([main_input, second_input])
@@ -239,7 +234,7 @@ class NNInv:
         sample_weight = (rand_norm - np.min(rand_norm))/(np.max(rand_norm) - np.min(rand_norm))
         sample_weight = 0.25+np.abs(np.log(0.25+0.5*sample_weight))
         sample_weight = sample_weight.reshape(np.shape(rand_norm)[0],1)
-        y = np.concatenate((y, np.ones((X.shape[0],1))), axis=1)#sample_weight
+        y = np.concatenate((y, sample_weight), axis=1)#np.ones((X.shape[0],1))
 
         self.model.fit(
             [X, X_rand],
