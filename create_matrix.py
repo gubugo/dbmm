@@ -45,6 +45,8 @@ cmap2 = plt.get_cmap("viridis")
 x_test_global = None
 y_test_global = None
 
+noise = []
+
 def make_grid(
     x_min: float, x_max: float, y_min: float, y_max: float, v1: float, v2: float, side_length: int
 ) -> np.ndarray:
@@ -137,15 +139,17 @@ def plot(X, y, figname=None):
     del fig
     del ax
 
-def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder, x_data, y_data, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
+def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder, x_data, y_data, noise, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
     fig_main, ax_main = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
     fig_metric, ax_metric = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
     fig_metric2, ax_metric2 = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
     fig_scatter, ax_scatter = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
     fig_scatter2, ax_scatter2 = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
+    fig_scatter3, ax_scatter3 = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
     fig_diff, ax_diff = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
     # print(figname)
 
+    center_coord = matrix_origin + step*np.array(matrix_side_size//2)
     bounding_box = get_bounding_box(x_data)
 
     metric_matrix = np.zeros((matrix_side_size*matrix_side_size,grid_res*grid_res))
@@ -154,7 +158,7 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
     # print(np.size(metric_matrix[0]))
 
     # for difs
-    grid = make_grid(*bounding_box, 0.5, 0.5, grid_res)
+    grid = make_grid(*bounding_box, center_coord[0], center_coord[1], grid_res)
     inverted_grid = inverter.inverse_transform(grid)
     classes = classifier.predict(inverted_grid).astype(np.uint8)
     cmapped_base = cmap(classes)
@@ -178,7 +182,7 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
     # # print(preds)
     # predictions = np.concatenate(preds)
 
-    scatterplot.plot_generated_images_grid_with_dbm(inverter, classifier, grid_res, bounding_box)
+    # scatterplot.plot_generated_images_grid_with_dbm(inverter, classifier, grid_res, bounding_box, matrix_origin, step)
 
     for i in range(matrix_side_size):
         for j in range(matrix_side_size):
@@ -192,12 +196,14 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             # print(y_data)
             
             n_classes = 10 # im lazy asf
-            metric_matrix[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
+            # metric_matrix[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
             # metric_matrix2[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_same_class_neighbor(inverted_grid, n_classes, classes, np.shape(grid)[0], per_class_neighbor_finder)
-            scatterplot.plot_decision_map_with_points(classes.reshape((grid_res, grid_res, 1)), x_data, y_data, grid_res, matrix_side_size, cmap='tab10', fig=ax_scatter[i,j], save_path=None)
+            scatterplot.plot_decision_map_with_points(classes.reshape((grid_res, grid_res, 1)), x_data, cmap(y_data), grid_res, matrix_side_size, fig=ax_scatter[i,j])
             # scatterplot.plot_decision_map_with_accuracy(classes.reshape((grid_res, grid_res, 1)), x_data, y_data, predictions, inverter, classifier, grid_res, matrix_side_size, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], fig=ax_scatter2[i,j])
-            metrics.metric_difference_dbms(cmapped_base, cmapped, grid_res, ax_diff[i,j])
+            # metrics.metric_difference_dbms(cmapped_base, cmapped, grid_res, ax_diff[i,j])
             
+            scatterplot.plot_decision_map_with_points_relative(classes.reshape((grid_res, grid_res, 1)), x_data, cmap(y_data), noise, (matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1]), grid_res, matrix_side_size, cmap='tab10', fig=ax_scatter3[i,j])
+
             # plt.subplots()
             # plt.imshow(
             #     cmapped.reshape((grid_res, grid_res, 4)),
@@ -258,6 +264,8 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             ax_main[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
             ax_diff[i,j].axis("off") 
             ax_diff[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
+            ax_scatter[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
+            ax_scatter3[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
             
     cmapped2 = cmap2((metric_matrix-np.min(metric_matrix))/(np.max(metric_matrix)-np.min(metric_matrix)),)
     cmapped3 = cmap2((metric_matrix2-np.min(metric_matrix2))/(np.max(metric_matrix2)-np.min(metric_matrix2)),)
@@ -285,11 +293,12 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             ax_metric2[i,j].set_title(f"{coords}_{np.round(np.max(metric_matrix[i*matrix_side_size+j,:]),3)}", fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res)  
 
     fig_main.savefig(f"{figname}.png")
-    fig_metric.savefig(f"{figname}_metric_nn.png")
+    # fig_metric.savefig(f"{figname}_metric_nn.png")
     # fig_metric2.savefig(f"{figname}_metric_nn2.png")
     fig_scatter.savefig(f"{figname}_scatter.png")
     # fig_scatter2.savefig(f"{figname}_scatter2.png")
-    fig_diff.savefig(f"{figname}_difference.png")
+    fig_scatter3.savefig(f"{figname}_scatter3.png")
+    # fig_diff.savefig(f"{figname}_difference.png")
     plt.close("all")
 
 
@@ -328,9 +337,25 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
         X, y, train_size=30000, test_size=10, random_state=420, stratify=y
     )
 
+    if method == "noise":
+        noise = tf.random.stateless_uniform(seed=(420,420), minval=0, maxval=1, shape=(X_train.shape[0],2))
+        # pca = PCA(n_components=2)
+        # noise = pca.fit_transform(X_train)
+        noise = minmax_scale(noise, feature_range=(0,1))
+    else:
+        noise = tf.zeros((X_train.shape[0],0))
+
+    print(np.shape(X_train))
+    print(np.shape(noise))
+    X_train= np.concatenate((X_train,noise), axis=1)
+
     _, X_test, _, y_test = train_test_split(
         X_train, y_train, train_size=10, test_size=2000, random_state=420, stratify=y_train
     )
+    noise = X_train[:,-3:-1]
+    X_train = X_train[:,:-2]
+    noise_test = X_test[:,-3:-1]
+    X_test = X_test[:,:-2]
 
     # X_train, y_train = include_classes(X_train, y_train, [1,2])
     # X_test, y_test = include_classes(X_test, y_test, [1,2])
@@ -371,7 +396,8 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
         if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
             _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
         else:
-            _inv_model.fit_random(tsne_proj, y=X_train, epochs=epochs)
+            # noise = X
+            _inv_model.fit_random(tsne_proj, X_train, noise, epochs=epochs)
             _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
         
         X_model_2d = X_model_res
@@ -406,7 +432,7 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
         clf = make_and_fit_mlp(X_train, y_train)
         dump(clf, f'{output_dir}/{dataset_name}/class.joblib')
 
-    return X_model_2d, y_test, clf, _inv_model, neighbor_finder, per_class_neighbor_finder,[float(z_min), float(z_max), float(w_min), float(w_max)]
+    return X_model_2d, y_test, noise_test, clf, _inv_model, neighbor_finder, per_class_neighbor_finder,[float(z_min), float(z_max), float(w_min), float(w_max)]
 
 def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, epochs):
     data_dir = "./data/"
@@ -422,10 +448,24 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
     X_train, _, y_train, _ = train_test_split(
         X, y, train_size=5000, test_size=500, random_state=420, stratify=y
     )
+    
+    if method == "noise":
+        # noise = tf.random.stateless_uniform(seed=(420,420), minval=-1, maxval=1, shape=(X_train.shape[0],2))
+        pca = PCA(n_components=2)
+        noise = pca.fit_transform(X_train)
+        noise = minmax_scale(noise, feature_range=(-1,1))
+    else:
+        noise = tf.zeros((X_train.shape[0],0))
+
+    X_train= np.concatenate((X_train,noise), axis=1)
 
     _, X_test, _, y_test = train_test_split(
         X_train, y_train, train_size=100, test_size=1000, random_state=420, stratify=y_train
     )
+    noise = X_train[:,-3:-1]
+    X_train = X_train[:,:-2]
+    noise_test = X_test[:,-3:-1]
+    X_test = X_test[:,:-2]
 
     # X_train, y_train = include_classes(X_train, y_train, [1,2])
     # X_test, y_test = include_classes(X_test, y_test, [1,2])
@@ -443,13 +483,6 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
         neighbor_finder2 = NearestNeighbors(n_neighbors=5)
         neighbor_finder2.fit(X_train[y_train == cl])
         per_class_neighbor_finder[cl] = neighbor_finder2
-    
-    # ugh refactor this ugly shit
-    if method == "noise":
-        noise = tf.random.stateless_uniform(seed=(420,420), minval=0, maxval=1, shape=(X_train.shape[0],2))
-        # noise = tf.random.Generator.from_seed(420).normal(stddev=1, shape=(X_train.shape[0],2))
-    else:
-        noise = tf.zeros((X_train.shape[0],0))
 
     if method == "noise":
         if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
@@ -481,13 +514,13 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
         clf = make_and_fit_mlp(X_train, y_train)
         dump(clf, f'{output_dir}/{dataset_name}/class.joblib')
 
-    return X_model_2d, y_test, clf, _model, neighbor_finder, per_class_neighbor_finder,[float(z_min), float(z_max), float(w_min), float(w_max)]
+    return X_model_2d, y_test, noise_test, clf, _model, neighbor_finder, per_class_neighbor_finder,[float(z_min), float(z_max), float(w_min), float(w_max)]
 
 if __name__ == "__main__":
 
     output_dir = "weights"
     model_name_ops = ["ssnp", "sharp", "nninv"]
-    model_name = model_name_ops[1]
+    model_name = model_name_ops[2]
     # dataset = "mnist"
     dataset_ops = ["mnist", "fashionmnist"] # , "har", "reuters"
     dataset = dataset_ops[0]
@@ -517,7 +550,7 @@ if __name__ == "__main__":
         dims = sharp_dims_classes[dataset][0]
         classes = sharp_dims_classes[dataset][1]
 
-        results_2d, y_values, clf, inv_model, neighbor_finder, per_class_neighbor_finder, limits = get_inv_proj_data_pi( #get_inv_proj_data_sharp(output_dir)
+        results_2d, y_values, noise, clf, inv_model, neighbor_finder, per_class_neighbor_finder, limits = get_inv_proj_data_pi( #get_inv_proj_data_sharp(output_dir)
             output_dir, 
             sharp.ShaRP(
                 # dims,
@@ -546,7 +579,7 @@ if __name__ == "__main__":
         )
 
     if model_name == "ssnp":
-        results_2d, y_values, clf, inv_model, neighbor_finder, per_class_neighbor_finder, limits = get_inv_proj_data_pi(
+        results_2d, y_values, noise, clf, inv_model, neighbor_finder, per_class_neighbor_finder, limits = get_inv_proj_data_pi(
             output_dir, 
             ssnp.SSNP(
                 verbose=True,
@@ -562,7 +595,7 @@ if __name__ == "__main__":
         )
 
     if model_name == "nninv":
-        results_2d, y_values, clf, inv_model, neighbor_finder, per_class_neighbor_finder, limits = get_inv_proj_data_i(
+        results_2d, y_values, noise, clf, inv_model, neighbor_finder, per_class_neighbor_finder, limits = get_inv_proj_data_i(
             output_dir, 
             TSNE(
                 n_jobs=4, 
@@ -582,9 +615,9 @@ if __name__ == "__main__":
 
     matrix_size = 9
     if method == "noise":
-        matrix_origin = (0.0,0.0)
+        matrix_origin = (0.0,0.0) if model_name == "nninv" else (-1.0,-1.0)
 
-        matrix_step = (0.125,0.125)
+        matrix_step = (0.125,0.125) if model_name == "nninv" else (0.25,0.25)
     else:
         matrix_origin = (limits[0],limits[2])
 
@@ -599,7 +632,7 @@ if __name__ == "__main__":
     # print("here", sliderx_step, slidery_step)
     if not os.path.exists(f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}"):
         os.makedirs(f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}")
-    fig = plot_matrix(clf, inv_model, neighbor_finder, per_class_neighbor_finder, results_2d, y_values, grid_res, matrix_size, matrix_origin, matrix_step, format_step, figname=f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}")
+    fig = plot_matrix(clf, inv_model, neighbor_finder, per_class_neighbor_finder, results_2d, y_values, noise, grid_res, matrix_size, matrix_origin, matrix_step, format_step, figname=f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}")
   
 
 
@@ -619,3 +652,21 @@ example: start in position (0,0), with steps 0.1 and 0.2. With a 5x5 matrix, we 
 #ponto d treino mais próximo 
 
 #projetar os pontos em cima do DBM
+
+
+#DBM_with_images_200_9_(0.0,0.0)_(0.125,0.125)
+#DBM_differences_200_9_(0.0,0.0)_(0.125,0.125)
+#DBM_nearest_training_point_200_9_(0.0,0.0)_(0.125,0.125)
+#DBM_scatterplot_200_9_(0.0,0.0)_(0.125,0.125)
+#DBM_200_9_(0.0,0.0)_(0.125,0.125)
+
+#DBM_with_images_200_9_(-1.0,-1.0)_(0.25,0.25)
+#DBM_differences_200_9_(-1.0,-1.0)_(0.25,0.25)
+#DBM_nearest_training_point_200_9_(-1.0,-1.0)_(0.25,0.25)
+#DBM_scatterplot_200_9_(-1.0,-1.0)_(0.25,0.25)
+#DBM_200_9_(-1.0,-1.0)_(0.25,0.25)
+
+
+#nninv 30k training data
+#ssnp 5k training data
+#sharp 5k training data

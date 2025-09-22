@@ -3,6 +3,9 @@ from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 import matplotlib.pyplot as plt
 import numpy as np
 
+def get_normal_dist(x, mu, sig):
+    return np.exp(-1*((x-mu)/sig)**2)#(1/sig*np.sqrt(2*np.pi))*
+
 def make_grid(
     x_min: float, x_max: float, y_min: float, y_max: float, v1: float, v2: float, side_length: int
 ) -> np.ndarray:
@@ -69,7 +72,7 @@ def plot_decision_map_with_accuracy(decision_map, coordinates, true_labels, pred
     # return np.mean(correct_mask)
 
 
-def plot_decision_map_with_points(decision_map, points, labels, map_size, matrix_side, cmap='tab10', fig=None, save_path=None):
+def plot_decision_map_with_points(decision_map, points, labels, map_size, matrix_side, fig=None):
     # putting the dbm in the background
     fig.imshow(decision_map, interpolation='none', cmap='tab10',  vmin=0, vmax=9, origin='lower')
 
@@ -78,7 +81,7 @@ def plot_decision_map_with_points(decision_map, points, labels, map_size, matrix
     # print(points)
     scatter = fig.scatter(map_size*(points[:, 0]-np.min(points[:, 0]))/(np.max(points[:, 0])-np.min(points[:, 0])), 
                           map_size*(points[:, 1]-np.min(points[:, 1]))/(np.max(points[:, 1])-np.min(points[:, 1])), 
-                          c=labels, cmap=cmap, s=36/(matrix_side), edgecolor='k', linewidth=0.2, alpha=0.7)
+                          c=labels, s=36/(matrix_side), edgecolor='k', linewidth=0.2, alpha=0.7)
 
     # cbar = fig.colorbar(img, ticks=range(10))
     fig.grid(False)
@@ -88,16 +91,18 @@ def plot_decision_map_with_points(decision_map, points, labels, map_size, matrix
     #     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     # plt.show()
 
-def plot_generated_images_grid_with_dbm(model_nninv, classifier, grid_res, bb, image_shape=(28,28),
+def plot_generated_images_grid_with_dbm(model_nninv, classifier, grid_res, bb, matrix_origin, step, image_shape=(28,28),
                                     latent_range=(0.0,1.0), img_size=0.05, proximity=1.0,
                                     projection_technique_name="t-SNE", dataset_name="MNIST",
                                     figsize=(10,8), cmap_images='gray', cmap_dbm='tab10', save_path="generated_images_grid_with_dbm.png"):
     fig_main, ax_main = plt.subplots(3,3,figsize=(grid_res/10, grid_res/10))
     
-
+    matrix_end = [1.0,1.0]
+    steps_x = (matrix_origin[0],(matrix_origin[0]+matrix_end[0])/2,matrix_end[0])
+    steps_y = (matrix_origin[1],(matrix_origin[1]+matrix_end[1])/2,matrix_end[1])
     for a in range(3):
         for b in range(3):
-            grid = make_grid(*bb, a*0.5, b*0.5, grid_res)
+            grid = make_grid(*bb, steps_x[a], steps_y[b], grid_res)
             inverted_grid = model_nninv.inverse_transform(grid)
             decision_map = classifier.predict(inverted_grid).astype(np.uint8).reshape(grid_res,grid_res)
             
@@ -121,12 +126,17 @@ def plot_generated_images_grid_with_dbm(model_nninv, classifier, grid_res, bb, i
             
             num_cols = int(proximity*(latent_range[1]-latent_range[0]) / img_size)
             num_rows = int(proximity*(latent_range[1]-latent_range[0]) / img_size)
+            xs = np.linspace(bb[0], bb[1], num_cols)
+            ys = np.linspace(bb[2], bb[3], num_rows)
+            xx, yy = np.meshgrid(xs, ys)
+            coords = np.stack([xx.ravel(), yy.ravel()], axis=1)
+            coordsInv = np.array([[i[0],i[1], steps_x[a], steps_y[b]] for i in coords])
+
             xs = np.linspace(latent_range[0], latent_range[1], num_cols)
             ys = np.linspace(latent_range[0], latent_range[1], num_rows)
             xx, yy = np.meshgrid(xs, ys)
             coords = np.stack([xx.ravel(), yy.ravel()], axis=1)
-            coordsInv = np.array([[i[0],i[1], a*0.5, b*0.5] for i in coords])
-            print(coordsInv)
+
             # images = generate_images_from_coords(model_nninv, coords, image_shape)
             images = model_nninv.inverse_transform(coordsInv)
             images = images.reshape((-1, *image_shape))
@@ -144,6 +154,7 @@ def plot_generated_images_grid_with_dbm(model_nninv, classifier, grid_res, bb, i
             ax.set_xlim(latent_range)
             ax.set_ylim(latent_range)
             ax.axis('off')
+            ax.set_title(f"({steps_x[a]},{steps_y[b]})", fontsize=grid_res/(2*3), x=0.5, y=1.05-5/grid_res) 
 
     # save_fig(fig, projection_technique_name=projection_technique_name, dataset_name=dataset_name, filename=save_path)
     folder = os.path.join("results", projection_technique_name, dataset_name)
@@ -154,3 +165,28 @@ def plot_generated_images_grid_with_dbm(model_nninv, classifier, grid_res, bb, i
     # saves the figure
     fig_main.savefig(filepath, dpi=300, bbox_inches="tight")
     print(f"Figure saved to {filepath}")
+
+def plot_decision_map_with_points_relative(decision_map, points, labels, extra_dims, map_extra_coords, map_size, matrix_side, cmap='tab10', fig=None):
+    # putting the dbm in the background
+    fig.imshow(decision_map, interpolation='none', cmap='tab10',  vmin=0, vmax=9, origin='lower')
+
+
+    black = np.array([0,0,0])
+    inv_sqrt_2pi = 1/np.sqrt(2*np.pi)
+
+    for i, value in enumerate(extra_dims):
+        v = get_normal_dist(value[0],map_extra_coords[0],inv_sqrt_2pi)*get_normal_dist(value[1],map_extra_coords[1],inv_sqrt_2pi)
+        # print(v)
+        # labels[i,0:3] = v*labels[i,0:3]
+        labels[i,3] = (np.exp(v-1)-1*np.exp(-1))*labels[i,3]
+
+    # scatter points above the dbm
+    # print(labels)
+    # print(points)
+    scatter = fig.scatter(map_size*(points[:, 0]-np.min(points[:, 0]))/(np.max(points[:, 0])-np.min(points[:, 0])), 
+                          map_size*(points[:, 1]-np.min(points[:, 1]))/(np.max(points[:, 1])-np.min(points[:, 1])), 
+                          c=labels, s=36/(matrix_side), edgecolor='k', linewidth=0.3*labels[:,3])
+
+    # cbar = fig.colorbar(img, ticks=range(10))
+    fig.grid(False)
+    fig.axis("off") 
