@@ -14,6 +14,7 @@ from sklearn.base import ClassifierMixin
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import minmax_scale
 
+
 warnings.filterwarnings("ignore")
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
@@ -36,6 +37,8 @@ import ssnp
 import nninv
 import metrics
 import scatterplot
+from tensor_test import expand_projection, repel_particles_all1, repel_particles_all2
+
 
 tf.random.set_seed(420)
 
@@ -130,7 +133,7 @@ def plot(X, y, figname=None):
 
     for cl in np.unique(y):
         ax.scatter(X[y == cl, 0], X[y == cl, 1], c=[cmap(cl)], label=cl, s=375)
-        ax.axis("off")
+        # ax.axis("off")
 
     if figname is not None:
         fig.savefig(figname)
@@ -200,7 +203,7 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             # metric_matrix2[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_same_class_neighbor(inverted_grid, n_classes, classes, np.shape(grid)[0], per_class_neighbor_finder)
             scatterplot.plot_decision_map_with_points(classes.reshape((grid_res, grid_res, 1)), x_data, cmap(y_data), grid_res, matrix_side_size, fig=ax_scatter[i,j])
             # scatterplot.plot_decision_map_with_accuracy(classes.reshape((grid_res, grid_res, 1)), x_data, y_data, predictions, inverter, classifier, grid_res, matrix_side_size, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], fig=ax_scatter2[i,j])
-            # metrics.metric_difference_dbms(cmapped_base, cmapped, grid_res, ax_diff[i,j])
+            metrics.metric_difference_dbms(cmapped_base, cmapped, grid_res, ax_diff[i,j])
             
             scatterplot.plot_decision_map_with_points_relative(classes.reshape((grid_res, grid_res, 1)), x_data, cmap(y_data), noise, (matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1]), grid_res, matrix_side_size, cmap='tab10', fig=ax_scatter3[i,j])
 
@@ -298,7 +301,7 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
     fig_scatter.savefig(f"{figname}_scatter.png")
     # fig_scatter2.savefig(f"{figname}_scatter2.png")
     fig_scatter3.savefig(f"{figname}_scatter3.png")
-    # fig_diff.savefig(f"{figname}_difference.png")
+    fig_diff.savefig(f"{figname}_difference.png")
     plt.close("all")
 
 
@@ -338,10 +341,32 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
     )
 
     if method == "noise":
-        # noise = tf.random.stateless_uniform(seed=(420,420), minval=0, maxval=1, shape=(X_train.shape[0],2))
-        pca = PCA(n_components=2)
-        noise = pca.fit_transform(X_train)
-        noise = minmax_scale(noise, feature_range=(0,1))
+        # noise = tf.random.stateless_uniform(seed=(420,420), minval=-1, maxval=1, shape=(X_train.shape[0],2))
+        # pca = PCA(n_components=2)
+        # noise = pca.fit_transform(X_train)
+        # noise = minmax_scale(noise, feature_range=(-1,1))
+        if os.path.exists(os.path.join(output_dir, dataset_name, "PCA_EXPERIMENT1", "X_pca.joblib")):
+            X_train = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X.joblib')
+            y_train = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/y.joblib')
+            noise   = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X_pca.joblib')
+
+            plot(noise, y_train, "teste_aug")
+        else:
+
+            # pca = PCA(n_components=2)
+            # noise = pca.fit_transform(X_train)
+            # noise = minmax_scale(noise, feature_range=(-1,1))
+            # noise = repel_particles_all1(X, y, k=0.00001, alpha=0.02, beta=0.002, n_iter=25)
+            
+            # pca = PCA(n_components=2)
+            # noise = pca.fit_transform(X_train)
+            # noise = minmax_scale(noise, feature_range=(-1,1))
+            # noise = minmax_scale(repel_particles_all2(noise, y_train, n_iter=25), feature_range=(-1,1)) 
+            
+            X_train, noise, y_train = expand_projection(X_train, y_train)
+            dump(X_train, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X.joblib')
+            dump(y_train, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/y.joblib')
+            dump(noise, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X_pca.joblib')
     else:
         noise = tf.zeros((X_train.shape[0],0))
 
@@ -446,14 +471,34 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
     train_size = min(int(n_samples * 0.9), 10000)
 
     X_train, _, y_train, _ = train_test_split(
-        X, y, train_size=5000, test_size=500, random_state=420, stratify=y
+        X, y, train_size=10000, test_size=500, random_state=420, stratify=y
     )
-    
+    # print(np.shape(X))
     if method == "noise":
         noise = tf.random.stateless_uniform(seed=(420,420), minval=-1, maxval=1, shape=(X_train.shape[0],2))
         # pca = PCA(n_components=2)
         # noise = pca.fit_transform(X_train)
         # noise = minmax_scale(noise, feature_range=(-1,1))
+        if os.path.exists(os.path.join(output_dir, dataset_name, "PCA_EXPERIMENT3", "X_pca.joblib")):
+            # X_train = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X.joblib')
+            # y_train = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/y.joblib')
+            noise   = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT3/X_pca.joblib')
+        else:
+
+            # pca = PCA(n_components=2)
+            # noise = pca.fit_transform(X_train)
+            # noise = minmax_scale(noise, feature_range=(-1,1))
+            # noise = repel_particles_all1(X, y, k=0.00001, alpha=0.02, beta=0.002, n_iter=25)
+            
+            pca = PCA(n_components=2)
+            noise = pca.fit_transform(X_train)
+            noise = minmax_scale(noise, feature_range=(-1,1))
+            noise = minmax_scale(repel_particles_all2(noise, y_train, n_iter=25), feature_range=(-1,1)) 
+            
+            # X_train, noise, y_train = expand_projection(X_train, y_train)
+            # dump(X_train, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X.joblib')
+            # dump(y_train, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/y.joblib')
+            dump(noise, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT3/X_pca.joblib')
     else:
         noise = tf.zeros((X_train.shape[0],0))
 
@@ -520,7 +565,7 @@ if __name__ == "__main__":
 
     output_dir = "weights"
     model_name_ops = ["ssnp", "sharp", "nninv"]
-    model_name = model_name_ops[1]
+    model_name = model_name_ops[2]
     # dataset = "mnist"
     dataset_ops = ["mnist", "fashionmnist"] # , "har", "reuters"
     dataset = dataset_ops[0]
