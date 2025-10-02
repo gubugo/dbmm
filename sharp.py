@@ -322,12 +322,12 @@ class ShaRP(tfk.Model):
             else:
                 y_train_bin = self.label_bin.fit_transform(y_train)
             
-            # rand_norm = tf.norm(X_rnd, ord=1, axis=1)
-            # sample_weight = (rand_norm - np.min(rand_norm))/(np.max(rand_norm) - np.min(rand_norm))
-            # sample_weight = 0.25+np.abs(np.log(0.25+0.5*sample_weight))
-            # sample_weight = sample_weight.reshape(np.shape(rand_norm)[0],1)
+            rand_norm = tf.norm(X_rnd, ord=1, axis=1)
+            sample_weight = (rand_norm - np.min(rand_norm))/(np.max(rand_norm) - np.min(rand_norm))
+            sample_weight = 0.25+np.abs(np.log(0.25+0.5*sample_weight))
+            sample_weight = sample_weight.reshape(np.shape(rand_norm)[0],1)
 
-            X_res = np.concatenate((X_train, np.ones((X_train.shape[0],1))), axis=1)#sample_weight
+            X_res = np.concatenate((X_train, sample_weight), axis=1)#np.ones((X_train.shape[0],1))
             return super().fit([X_train, X_rnd], [y_train_bin, X_res], verbose=True,*args, **kwargs)
 
     def call(self, inputs, training):

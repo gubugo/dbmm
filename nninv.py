@@ -234,7 +234,7 @@ class NNInv:
         sample_weight = (rand_norm - np.min(rand_norm))/(np.max(rand_norm) - np.min(rand_norm))
         sample_weight = 0.25+np.abs(np.log(0.25+0.5*sample_weight))
         sample_weight = sample_weight.reshape(np.shape(rand_norm)[0],1)
-        y = np.concatenate((y, sample_weight), axis=1)#np.ones((X.shape[0],1))
+        y = np.concatenate((y, np.ones((X.shape[0],1))), axis=1)#sample_weight
 
         self.model.fit(
             [X, X_rand],

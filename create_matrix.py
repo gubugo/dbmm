@@ -338,9 +338,9 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
     )
 
     if method == "noise":
-        noise = tf.random.stateless_uniform(seed=(420,420), minval=0, maxval=1, shape=(X_train.shape[0],2))
-        # pca = PCA(n_components=2)
-        # noise = pca.fit_transform(X_train)
+        # noise = tf.random.stateless_uniform(seed=(420,420), minval=0, maxval=1, shape=(X_train.shape[0],2))
+        pca = PCA(n_components=2)
+        noise = pca.fit_transform(X_train)
         noise = minmax_scale(noise, feature_range=(0,1))
     else:
         noise = tf.zeros((X_train.shape[0],0))
@@ -352,9 +352,9 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
     _, X_test, _, y_test = train_test_split(
         X_train, y_train, train_size=10, test_size=2000, random_state=420, stratify=y_train
     )
-    noise = X_train[:,-3:-1]
+    noise = X_train[:,-2:]
     X_train = X_train[:,:-2]
-    noise_test = X_test[:,-3:-1]
+    noise_test = X_test[:,-2:]
     X_test = X_test[:,:-2]
 
     # X_train, y_train = include_classes(X_train, y_train, [1,2])
@@ -450,10 +450,10 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
     )
     
     if method == "noise":
-        # noise = tf.random.stateless_uniform(seed=(420,420), minval=-1, maxval=1, shape=(X_train.shape[0],2))
-        pca = PCA(n_components=2)
-        noise = pca.fit_transform(X_train)
-        noise = minmax_scale(noise, feature_range=(-1,1))
+        noise = tf.random.stateless_uniform(seed=(420,420), minval=-1, maxval=1, shape=(X_train.shape[0],2))
+        # pca = PCA(n_components=2)
+        # noise = pca.fit_transform(X_train)
+        # noise = minmax_scale(noise, feature_range=(-1,1))
     else:
         noise = tf.zeros((X_train.shape[0],0))
 
@@ -461,10 +461,10 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
 
     _, X_test, _, y_test = train_test_split(
         X_train, y_train, train_size=100, test_size=1000, random_state=420, stratify=y_train
-    )
-    noise = X_train[:,-3:-1]
+    )     
+    noise = X_train[:,-2:]
     X_train = X_train[:,:-2]
-    noise_test = X_test[:,-3:-1]
+    noise_test = X_test[:,-2:]
     X_test = X_test[:,:-2]
 
     # X_train, y_train = include_classes(X_train, y_train, [1,2])
@@ -520,7 +520,7 @@ if __name__ == "__main__":
 
     output_dir = "weights"
     model_name_ops = ["ssnp", "sharp", "nninv"]
-    model_name = model_name_ops[2]
+    model_name = model_name_ops[1]
     # dataset = "mnist"
     dataset_ops = ["mnist", "fashionmnist"] # , "har", "reuters"
     dataset = dataset_ops[0]
