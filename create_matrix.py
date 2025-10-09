@@ -150,6 +150,8 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
     fig_scatter2, ax_scatter2 = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
     fig_scatter3, ax_scatter3 = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
     fig_diff, ax_diff = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
+    fig_combined, ax_combined = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
+    
     # print(figname)
 
     center_coord = matrix_origin + step*np.array(matrix_side_size//2)
@@ -199,13 +201,15 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             # print(y_data)
             
             n_classes = 10 # im lazy asf
-            # metric_matrix[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
+            metric_matrix[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
             # metric_matrix2[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_same_class_neighbor(inverted_grid, n_classes, classes, np.shape(grid)[0], per_class_neighbor_finder)
-            scatterplot.plot_decision_map_with_points(classes.reshape((grid_res, grid_res, 1)), x_data, cmap(y_data), grid_res, matrix_side_size, fig=ax_scatter[i,j])
+            # scatterplot.plot_decision_map_with_points(classes.reshape((grid_res, grid_res, 1)), x_data, cmap(y_data), grid_res, matrix_side_size, fig=ax_scatter[i,j])
             # scatterplot.plot_decision_map_with_accuracy(classes.reshape((grid_res, grid_res, 1)), x_data, y_data, predictions, inverter, classifier, grid_res, matrix_side_size, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], fig=ax_scatter2[i,j])
-            metrics.metric_difference_dbms(cmapped_base, cmapped, grid_res, ax_diff[i,j])
+            # metrics.metric_difference_dbms(cmapped_base, cmapped, grid_res, ax_diff[i,j])
             
-            scatterplot.plot_decision_map_with_points_relative(classes.reshape((grid_res, grid_res, 1)), x_data, cmap(y_data), noise, (matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1]), grid_res, matrix_side_size, cmap='tab10', fig=ax_scatter3[i,j])
+            # scatterplot.plot_decision_map_with_points_relative(classes.reshape((grid_res, grid_res, 1)), x_data, cmap(y_data), noise, (matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1]), grid_res, matrix_side_size, cmap='tab10', fig=ax_scatter3[i,j])
+
+            
 
             # plt.subplots()
             # plt.imshow(
@@ -261,6 +265,17 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
                 interpolation="none",
                 resample=False,
             )
+            r = cmapped[:,0]*metric_matrix[matrix_side_size*i+j]
+            g = cmapped[:,1]*metric_matrix[matrix_side_size*i+j]
+            b = cmapped[:,2]*metric_matrix[matrix_side_size*i+j]
+            a = cmapped[:,3]
+
+            ax_combined[i,j].imshow(
+                np.array([r,g,b,a]).reshape((grid_res, grid_res, 4)),
+                origin="lower",
+                interpolation="none",
+                resample=False,
+            )
             
             coords = f"({np.round(matrix_origin[0]+i*step[0],np.uint8(format_step[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_step[1]))})"
             ax_main[i,j].axis("off") 
@@ -269,6 +284,8 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             ax_diff[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
             ax_scatter[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
             ax_scatter3[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
+            ax_diff[i,j].axis("off") 
+            ax_combined[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
             
     cmapped2 = cmap2((metric_matrix-np.min(metric_matrix))/(np.max(metric_matrix)-np.min(metric_matrix)),)
     cmapped3 = cmap2((metric_matrix2-np.min(metric_matrix2))/(np.max(metric_matrix2)-np.min(metric_matrix2)),)
@@ -296,12 +313,13 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             ax_metric2[i,j].set_title(f"{coords}_{np.round(np.max(metric_matrix[i*matrix_side_size+j,:]),3)}", fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res)  
 
     fig_main.savefig(f"{figname}.png")
-    # fig_metric.savefig(f"{figname}_metric_nn.png")
+    fig_metric.savefig(f"{figname}_metric_nn.png")
     # fig_metric2.savefig(f"{figname}_metric_nn2.png")
-    fig_scatter.savefig(f"{figname}_scatter.png")
+    # fig_scatter.savefig(f"{figname}_scatter.png")
     # fig_scatter2.savefig(f"{figname}_scatter2.png")
-    fig_scatter3.savefig(f"{figname}_scatter3.png")
-    fig_diff.savefig(f"{figname}_difference.png")
+    # fig_scatter3.savefig(f"{figname}_scatter3.png")
+    # fig_diff.savefig(f"{figname}_difference.png")
+    fig_combined.savefig(f"{figname}_metric_ontop.png")
     plt.close("all")
 
 
@@ -345,28 +363,28 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
         # pca = PCA(n_components=2)
         # noise = pca.fit_transform(X_train)
         # noise = minmax_scale(noise, feature_range=(-1,1))
-        if os.path.exists(os.path.join(output_dir, dataset_name, "PCA_EXPERIMENT1", "X_pca.joblib")):
+        if os.path.exists(os.path.join(output_dir, dataset_name, "PCA_EXPERIMENT2", "X_pca.joblib")):
             X_train = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X.joblib')
             y_train = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/y.joblib')
             noise   = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X_pca.joblib')
 
             plot(noise, y_train, "teste_aug")
         else:
-
-            # pca = PCA(n_components=2)
-            # noise = pca.fit_transform(X_train)
-            # noise = minmax_scale(noise, feature_range=(-1,1))
-            # noise = repel_particles_all1(X, y, k=0.00001, alpha=0.02, beta=0.002, n_iter=25)
+            print("here")
+            pca = PCA(n_components=2)
+            noise = pca.fit_transform(X_train)
+            noise = minmax_scale(noise, feature_range=(0,1))
+            noise = repel_particles_all1(noise, y_train, k=0.00001, alpha=0.02, beta=0.002, n_iter=15)
             
             # pca = PCA(n_components=2)
             # noise = pca.fit_transform(X_train)
             # noise = minmax_scale(noise, feature_range=(-1,1))
             # noise = minmax_scale(repel_particles_all2(noise, y_train, n_iter=25), feature_range=(-1,1)) 
             
-            X_train, noise, y_train = expand_projection(X_train, y_train)
-            dump(X_train, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X.joblib')
-            dump(y_train, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/y.joblib')
-            dump(noise, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X_pca.joblib')
+            # X_train, noise, y_train = expand_projection(X_train, y_train)
+            # dump(X_train, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X.joblib')
+            # dump(y_train, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/y.joblib')
+            dump(noise, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT2/X_pca.joblib')
     else:
         noise = tf.zeros((X_train.shape[0],0))
 
@@ -475,30 +493,30 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
     )
     # print(np.shape(X))
     if method == "noise":
-        noise = tf.random.stateless_uniform(seed=(420,420), minval=-1, maxval=1, shape=(X_train.shape[0],2))
-        # pca = PCA(n_components=2)
-        # noise = pca.fit_transform(X_train)
-        # noise = minmax_scale(noise, feature_range=(-1,1))
-        if os.path.exists(os.path.join(output_dir, dataset_name, "PCA_EXPERIMENT3", "X_pca.joblib")):
-            # X_train = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X.joblib')
-            # y_train = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/y.joblib')
-            noise   = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT3/X_pca.joblib')
-        else:
+        # noise = tf.random.stateless_uniform(seed=(420,420), minval=-1, maxval=1, shape=(X_train.shape[0],2))
+        pca = PCA(n_components=2)
+        noise = pca.fit_transform(X_train)
+        noise = minmax_scale(noise, feature_range=(-1,1))
+        # if os.path.exists(os.path.join(output_dir, dataset_name, "PCA_EXPERIMENT1", "X_pca.joblib")):
+        #     X_train = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X.joblib')
+        #     y_train = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/y.joblib')
+        #     noise   = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X_pca.joblib')
+        # else:
 
-            # pca = PCA(n_components=2)
-            # noise = pca.fit_transform(X_train)
-            # noise = minmax_scale(noise, feature_range=(-1,1))
-            # noise = repel_particles_all1(X, y, k=0.00001, alpha=0.02, beta=0.002, n_iter=25)
+        #     # pca = PCA(n_components=2)
+        #     # noise = pca.fit_transform(X_train)
+        #     # noise = minmax_scale(noise, feature_range=(-1,1))
+        #     # noise = repel_particles_all1(noise, y_train, k=0.00001, alpha=0.02, beta=0.002, n_iter=25)
             
-            pca = PCA(n_components=2)
-            noise = pca.fit_transform(X_train)
-            noise = minmax_scale(noise, feature_range=(-1,1))
-            noise = minmax_scale(repel_particles_all2(noise, y_train, n_iter=25), feature_range=(-1,1)) 
+        #     # pca = PCA(n_components=2)
+        #     # noise = pca.fit_transform(X_train)
+        #     # noise = minmax_scale(noise, feature_range=(-1,1))
+        #     # noise = minmax_scale(repel_particles_all2(noise, y_train, n_iter=25), feature_range=(-1,1)) 
             
-            # X_train, noise, y_train = expand_projection(X_train, y_train)
-            # dump(X_train, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X.joblib')
-            # dump(y_train, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/y.joblib')
-            dump(noise, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT3/X_pca.joblib')
+        #     X_train, noise, y_train = expand_projection(X_train, y_train)
+        #     dump(X_train, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X.joblib')
+        #     dump(y_train, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/y.joblib')
+        #     dump(noise, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X_pca.joblib')
     else:
         noise = tf.zeros((X_train.shape[0],0))
 
@@ -565,7 +583,7 @@ if __name__ == "__main__":
 
     output_dir = "weights"
     model_name_ops = ["ssnp", "sharp", "nninv"]
-    model_name = model_name_ops[2]
+    model_name = model_name_ops[1]
     # dataset = "mnist"
     dataset_ops = ["mnist", "fashionmnist"] # , "har", "reuters"
     dataset = dataset_ops[0]
