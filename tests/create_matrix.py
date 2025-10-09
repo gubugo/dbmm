@@ -37,7 +37,7 @@ import interface.models.ssnp as ssnp
 import interface.models.nninv as nninv
 import interface.utils.metrics as metrics
 import interface.utils.scatterplot as scatterplot
-from interface.utils.tensor_test import expand_projection, repel_particles_all1, repel_particles_all2
+from interface.utils.expand_augmentations import expand_projection, repel_particles_all1, repel_particles_all2
 
 
 tf.random.set_seed(420)
@@ -285,7 +285,7 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
 
     for i in range(matrix_side_size):
         for j in range(matrix_side_size):
-            fixed_metric_matrix = np.power(1-metric_matrix_scaled[matrix_side_size*i+j],1/1.5)
+            fixed_metric_matrix = np.power(1-metric_matrix_scaled[matrix_side_size*i+j],1/1.25)
             cmapped[matrix_side_size*i+j,:,0] = cmapped[matrix_side_size*i+j,:,0]*fixed_metric_matrix
             cmapped[matrix_side_size*i+j,:,1] = cmapped[matrix_side_size*i+j,:,1]*fixed_metric_matrix
             cmapped[matrix_side_size*i+j,:,2] = cmapped[matrix_side_size*i+j,:,2]*fixed_metric_matrix

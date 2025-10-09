@@ -3,12 +3,12 @@ from typing import Callable, Optional, Union
 
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
-import interface.utils.metrics as metrics
+import utils.metrics as metrics
 import numpy as np
 import pylab
 #import radial
 import tensorflow as tf
-from interface.models.sampling_layers import get_layer_builder, SphericalSampling
+from models.sampling_layers import get_layer_builder, SphericalSampling
 from sklearn.preprocessing import LabelBinarizer, minmax_scale
 
 # from tensorflow import keras as tfk
