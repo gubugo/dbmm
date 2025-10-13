@@ -6,28 +6,26 @@ import sys
 import warnings
 import subprocess
 
-
-
 warnings.filterwarnings("ignore")
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import matplotlib.pyplot as plt
+from matplotlib import colors
 import numpy as np
 from sklearn.model_selection import train_test_split
 
-
 # from ipycanvas import canvas
-
+from sklearn.preprocessing import minmax_scale
 import streamlit as st
+import plotly.graph_objects as go
 import plotly.io as pio
 pio.templates.default = 'plotly' 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
-
 # from MulticoreTSNE import MulticoreTSNE as TSNE
 # from umap import UMAP
 from utils.augmentations import get_augmentation_pca
-from utils.dbm import gen_and_save_dbm
+from utils.dbm import gen_and_save_dbm, get_bounding_box, make_grid
 import models.sharp as sharp
 import models.ssnp as ssnp
 import models.nninv as nninv
@@ -57,7 +55,7 @@ def plot(X, y, figname=None):
     del fig
     del ax
 
-# @st.cache_resource
+@st.cache_resource
 def Load_data(path, dataset):
     X = np.load(os.path.join(path, dataset, "X.npy"))
     y = np.load(os.path.join(path, dataset, "y.npy"))
@@ -83,7 +81,7 @@ def get_inv_proj_data_ae(output_dir, _model, dataset_name, model_name, method, e
 
     X_proj, _model, limits = load_or_fit_model_ae(X, y, augmentation, X_test, output_dir, _model, dataset_name, model_name, method, epochs)
     classifier = load_or_fit_mlp_classifier(X, y, f'{output_dir}/{dataset_name}')
-    return X_proj, _model, classifier, limits
+    return X_proj, y_test, _model, classifier, limits
 
 @st.cache_resource
 def get_inv_proj_data_mlp(output_dir, _model, _inv_model, dataset_name, model_name, method, epochs, random_state):
@@ -138,7 +136,7 @@ if __name__ == "__main__":
     dims = sharp_dims_classes[dataset][0]
     classes = sharp_dims_classes[dataset][1]
 
-    results_2d, inv_model, clf, limits = get_inv_proj_data_ae( #get_inv_proj_data_sharp(output_dir)
+    results_2d, labels, inv_model, clf, limits = get_inv_proj_data_ae( #get_inv_proj_data_sharp(output_dir)
         output_dir, 
         sharp.ShaRP(
             # dims,
@@ -176,9 +174,48 @@ if __name__ == "__main__":
     y = st.sidebar.slider('y', limits[2], limits[3], 0.0, step=10**(slidery_step), format=f"%0.{np.array([np.abs(slidery_step)], dtype=np.int8)[0]}f")
 
     grid_res = st.sidebar.selectbox("DBM Resolution", (50, 75, 100, 150, 200))
+    st.session_state.fig = go.Figure()
+    # st.session_state.fig = gen_and_save_dbm(results_2d, labels, clf, inv_model, output_dir, grid_res, "reuters", "pca", x, y, st.session_state.fig)
 
-    fig = gen_and_save_dbm(results_2d, clf, inv_model, output_dir, grid_res, "reuters", "pca", x, y)
-    st.plotly_chart(fig, use_container_width=True)
+    fig = st.session_state.fig
+    bounding_box = get_bounding_box(results_2d)
+    grid = make_grid(*bounding_box, x, y, grid_res)
+    aux = inv_model.inverse_transform(grid)
+
+    classes = clf.predict(aux).astype(np.uint8)
+
+    gd_v = [colors.to_hex(i) for i in cmap(labels)]
+    cmapped = cmap(classes)*255
+
+    fig.add_trace(
+        go.Image(z=np.reshape(cmapped,(grid_res, grid_res, 4)))
+    )
+    # fig = px.imshow(np.reshape(cmapped,(grid_res, grid_res, 4)))
+    # fig.add_trace(
+    #     go.Scatter(
+    #         x=minmax_scale(results_2d[:,0], feature_range=(0,grid_res)), 
+    #         y=minmax_scale(results_2d[:,1], feature_range=(0,grid_res)), 
+    #         marker=dict(
+    #             size=10,
+    #             color=gd_v  # Assign the NumPy array of colors here
+    #         ),
+    #         marker_line_width=1,
+    #         mode='markers', 
+    #         name='Initial Trace',
+    #         visible=True
+    #     )
+        
+    # )
+    fig.update_layout(
+      hovermode=False,
+      xaxis=dict(visible=False),  # Hide x-axis
+      yaxis=dict(visible=False),  # Hide y-axis
+      margin=dict(l=0, r=0, t=0, b=0)  # Remove margins
+    )
+
+    st.session_state.fig.show()
+
+    st.plotly_chart(fig)#, use_container_width=True
 
 
 
