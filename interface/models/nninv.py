@@ -8,7 +8,7 @@ import tensorflow as tf
 from keras import backend as K
 from keras.callbacks import EarlyStopping
 from keras.initializers import Constant
-from keras.layers import Dense, Dropout, Input, Concatenate, Activation, BatchNormalizationV2
+from keras.layers import Dense, Dropout, Input, Concatenate, Activation, BatchNormalization
 from keras.models import Sequential, Model, load_model
 from keras import regularizers, optimizers, losses, layers
 

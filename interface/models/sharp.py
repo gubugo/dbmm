@@ -127,21 +127,21 @@ class Decoder(tfkl.Layer):
             kernel_initializer=self.init,
             bias_initializer=Constant(self.bias),
         )
-        self.bn1 = tfkl.BatchNormalizationV2()
+        self.bn1 = tfkl.BatchNormalization()
         self.dec2 = tfkl.Dense(
             128,
             activation=self.act,
             kernel_initializer=self.init,
             bias_initializer=Constant(self.bias),
         )
-        self.bn2 = tfkl.BatchNormalizationV2()
+        self.bn2 = tfkl.BatchNormalization()
         self.dec3 = tfkl.Dense(
             512,
             activation=self.act,
             kernel_initializer=self.init,
             bias_initializer=Constant(self.bias),
         )
-        self.bn3 = tfkl.BatchNormalizationV2()
+        self.bn3 = tfkl.BatchNormalization()
 
     def get_config(self):
         return {"act": self.act, "init": self.init, "bias": self.bias}
@@ -341,7 +341,9 @@ class ShaRP(tfk.Model):
         z_mean, z_log_var, z = self.variational(encoded)
 
         # if isinstance(self.variational, SphericalSampling):
-        #     z = self.variational._map_to_angles(z)
+        #     z = self.variational._map_to_angles(z)]
+        tf.print("TEST")
+        tf.print(np.shape(z))
         decoded = self.decoder(tfkl.Concatenate(axis=1)([z, inputs[1]]))#
         # tf.debugging.check_numerics(decoded, "decoded")
 

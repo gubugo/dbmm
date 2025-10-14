@@ -6,6 +6,9 @@ import sys
 import warnings
 import subprocess
 
+
+
+
 warnings.filterwarnings("ignore")
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
@@ -17,15 +20,21 @@ from sklearn.model_selection import train_test_split
 # from ipycanvas import canvas
 from sklearn.preprocessing import minmax_scale
 import streamlit as st
+
+import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
+from plotly.subplots import make_subplots
 pio.templates.default = 'plotly' 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 # from MulticoreTSNE import MulticoreTSNE as TSNE
 # from umap import UMAP
 from utils.augmentations import get_augmentation_pca
-from utils.dbm import gen_and_save_dbm, get_bounding_box, make_grid
+from utils.dbm import gen_and_save_dbm
+from utils.dbm_matrix import gen_and_save_dbm_matrix
+from utils.utils import make_titles
+
 import models.sharp as sharp
 import models.ssnp as ssnp
 import models.nninv as nninv
@@ -105,6 +114,26 @@ def get_inv_proj_data_mlp(output_dir, _model, _inv_model, dataset_name, model_na
     classifier = load_or_fit_mlp_classifier(X, y, f'{output_dir}/{dataset_name}')
     return X_proj, _inv_model, classifier, limits
 
+@st.cache_resource
+def get_matrix_fig(results_2d, labels, _clf, _inv_model, grid_res, scatter, closest_tp, start, step, size):
+    fig = make_subplots(rows=size, cols=size, horizontal_spacing=0.01, vertical_spacing=0.01, subplot_titles=titles)
+    for i in range(size):
+        for j in range(size):
+            fig = gen_and_save_dbm_matrix(results_2d, labels, _clf, _inv_model, grid_res, i, j, fig, scatter, closest_tp, start, step)
+    
+    fig.update_layout(
+        hovermode='closest',
+        width=1000,  # Set the width in pixels
+        height=800,  # Set the height in pixels
+        xaxis=dict(visible=False),  # Hide x-axis
+        yaxis=dict(visible=False),  # Hide y-axis
+        margin=dict(l=0, r=0, t=15, b=0), # Remove margins
+    )
+    fig.update_annotations(font_size=10, yshift=-5) # New coordinates
+    fig.update_xaxes(visible=False)
+    fig.update_yaxes(visible=False)
+    return fig
+
 if __name__ == "__main__":
 
     python_executable = sys.executable
@@ -165,7 +194,6 @@ if __name__ == "__main__":
         420
     )
 
-        # model.fit(X=)
     sliderx_step = np.floor(np.log10(limits[1]-limits[0]))-2
     slidery_step = np.floor(np.log10(limits[3]-limits[2]))-2
 
@@ -173,49 +201,46 @@ if __name__ == "__main__":
     x = st.sidebar.slider('x', limits[0], limits[1], 0.0, step=10**(sliderx_step), format=f"%0.{np.array([np.abs(sliderx_step)], dtype=np.int8)[0]}f")
     y = st.sidebar.slider('y', limits[2], limits[3], 0.0, step=10**(slidery_step), format=f"%0.{np.array([np.abs(slidery_step)], dtype=np.int8)[0]}f")
 
+    if st.sidebar.checkbox("Show Scatterplots"):
+        scatter = True
+    else:
+        scatter = False
+
+    if st.sidebar.checkbox("Show Closest Training Point"):
+        closest_tp = True
+    else:
+        closest_tp = False
+
     grid_res = st.sidebar.selectbox("DBM Resolution", (50, 75, 100, 150, 200))
-    st.session_state.fig = go.Figure()
-    # st.session_state.fig = gen_and_save_dbm(results_2d, labels, clf, inv_model, output_dir, grid_res, "reuters", "pca", x, y, st.session_state.fig)
+    start = (-1.0,-1.0)
+    step  = (0.25,0.25)
+    size = 9
 
-    fig = st.session_state.fig
-    bounding_box = get_bounding_box(results_2d)
-    grid = make_grid(*bounding_box, x, y, grid_res)
-    aux = inv_model.inverse_transform(grid)
+    col1, col2 = st.columns(2)
 
-    classes = clf.predict(aux).astype(np.uint8)
+    with col1:
+        titles = make_titles(start,step,size)
 
-    gd_v = [colors.to_hex(i) for i in cmap(labels)]
-    cmapped = cmap(classes)*255
-
-    fig.add_trace(
-        go.Image(z=np.reshape(cmapped,(grid_res, grid_res, 4)))
-    )
-    # fig = px.imshow(np.reshape(cmapped,(grid_res, grid_res, 4)))
-    # fig.add_trace(
-    #     go.Scatter(
-    #         x=minmax_scale(results_2d[:,0], feature_range=(0,grid_res)), 
-    #         y=minmax_scale(results_2d[:,1], feature_range=(0,grid_res)), 
-    #         marker=dict(
-    #             size=10,
-    #             color=gd_v  # Assign the NumPy array of colors here
-    #         ),
-    #         marker_line_width=1,
-    #         mode='markers', 
-    #         name='Initial Trace',
-    #         visible=True
-    #     )
         
-    # )
-    fig.update_layout(
-      hovermode=False,
-      xaxis=dict(visible=False),  # Hide x-axis
-      yaxis=dict(visible=False),  # Hide y-axis
-      margin=dict(l=0, r=0, t=0, b=0)  # Remove margins
-    )
+        fig = get_matrix_fig(results_2d, labels, clf, inv_model, grid_res, scatter, closest_tp, start, step, size)
+        # fig.show() # debug
+        
+        st.plotly_chart(fig, use_container_width=True)#, 
 
-    st.session_state.fig.show()
-
-    st.plotly_chart(fig)#, use_container_width=True
+    with col2:
+        fig2 = go.Figure()
+        fig2 = gen_and_save_dbm(results_2d, labels, clf, inv_model, grid_res, x, y, fig2, scatter, closest_tp)
+        fig2.update_layout(
+            hovermode='closest',
+            width=1000,  # Set the width in pixels
+            height=800,  # Set the height in pixels
+            xaxis=dict(visible=False),  # Hide x-axis
+            yaxis=dict(visible=False),  # Hide y-axis
+            margin=dict(l=100, r=0, t=15, b=0), # Remove margins
+        )
+        # st.write(f"({x},{y})")
+        st.plotly_chart(fig2, use_container_width=True)#, 
+    
 
 
 

@@ -33,11 +33,15 @@ def generate_dbm(
     labels: np.ndarray,
     grid_res: int,
     # ax: Axes,
-    pos1: float,
-    pos2: float, 
+    v1: float,
+    v2: float, 
+    start_step: tuple,
+    step: tuple,
     fig: Any,
     cmap=cmap,
 ):
+    pos1 = start_step[0]+step[0]*v1
+    pos2 = start_step[1]+step[1]*v2
 
     bounding_box = get_bounding_box(data)
     grid = make_grid(*bounding_box, pos1, pos2, grid_res)
@@ -48,7 +52,7 @@ def generate_dbm(
     cmapped = cmap(classes)*255
 
     fig.add_trace(
-        go.Image(z=np.reshape(cmapped,(grid_res, grid_res, 4)))
+        go.Image(z=np.reshape(cmapped,(grid_res, grid_res, 4))), row=v1+1, col=v2+1
     )
     return fig
 
@@ -56,6 +60,8 @@ def generate_dbm_w_scatterplots(
     data: np.ndarray,
     labels: np.ndarray,
     grid_res: int,
+    v1: float,
+    v2: float, 
     fig: Any,
     cmap=cmap,
 ):
@@ -76,7 +82,8 @@ def generate_dbm_w_scatterplots(
             visible=True,
             hoverinfo='none',
             showlegend=False
-        )
+        ), row=v1+1, col=v2+1
+        
     )
 
     return fig
@@ -87,17 +94,19 @@ def get_bounding_box(X_proj: np.ndarray) -> tuple[float, float, float, float]:
 
     return x_min, x_max, y_min, y_max
 
-def gen_and_save_dbm(
+def gen_and_save_dbm_matrix(
     X_2d: np.ndarray,
     y: np.ndarray,
     classifier: ClassifierMixin,
     inverter: Union[sharp.ShaRP, ssnp.SSNP, nninv.NNInv],
     grid_res: int,
-    pos1: int,
-    pos2: int,
+    v1: int,
+    v2: int,
     fig: Any,
     scatter: bool,
     closest_tp:bool,
+    start: tuple,
+    step: tuple
 ):
     fig = generate_dbm(
         classifier,
@@ -106,8 +115,10 @@ def gen_and_save_dbm(
         y,
         grid_res=grid_res,
         # ax=ax,
-        pos1=pos1,
-        pos2=pos2,
+        v1=v1,
+        v2=v2,
+        start_step=start,
+        step=step,
         fig=fig,
         cmap=cmap if len(classifier.classes_) <= 10 else plt.get_cmap("tab20"),  
     )
@@ -116,6 +127,8 @@ def gen_and_save_dbm(
             X_2d,
             y,
             grid_res=grid_res,
+            v1=v1,
+            v2=v2,
             fig=fig,
             cmap=cmap if len(classifier.classes_) <= 10 else plt.get_cmap("tab20"),        
         )

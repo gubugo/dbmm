@@ -12,7 +12,7 @@ from keras import datasets as kdatasets
 from keras import losses, optimizers, regularizers, layers
 from keras.callbacks import EarlyStopping
 from keras.initializers import Constant
-from keras.layers import Dense, Dropout, Input, Concatenate, BatchNormalizationV2
+from keras.layers import Dense, Dropout, Input, Concatenate, BatchNormalization
 from keras.models import Model, Sequential, load_model
 # os.environ["TF_DETERMINISTIC_OPS"] = "1"
 
@@ -168,7 +168,7 @@ class SSNP:
             name="enc1",
             bias_initializer=Constant(self.bias),
         )(concat)
-        # x = BatchNormalizationV2(name="bn1")(x)
+        # x = BatchNormalization(name="bn1")(x)
         # x = Custom_Dropout(0.1, name='do1')(x)
         x = Dense(
             128,
@@ -177,7 +177,7 @@ class SSNP:
             name="enc2",
             bias_initializer=Constant(self.bias),
         )(x)
-        # x = BatchNormalizationV2(name="bn2")(x)
+        # x = BatchNormalization(name="bn2")(x)
         x = Dense(
             512,
             activation=self.act,
@@ -185,7 +185,7 @@ class SSNP:
             name="enc3",
             bias_initializer=Constant(self.bias),
         )(x)
-        # x = BatchNormalizationV2(name="bn3")(x)
+        # x = BatchNormalization(name="bn3")(x)
         n_classes = len(np.unique(y))
 
         if n_classes == 2:
