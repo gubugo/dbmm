@@ -56,38 +56,6 @@ def generate_dbm(
     )
     return fig
 
-def generate_dbm_w_scatterplots(
-    data: np.ndarray,
-    labels: np.ndarray,
-    grid_res: int,
-    v1: float,
-    v2: float, 
-    fig: Any,
-    cmap=cmap,
-):
-
-    groundtruth_colors = [colors.to_hex(i) for i in cmap(labels)]
-
-    fig.add_trace(
-        go.Scatter(
-            x=minmax_scale(data[:,0], feature_range=(0,grid_res)), 
-            y=minmax_scale(data[:,1], feature_range=(0,grid_res)), 
-            marker=dict(
-                size=5,
-                opacity=0.5,
-                color=groundtruth_colors  # Assign the NumPy array of colors here
-            ),
-            marker_line_width=1,
-            mode='markers', 
-            visible=True,
-            hoverinfo='none',
-            showlegend=False
-        ), row=v1+1, col=v2+1
-        
-    )
-
-    return fig
-
 def get_bounding_box(X_proj: np.ndarray) -> tuple[float, float, float, float]:
     x_min, y_min = X_proj.min(axis=0)
     x_max, y_max = X_proj.max(axis=0)
@@ -103,8 +71,6 @@ def gen_and_save_dbm_matrix(
     v1: int,
     v2: int,
     fig: Any,
-    scatter: bool,
-    closest_tp:bool,
     start: tuple,
     step: tuple
 ):
@@ -122,17 +88,6 @@ def gen_and_save_dbm_matrix(
         fig=fig,
         cmap=cmap if len(classifier.classes_) <= 10 else plt.get_cmap("tab20"),  
     )
-    if scatter:    
-        fig = generate_dbm_w_scatterplots(
-            X_2d,
-            y,
-            grid_res=grid_res,
-            v1=v1,
-            v2=v2,
-            fig=fig,
-            cmap=cmap if len(classifier.classes_) <= 10 else plt.get_cmap("tab20"),        
-        )
-    # elif closest_tp:
 
               
     # print(fig)

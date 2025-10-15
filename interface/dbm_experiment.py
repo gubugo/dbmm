@@ -6,9 +6,6 @@ import sys
 import warnings
 import subprocess
 
-
-
-
 warnings.filterwarnings("ignore")
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
@@ -16,9 +13,10 @@ import matplotlib.pyplot as plt
 from matplotlib import colors
 import numpy as np
 from sklearn.model_selection import train_test_split
-
-# from ipycanvas import canvas
+from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import minmax_scale
+# from ipycanvas import canvas
+
 import streamlit as st
 
 import plotly.express as px
@@ -90,7 +88,11 @@ def get_inv_proj_data_ae(output_dir, _model, dataset_name, model_name, method, e
 
     X_proj, _model, limits = load_or_fit_model_ae(X, y, augmentation, X_test, output_dir, _model, dataset_name, model_name, method, epochs)
     classifier = load_or_fit_mlp_classifier(X, y, f'{output_dir}/{dataset_name}')
-    return X_proj, y_test, _model, classifier, limits
+
+    neighbor_finder_model = NearestNeighbors(n_neighbors=5) 
+    neighbor_finder_model.fit(X)
+
+    return X_proj, y_test, _model, classifier, neighbor_finder_model, limits
 
 @st.cache_resource
 def get_inv_proj_data_mlp(output_dir, _model, _inv_model, dataset_name, model_name, method, epochs, random_state):
@@ -115,11 +117,11 @@ def get_inv_proj_data_mlp(output_dir, _model, _inv_model, dataset_name, model_na
     return X_proj, _inv_model, classifier, limits
 
 @st.cache_resource
-def get_matrix_fig(results_2d, labels, _clf, _inv_model, grid_res, scatter, closest_tp, start, step, size):
+def get_matrix_fig(results_2d, labels, _clf, _inv_model, grid_res, start, step, size):
     fig = make_subplots(rows=size, cols=size, horizontal_spacing=0.01, vertical_spacing=0.01, subplot_titles=titles)
     for i in range(size):
         for j in range(size):
-            fig = gen_and_save_dbm_matrix(results_2d, labels, _clf, _inv_model, grid_res, i, j, fig, scatter, closest_tp, start, step)
+            fig = gen_and_save_dbm_matrix(results_2d, labels, _clf, _inv_model, grid_res, i, j, fig, start, step)
     
     fig.update_layout(
         hovermode='closest',
@@ -139,6 +141,9 @@ if __name__ == "__main__":
     python_executable = sys.executable
     if not os.path.exists("data"):
         subprocess.run([python_executable, "get_data.py"])
+
+    st.set_page_config(layout="wide")
+
 
     output_dir = "weights"
     # model_name = st.sidebar.selectbox("Inverse Projection Method", ("ssnp", "sharp", "nninv"))
@@ -165,7 +170,7 @@ if __name__ == "__main__":
     dims = sharp_dims_classes[dataset][0]
     classes = sharp_dims_classes[dataset][1]
 
-    results_2d, labels, inv_model, clf, limits = get_inv_proj_data_ae( #get_inv_proj_data_sharp(output_dir)
+    results_2d, labels, inv_model, clf, nn_model, limits = get_inv_proj_data_ae( #get_inv_proj_data_sharp(output_dir)
         output_dir, 
         sharp.ShaRP(
             # dims,
@@ -221,15 +226,14 @@ if __name__ == "__main__":
     with col1:
         titles = make_titles(start,step,size)
 
-        
-        fig = get_matrix_fig(results_2d, labels, clf, inv_model, grid_res, scatter, closest_tp, start, step, size)
+        fig = get_matrix_fig(results_2d, labels, clf, inv_model, grid_res, start, step, size)
         # fig.show() # debug
         
         st.plotly_chart(fig, use_container_width=True)#, 
 
     with col2:
         fig2 = go.Figure()
-        fig2 = gen_and_save_dbm(results_2d, labels, clf, inv_model, grid_res, x, y, fig2, scatter, closest_tp)
+        fig2 = gen_and_save_dbm(results_2d, labels, clf, nn_model, inv_model, grid_res, x, y, fig2, scatter, closest_tp)
         fig2.update_layout(
             hovermode='closest',
             width=1000,  # Set the width in pixels

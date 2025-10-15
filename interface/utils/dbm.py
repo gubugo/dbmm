@@ -6,6 +6,7 @@ from matplotlib import colors
 import numpy as np
 from sklearn.base import ClassifierMixin
 from sklearn.neural_network import MLPClassifier
+from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import minmax_scale
 import streamlit as st
 import plotly.express as px
@@ -28,6 +29,7 @@ def make_grid(
 
 def generate_dbm(
     model: MLPClassifier,
+    nn_model: NearestNeighbors,
     inverter: Union[sharp.ShaRP, ssnp.SSNP, nninv.NNInv],
     data: np.ndarray,
     labels: np.ndarray,
@@ -45,6 +47,8 @@ def generate_dbm(
 
     classes = model.predict(aux).astype(np.uint8)
 
+    res = model.predict_proba(aux)
+
     cmapped = cmap(classes)*255
 
     fig.add_trace(
@@ -59,13 +63,12 @@ def generate_dbm_w_scatterplots(
     fig: Any,
     cmap=cmap,
 ):
-
     groundtruth_colors = [colors.to_hex(i) for i in cmap(labels)]
 
     fig.add_trace(
         go.Scatter(
-            x=minmax_scale(data[:,0], feature_range=(0,grid_res)), 
-            y=minmax_scale(data[:,1], feature_range=(0,grid_res)), 
+            x=minmax_scale(data[:,0])*grid_res, 
+            y=minmax_scale(data[:,1])*grid_res, 
             marker=dict(
                 size=5,
                 opacity=0.5,
@@ -91,6 +94,7 @@ def gen_and_save_dbm(
     X_2d: np.ndarray,
     y: np.ndarray,
     classifier: ClassifierMixin,
+    nn_model: NearestNeighbors,
     inverter: Union[sharp.ShaRP, ssnp.SSNP, nninv.NNInv],
     grid_res: int,
     pos1: int,
@@ -101,6 +105,7 @@ def gen_and_save_dbm(
 ):
     fig = generate_dbm(
         classifier,
+        nn_model,
         inverter,
         X_2d,
         y,
