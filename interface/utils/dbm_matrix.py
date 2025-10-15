@@ -11,20 +11,12 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 
+from utils.utils import make_grid, get_bounding_box
 import models.sharp as sharp
 import models.ssnp as ssnp
 import models.nninv as nninv
 
 cmap = plt.get_cmap("tab10")
-
-def make_grid(
-    x_min: float, x_max: float, y_min: float, y_max: float, v1: float, v2: float, side_length: int
-) -> np.ndarray:
-    xx, yy = np.meshgrid(
-        np.linspace(x_min, x_max, side_length), np.linspace(y_min, y_max, side_length)
-    )
-    
-    return np.array([[i[0], i[1], v1, v2] for i in np.c_[xx.ravel(), yy.ravel()]])
 
 def generate_dbm(
     model: MLPClassifier,
@@ -55,12 +47,6 @@ def generate_dbm(
         go.Image(z=np.reshape(cmapped,(grid_res, grid_res, 4))), row=v1+1, col=v2+1
     )
     return fig
-
-def get_bounding_box(X_proj: np.ndarray) -> tuple[float, float, float, float]:
-    x_min, y_min = X_proj.min(axis=0)
-    x_max, y_max = X_proj.max(axis=0)
-
-    return x_min, x_max, y_min, y_max
 
 def gen_and_save_dbm_matrix(
     X_2d: np.ndarray,

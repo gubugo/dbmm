@@ -166,12 +166,10 @@ def plot_generated_images_grid_with_dbm(model_nninv, classifier, grid_res, bb, m
     fig_main.savefig(filepath, dpi=300, bbox_inches="tight")
     print(f"Figure saved to {filepath}")
 
-def plot_decision_map_with_points_relative(decision_map, points, labels, extra_dims, map_extra_coords, map_size, matrix_side, cmap='tab10', fig=None):
+def plot_decision_map_with_points_relative(decision_map, points, labels, extra_dims, map_extra_coords, map_size, matrix_side, fig=None):
     # putting the dbm in the background
     fig.imshow(decision_map, interpolation='none', cmap='tab10',  vmin=0, vmax=9, origin='lower')
 
-
-    black = np.array([0,0,0])
     inv_sqrt_2pi = 1/np.sqrt(2*np.pi)
 
     for i, value in enumerate(extra_dims):
@@ -190,3 +188,17 @@ def plot_decision_map_with_points_relative(decision_map, points, labels, extra_d
     # cbar = fig.colorbar(img, ticks=range(10))
     fig.grid(False)
     fig.axis("off") 
+
+
+def apply_local_points_to_alpha(colors, extra_dims, map_extra_coords):
+    inv_sqrt_2pi = 1/np.sqrt(2*np.pi)
+    
+    for i, value in enumerate(extra_dims):
+        v = get_normal_dist(value[0],map_extra_coords[0],inv_sqrt_2pi)*get_normal_dist(value[1],map_extra_coords[1],inv_sqrt_2pi)
+
+        # print(v)
+        # labels[i,0:3] = v*labels[i,0:3]
+        colors[i,3] = (np.exp(v-1)-1*np.exp(-1))*colors[i,3]
+
+    return colors
+    

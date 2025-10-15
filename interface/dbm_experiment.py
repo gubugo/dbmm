@@ -6,6 +6,7 @@ import sys
 import warnings
 import subprocess
 
+
 warnings.filterwarnings("ignore")
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
@@ -31,7 +32,9 @@ pio.templates.default = 'plotly'
 from utils.augmentations import get_augmentation_pca
 from utils.dbm import gen_and_save_dbm
 from utils.dbm_matrix import gen_and_save_dbm_matrix
-from utils.utils import make_titles
+from utils.metrics import metric_distance_to_nearest_neighbor
+from utils.nnm import gen_and_save_nnm
+from utils.utils import get_bounding_box, make_grid, make_titles
 
 import models.sharp as sharp
 import models.ssnp as ssnp
@@ -41,26 +44,8 @@ from training.classifier import load_or_fit_mlp_classifier
 from training.auto_encoders import load_or_fit_model_ae
 from training.inv_proj import load_or_fit_model_inv_proj
 
-cmap = plt.get_cmap("tab10")
-
-def plot(X, y, figname=None):
-    if len(np.unique(y)) <= 10:
-        cmap = plt.get_cmap('tab10')
-    else:
-        cmap = plt.get_cmap("tab20")
-
-    fig, ax = plt.subplots(figsize=(20, 20))
-
-    for cl in np.unique(y):
-        ax.scatter(X[y == cl, 0], X[y == cl, 1], c=[cmap(cl)], label=cl, s=375)
-        ax.axis("off")
-
-    if figname is not None:
-        fig.savefig(figname)
-
-    plt.close("all")
-    del fig
-    del ax
+cmap_main = plt.get_cmap("tab10")
+cmap_nn   = plt.get_cmap("viridis")
 
 @st.cache_resource
 def Load_data(path, dataset):
@@ -80,11 +65,18 @@ def get_inv_proj_data_ae(output_dir, _model, dataset_name, model_name, method, e
         X, y, train_size=train_size, random_state=random_state, stratify=y
     )
 
+    augmentation = get_augmentation_pca(X)
+
+    X = np.concatenate((X,augmentation), axis=1)
+
     _, X_test, _, y_test = train_test_split(
         X, y, train_size=int(train_size*0.9), random_state=random_state, stratify=y
     )
 
-    augmentation = get_augmentation_pca(X)
+    augmentation = X[:,-2:]
+    X = X[:,:-2]
+    augmentation_test = X_test[:,-2:]
+    X_test = X_test[:,:-2]
 
     X_proj, _model, limits = load_or_fit_model_ae(X, y, augmentation, X_test, output_dir, _model, dataset_name, model_name, method, epochs)
     classifier = load_or_fit_mlp_classifier(X, y, f'{output_dir}/{dataset_name}')
@@ -92,7 +84,7 @@ def get_inv_proj_data_ae(output_dir, _model, dataset_name, model_name, method, e
     neighbor_finder_model = NearestNeighbors(n_neighbors=5) 
     neighbor_finder_model.fit(X)
 
-    return X_proj, y_test, _model, classifier, neighbor_finder_model, limits
+    return X_proj, y_test, augmentation_test, _model, classifier, neighbor_finder_model, limits
 
 @st.cache_resource
 def get_inv_proj_data_mlp(output_dir, _model, _inv_model, dataset_name, model_name, method, epochs, random_state):
@@ -115,6 +107,23 @@ def get_inv_proj_data_mlp(output_dir, _model, _inv_model, dataset_name, model_na
     X_proj, _inv_model, limits = load_or_fit_model_inv_proj(X, y, augmentation, X_test, output_dir, _model, _inv_model, dataset_name, model_name, method, epochs, random_state)
     classifier = load_or_fit_mlp_classifier(X, y, f'{output_dir}/{dataset_name}')
     return X_proj, _inv_model, classifier, limits
+
+@st.cache_resource
+def get_nn_matrix(results_2d, _nn_model, _inv_model, grid_res, start, step, size):
+    metric_matrix = np.zeros((size*size,grid_res*grid_res))
+    bounding_box = get_bounding_box(results_2d)
+
+    for i in range(size):
+        for j in range(size):
+            grid = make_grid(*bounding_box, start[0]+i*step[0], start[1]+j*step[1], grid_res)
+            inverted_grid = inv_model.inverse_transform(grid)
+
+            metric_matrix[size*i+j] = metric_distance_to_nearest_neighbor(inverted_grid, _nn_model)
+    
+    max_v = np.max(metric_matrix)
+    min_v = np.min(metric_matrix)
+
+    return minmax_scale(metric_matrix), max_v, min_v
 
 @st.cache_resource
 def get_matrix_fig(results_2d, labels, _clf, _inv_model, grid_res, start, step, size):
@@ -170,7 +179,7 @@ if __name__ == "__main__":
     dims = sharp_dims_classes[dataset][0]
     classes = sharp_dims_classes[dataset][1]
 
-    results_2d, labels, inv_model, clf, nn_model, limits = get_inv_proj_data_ae( #get_inv_proj_data_sharp(output_dir)
+    results_2d, labels, augmentation_values, inv_model, clf, nn_model, limits = get_inv_proj_data_ae( #get_inv_proj_data_sharp(output_dir)
         output_dir, 
         sharp.ShaRP(
             # dims,
@@ -206,20 +215,22 @@ if __name__ == "__main__":
     x = st.sidebar.slider('x', limits[0], limits[1], 0.0, step=10**(sliderx_step), format=f"%0.{np.array([np.abs(sliderx_step)], dtype=np.int8)[0]}f")
     y = st.sidebar.slider('y', limits[2], limits[3], 0.0, step=10**(slidery_step), format=f"%0.{np.array([np.abs(slidery_step)], dtype=np.int8)[0]}f")
 
-    if st.sidebar.checkbox("Show Scatterplots"):
-        scatter = True
-    else:
-        scatter = False
+    scatter = st.sidebar.radio(
+        "Scatterplots",
+        ["Off", "On", "Locally"],
+    )
 
-    if st.sidebar.checkbox("Show Closest Training Point"):
-        closest_tp = True
-    else:
-        closest_tp = False
+    closest_tp = st.sidebar.radio(
+        "Nearest Training Point",
+        ["Off", "On", "Exclusive"],
+    )
 
     grid_res = st.sidebar.selectbox("DBM Resolution", (50, 75, 100, 150, 200))
     start = (-1.0,-1.0)
     step  = (0.25,0.25)
     size = 9
+
+    nn_matrix, nn_max_distance, nn_min_distance = get_nn_matrix(results_2d, nn_model, inv_model, grid_res, start, step, size)
 
     col1, col2 = st.columns(2)
 
@@ -233,7 +244,10 @@ if __name__ == "__main__":
 
     with col2:
         fig2 = go.Figure()
-        fig2 = gen_and_save_dbm(results_2d, labels, clf, nn_model, inv_model, grid_res, x, y, fig2, scatter, closest_tp)
+        if closest_tp == "Exclusive":
+            fig2 = gen_and_save_nnm(results_2d, labels, augmentation_values, nn_model, inv_model, grid_res, x, y, fig2, scatter, cmap_nn)
+        else:
+            fig2 = gen_and_save_dbm(results_2d, labels, augmentation_values, clf, nn_model, inv_model, grid_res, x, y, fig2, scatter, closest_tp, cmap_main)
         fig2.update_layout(
             hovermode='closest',
             width=1000,  # Set the width in pixels

@@ -342,8 +342,7 @@ class ShaRP(tfk.Model):
 
         # if isinstance(self.variational, SphericalSampling):
         #     z = self.variational._map_to_angles(z)]
-        tf.print("TEST")
-        tf.print(np.shape(z))
+    
         decoded = self.decoder(tfkl.Concatenate(axis=1)([z, inputs[1]]))#
         # tf.debugging.check_numerics(decoded, "decoded")
 
