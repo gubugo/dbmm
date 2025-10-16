@@ -72,10 +72,10 @@ def generate_map_w_scatterplots(
     line_colors = [f"rgba(0, 0, 0, {i[3]:.5f})" for i in cmap_colors]
     fig.add_trace(
         go.Scatter(
-            x=minmax_scale(data[:,0])*grid_res, 
-            y=minmax_scale(data[:,1])*grid_res, 
+            x=minmax_scale(data[:,0])*(grid_res-1), 
+            y=minmax_scale(data[:,1])*(grid_res-1), 
             marker=dict(
-                size=5,
+                size=8,
                 line=dict(
                     color=line_colors, width=1
                 ),

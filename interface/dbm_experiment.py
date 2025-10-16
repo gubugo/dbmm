@@ -6,7 +6,6 @@ import sys
 import warnings
 import subprocess
 
-
 warnings.filterwarnings("ignore")
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
@@ -19,7 +18,6 @@ from sklearn.preprocessing import minmax_scale
 # from ipycanvas import canvas
 
 import streamlit as st
-from streamlit_plotly_events import plotly_events
 
 import plotly.express as px
 import plotly.graph_objects as go
@@ -34,7 +32,7 @@ from utils.augmentations import get_augmentation_pca
 from utils.dbm import gen_and_save_dbm
 from utils.dbm_matrix import gen_and_save_dbm_matrix
 from utils.metrics import metric_distance_to_nearest_neighbor
-from utils.nnm import gen_and_save_nnm
+from utils.maps import gen_and_save_ccm, gen_and_save_nnm
 from utils.utils import get_bounding_box, make_grid, make_titles
 
 import models.sharp as sharp
@@ -146,11 +144,17 @@ def get_matrix_fig(results_2d, labels, _clf, _inv_model, grid_res, start, step, 
     fig.update_yaxes(visible=False)
     return fig
 
-def handle_click(trace, points, selector):
-    if points.point_inds:
-        clicked_index = points.point_inds[0]
-        print(f"Clicked on point at index: {clicked_index}")
-        # print(f"Data for clicked point: {df.iloc[clicked_index]}")
+def update_radio1_options():
+    """Callback function to update radio2 options based on radio1 selection."""
+    if st.session_state.radio2_key == st.session_state.radio1_key:
+        st.session_state.radio1_value = "Off" # Reset selected value
+        st.session_state.radio1_key = "Off" # Reset selected value
+
+def update_radio2_options():
+    """Callback function to update radio2 options based on radio1 selection."""
+    if st.session_state.radio2_key == st.session_state.radio1_key:
+        st.session_state.radio2_value = "Off" # Reset selected value
+        st.session_state.radio2_key = "Off" # Reset selected value
 
 if __name__ == "__main__":
 
@@ -225,11 +229,21 @@ if __name__ == "__main__":
     scatter = st.sidebar.radio(
         "Scatterplots",
         ["Off", "On", "Locally"],
+        key="radio0_key"
     )
 
     closest_tp = st.sidebar.radio(
         "Nearest Training Point",
         ["Off", "On", "Exclusive"],
+        key="radio1_key", # Unique key for this widget
+        on_change=update_radio2_options,
+    )
+
+    class_confidence = st.sidebar.radio(
+        "Classifier Confidence",
+        ["Off", "On", "Exclusive"],
+        key="radio2_key", # Unique key for this widget
+        on_change=update_radio1_options,
     )
 
     grid_res = st.sidebar.selectbox("DBM Resolution", (50, 75, 100, 150, 200))
@@ -252,45 +266,55 @@ if __name__ == "__main__":
     with col2:
         fig2 = go.Figure()
         if closest_tp == "Exclusive":
-            fig2 = gen_and_save_nnm(results_2d, labels, augmentation_values, nn_model, inv_model, grid_res, x, y, fig2, scatter, cmap_nn)
+            fig2 = gen_and_save_nnm(results_2d, labels, augmentation_values, clf, nn_model, inv_model, grid_res, x, y, fig2, scatter, class_confidence, cmap_nn)
+        elif class_confidence == "Exclusive":
+            fig2 = gen_and_save_ccm(results_2d, labels, augmentation_values, clf, nn_model, inv_model, grid_res, x, y, fig2, scatter, closest_tp, cmap_nn)
         else:
-            fig2 = gen_and_save_dbm(results_2d, labels, augmentation_values, clf, nn_model, inv_model, grid_res, x, y, fig2, scatter, closest_tp, cmap_main)
+            fig2 = gen_and_save_dbm(results_2d, labels, augmentation_values, clf, nn_model, inv_model, grid_res, x, y, fig2, scatter, closest_tp, class_confidence, cmap_main)
         fig2.update_layout(
             hovermode='closest',
             width=1000,  # Set the width in pixels
-            height=800,  # Set the height in pixels
+            height=700,  # Set the height in pixels
             xaxis=dict(visible=False),  # Hide x-axis
             yaxis=dict(visible=False),  # Hide y-axis
-            margin=dict(l=100, r=0, t=15, b=0), # Remove margins
+            margin=dict(l=100, r=0, t=0, b=0), # Remove margins
         )
        
-        
-        # # st.write(f"({x},{y})")
-        def handle_selection(selection):
-            print("test")
-            st.write("Selected points:", selection)
-        selected_points = st.plotly_chart(fig2, use_container_width=True, on_select="rerun", selection_mode="box", key="my_chart")#, 
-        # selected_points = plotly_events(fig2, click_event=True, key="my_plot_key")
-        # selected_points = plotly_events(fig2, click_event=True, hover_event=False, key="my_plot")
-        print(selected_points)
-        selected_points
-        if len(selected_points.selection.points) > 0:
-            # The selected_points list will contain dictionaries with event data
-            # For click events on an imshow figure, you'll typically get 'x' and 'y'
-            # coordinates corresponding to the pixel clicked.
-            st.write("Clicked points:", selected_points)
-            print(selected_points)
-            # Extract the pixel coordinates
-            x_coord = selected_points[0]['x']
-            y_coord = selected_points[0]['y']
-            st.write(f"Clicked pixel coordinates: X={x_coord}, Y={y_coord}")
+        selected_points = st.plotly_chart(fig2, use_container_width=True, on_select="rerun", selection_mode="points", key="my_chart")#, 
+        # st.write(selected_points)
 
-            # If you want to get the actual pixel value, you can access it from your original image data
-            # pixel_value = img_data[int(y_coord), int(x_coord)]
-            # st.write(f"Pixel value at ({x_coord}, {y_coord}): {pixel_value}")
+        img = []
+        if len(selected_points.selection.points) == 0:
+            img = np.ones((28, 28, 3))
+        else:
+            point = selected_points.selection.points[0]
+            img_1d = inv_model.inverse_transform(np.reshape(np.array([point["y"],point["x"],x,y]),(1,4)))
+            img = np.reshape(img_1d,(28, 28))
+            # print(img)
+            img = 255*np.stack([img, img, img, np.ones(np.shape(img))], axis=-1)
+        # print(np.shape(img))
+        fig_main, ax_main = plt.subplots(1,1)
+        ax_main.imshow(
+                img,
+                origin="lower",
+                interpolation="none",
+                resample=False,
+        )
+        fig_main.savefig(f"TESTE.png")
 
-
-
+        fi = go.Figure()
+        fi.add_trace(
+            go.Image(z=img)
+        )
+        fi.update_layout(
+            hovermode=False,
+            width=200,  # Set the width in pixels
+            height=100,  # Set the height in pixels
+            xaxis=dict(visible=False),  # Hide x-axis
+            yaxis=dict(visible=False),  # Hide y-axis
+            margin=dict(l=0, r=0, t=5, b=0), # Remove margins
+        )
+        st.plotly_chart(fi)#, 
 
 
 

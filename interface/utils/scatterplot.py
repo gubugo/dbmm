@@ -198,7 +198,7 @@ def apply_local_points_to_alpha(colors, extra_dims, map_extra_coords):
 
         # print(v)
         # labels[i,0:3] = v*labels[i,0:3]
-        colors[i,3] = (np.exp(v-1)-1*np.exp(-1))*colors[i,3]
+        colors[i,3] = (np.exp(3*v-3)-np.exp(-3))*colors[i,3]
 
     return colors
     

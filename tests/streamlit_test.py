@@ -90,17 +90,92 @@
 # st.set_page_config(layout="wide")
 # st.plotly_chart(fig, use_container_width=True)#
 ########
+# import streamlit as st
+
+# # Create two columns with equal width
+# col1, col2 = st.columns(2)
+
+# with col1:
+#     st.header("Column 1")
+#     st.write("This is the content of the first column.")
+#     st.button("Button in Column 1")
+
+# with col2:
+#     st.header("Column 2")
+#     st.write("This is the content of the second column.")
+#     st.slider("Slider in Column 2", 0, 100, 50)
+
+#########
+
+# import streamlit as st
+
+# # Default behavior: selecting one deselects others
+# st.write("## Default Radio Button")
+# selection = st.radio(
+#     "Choose one:",
+#     ("Option 1", "Option 2", "Option 3")
+# )
+# st.write(f"You selected: {selection}")
+
+# # Example with a "No selection" option (and hiding it via CSS)
+# st.write("## Radio Button with \"No Selection\" (Hidden)")
+
+# # CSS to hide the first radio button element
+# st.markdown("""
+# <style>
+# div[role="radiogroup"] > :first-child {
+#     display: none !important;
+# }
+# </style>
+# """, unsafe_allow_html=True)
+
+# options_with_none = ["None", "Option A", "Option B", "Option C"]
+# selection_with_none = st.radio(
+#     "Select an option:",
+#     options_with_none,
+#     index=0 # Set the default to the hidden "None" option
+# )
+
+# # You'll need to handle the case where the first option ("None") is selected
+# if selection_with_none == "None":
+#     st.write("No option selected yet.")
+# else:
+#     st.write(f"You selected: {selection_with_none}")
+##############################
+
 import streamlit as st
 
-# Create two columns with equal width
-col1, col2 = st.columns(2)
+def update_radio1_options():
+    """Callback function to update radio2 options based on radio1 selection."""
+    st.session_state.radio1_value = "Option A1" # Reset selected value
+    st.session_state.radio1_key = "Option A1" # Reset selected value
 
-with col1:
-    st.header("Column 1")
-    st.write("This is the content of the first column.")
-    st.button("Button in Column 1")
+def update_radio2_options():
+    """Callback function to update radio2 options based on radio1 selection."""
+    st.session_state.radio2_value = "Option B1" # Reset selected value
+    st.session_state.radio2_key = "Option B1" # Reset selected value
 
-with col2:
-    st.header("Column 2")
-    st.write("This is the content of the second column.")
-    st.slider("Slider in Column 2", 0, 100, 50)
+
+st.title("Chained Radio Buttons")
+
+# First radio button, with a callback to modify the second
+st.radio(
+    "Select a category:",
+    options=["Option A1", "Option A2", "Option A3"],
+    key="radio1_key", # Unique key for this widget
+    on_change=update_radio2_options,
+)
+
+# Update the session state variable for the first radio button after its value is selected
+# st.session_state.radio1_value = st.session_state.radio1_key
+
+# Second radio button, whose options and value are controlled by the first
+st.radio(
+    "Select an item:",
+    options=["Option B1", "Option B2", "Option B3"],
+    key="radio2_key", # Unique key for this widget
+    on_change=update_radio1_options,
+)
+
+st.write(f"You selected Category: {st.session_state.radio1_key}")
+st.write(f"You selected Item: {st.session_state.radio2_key}")
