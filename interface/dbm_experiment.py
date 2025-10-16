@@ -19,6 +19,7 @@ from sklearn.preprocessing import minmax_scale
 # from ipycanvas import canvas
 
 import streamlit as st
+from streamlit_plotly_events import plotly_events
 
 import plotly.express as px
 import plotly.graph_objects as go
@@ -145,6 +146,12 @@ def get_matrix_fig(results_2d, labels, _clf, _inv_model, grid_res, start, step, 
     fig.update_yaxes(visible=False)
     return fig
 
+def handle_click(trace, points, selector):
+    if points.point_inds:
+        clicked_index = points.point_inds[0]
+        print(f"Clicked on point at index: {clicked_index}")
+        # print(f"Data for clicked point: {df.iloc[clicked_index]}")
+
 if __name__ == "__main__":
 
     python_executable = sys.executable
@@ -256,9 +263,33 @@ if __name__ == "__main__":
             yaxis=dict(visible=False),  # Hide y-axis
             margin=dict(l=100, r=0, t=15, b=0), # Remove margins
         )
-        # st.write(f"({x},{y})")
-        st.plotly_chart(fig2, use_container_width=True)#, 
-    
+       
+        
+        # # st.write(f"({x},{y})")
+        def handle_selection(selection):
+            print("test")
+            st.write("Selected points:", selection)
+        selected_points = st.plotly_chart(fig2, use_container_width=True, on_select="rerun", selection_mode="box", key="my_chart")#, 
+        # selected_points = plotly_events(fig2, click_event=True, key="my_plot_key")
+        # selected_points = plotly_events(fig2, click_event=True, hover_event=False, key="my_plot")
+        print(selected_points)
+        selected_points
+        if len(selected_points.selection.points) > 0:
+            # The selected_points list will contain dictionaries with event data
+            # For click events on an imshow figure, you'll typically get 'x' and 'y'
+            # coordinates corresponding to the pixel clicked.
+            st.write("Clicked points:", selected_points)
+            print(selected_points)
+            # Extract the pixel coordinates
+            x_coord = selected_points[0]['x']
+            y_coord = selected_points[0]['y']
+            st.write(f"Clicked pixel coordinates: X={x_coord}, Y={y_coord}")
+
+            # If you want to get the actual pixel value, you can access it from your original image data
+            # pixel_value = img_data[int(y_coord), int(x_coord)]
+            # st.write(f"Pixel value at ({x_coord}, {y_coord}): {pixel_value}")
+
+
 
 
 
