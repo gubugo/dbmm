@@ -80,7 +80,11 @@ def generate_map_w_scatterplots(
                     color=line_colors, width=1
                 ),
             ),
-            
+            unselected=dict(
+                marker=dict(
+                    opacity=1  # Unselected points remain fully opaque
+                )
+            ),
             marker_color=groundtruth_colors,
             mode='markers', 
             visible=True,

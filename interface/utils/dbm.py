@@ -35,7 +35,6 @@ def generate_dbm(
 ):
     bounding_box = get_bounding_box(data)
     grid = make_grid(*bounding_box, pos1, pos2, grid_res)
-    print(np.shape(grid))
     inverted_grid = inverter.inverse_transform(grid)
 
     classes = model.predict(inverted_grid).astype(np.uint8)

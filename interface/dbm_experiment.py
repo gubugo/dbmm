@@ -274,7 +274,7 @@ if __name__ == "__main__":
         fig2.update_layout(
             hovermode='closest',
             width=1000,  # Set the width in pixels
-            height=700,  # Set the height in pixels
+            height=650,  # Set the height in pixels
             xaxis=dict(visible=False),  # Hide x-axis
             yaxis=dict(visible=False),  # Hide y-axis
             margin=dict(l=100, r=0, t=0, b=0), # Remove margins
@@ -288,33 +288,41 @@ if __name__ == "__main__":
             img = np.ones((28, 28, 3))
         else:
             point = selected_points.selection.points[0]
-            img_1d = inv_model.inverse_transform(np.reshape(np.array([point["y"],point["x"],x,y]),(1,4)))
+            img_1d = inv_model.inverse_transform(np.reshape(np.array([(point["x"]-25)/25,(point["y"]-25)/25,x,y]),(1,4)))
             img = np.reshape(img_1d,(28, 28))
             # print(img)
             img = 255*np.stack([img, img, img, np.ones(np.shape(img))], axis=-1)
         # print(np.shape(img))
-        fig_main, ax_main = plt.subplots(1,1)
-        ax_main.imshow(
-                img,
-                origin="lower",
-                interpolation="none",
-                resample=False,
-        )
-        fig_main.savefig(f"TESTE.png")
 
-        fi = go.Figure()
-        fi.add_trace(
-            go.Image(z=img)
-        )
-        fi.update_layout(
-            hovermode=False,
-            width=200,  # Set the width in pixels
-            height=100,  # Set the height in pixels
-            xaxis=dict(visible=False),  # Hide x-axis
-            yaxis=dict(visible=False),  # Hide y-axis
-            margin=dict(l=0, r=0, t=5, b=0), # Remove margins
-        )
-        st.plotly_chart(fi)#, 
+        col21, col22 = st.columns([1, 2])
+
+        with col21:
+            fi = go.Figure()
+            fi.add_trace(
+                go.Image(z=img)
+            )
+            fi.update_layout(
+                hovermode=False,
+                width=400,  # Set the width in pixels
+                height=100,  # Set the height in pixels
+                xaxis=dict(visible=False),  # Hide x-axis
+                yaxis=dict(visible=False),  # Hide y-axis
+                margin=dict(l=0, r=0, t=5, b=0), # Remove margins
+            )
+            st.plotly_chart(fi)#, 
+        with col22:
+            st.markdown("""
+                <style>
+                .font {
+                    font-size:14px !important; 
+                    color: green;
+                    margin: 0px;
+                }
+                </style>
+                """, unsafe_allow_html=True
+            )
+            st.markdown('<p class="font">This text is big and blue!</p>', unsafe_allow_html=True)
+            st.markdown('<p class="font">This text is small and green.</p>', unsafe_allow_html=True)
 
 
 
