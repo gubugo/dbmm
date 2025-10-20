@@ -43,13 +43,11 @@ def generate_ccm(
 
     cmapped = cmap(confidence)
 
-    v1 = None
-    v2 = None
+    ret_values = (0,0)
 
     if closest_tp == "On":
         metric_matrix = metric_distance_to_nearest_neighbor(inverted_grid, nn_model)
-        v1 = np.max(metric_matrix)
-        v2 = np.min(metric_matrix)
+        ret_values = (np.max(metric_matrix),np.min(metric_matrix))
         scaled_mm = minmax_scale(metric_matrix)
         cmapped[:,0] = cmapped[:,0]*scaled_mm
         cmapped[:,1] = cmapped[:,1]*scaled_mm
@@ -60,8 +58,21 @@ def generate_ccm(
     fig.add_trace(
         go.Image(z=np.reshape(cmapped,(grid_res, grid_res, 4)),hoverinfo='skip')
     )
-    
-    return fig, v1, v2
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(50))*50, 
+            y=sorted(list(range(50))*50), 
+            marker=dict(
+                size=10,
+            ),
+            
+            marker_color="rgba(0,0,0,0)",
+            mode='markers', 
+            visible=True,
+            showlegend=False
+        )
+    )
+    return fig, ret_values
 
 def gen_and_save_ccm(
     X_2d: np.ndarray,
@@ -78,7 +89,7 @@ def gen_and_save_ccm(
     closest_tp: string,
     cmap: Any
 ):
-    fig, v1, v2 = generate_ccm(
+    fig, ret_values = generate_ccm(
         clf,
         nn_model,
         inverter,
@@ -115,7 +126,7 @@ def gen_and_save_ccm(
 
               
     # print(fig)
-    return fig
+    return fig, ret_values
 
 def generate_nnm(
     clf: MLPClassifier,
@@ -139,8 +150,7 @@ def generate_nnm(
 
     cmapped = cmap(minmax_scale(metric_matrix))
     # print(np.shape(cmapped))
-    v1 = np.max(metric_matrix)
-    v2 = np.min(metric_matrix)
+    ret_values = (np.max(metric_matrix),np.min(metric_matrix))
     
     if class_confidence == "On":
         res = clf.predict_proba(inverted_grid)
@@ -158,7 +168,21 @@ def generate_nnm(
     fig.add_trace(
         go.Image(z=np.reshape(cmapped,(grid_res, grid_res, 4)))
     )
-    return fig, v1, v2
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(50))*50, 
+            y=sorted(list(range(50))*50), 
+            marker=dict(
+                size=10,
+            ),
+            
+            marker_color="rgba(0,0,0,0)",
+            mode='markers', 
+            visible=True,
+            showlegend=False
+        )
+    )
+    return fig, ret_values
 
 def gen_and_save_nnm(
     X_2d: np.ndarray,
@@ -175,7 +199,7 @@ def gen_and_save_nnm(
     class_confidence: string,
     cmap: Any
 ):
-    fig, v1, v2 = generate_nnm(
+    fig, ret_values = generate_nnm(
         clf,
         nn_model,
         inverter,
@@ -212,4 +236,4 @@ def gen_and_save_nnm(
 
               
     # print(fig)
-    return fig
+    return fig, ret_values

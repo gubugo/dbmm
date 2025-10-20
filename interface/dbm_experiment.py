@@ -29,7 +29,7 @@ pio.templates.default = 'plotly'
 # from MulticoreTSNE import MulticoreTSNE as TSNE
 # from umap import UMAP
 from utils.augmentations import get_augmentation_pca
-from utils.dbm import gen_and_save_dbm
+from utils.dbm import gen_and_save_dbm, gen_images_grid_plotly
 from utils.dbm_matrix import gen_and_save_dbm_matrix
 from utils.metrics import metric_distance_to_nearest_neighbor
 from utils.maps import gen_and_save_ccm, gen_and_save_nnm
@@ -126,7 +126,7 @@ def get_nn_matrix(results_2d, _nn_model, _inv_model, grid_res, start, step, size
 
 @st.cache_resource
 def get_matrix_fig(results_2d, labels, _clf, _inv_model, grid_res, start, step, size):
-    fig = make_subplots(rows=size, cols=size, horizontal_spacing=0.01, vertical_spacing=0.01, subplot_titles=titles)
+    fig = make_subplots(rows=size, cols=size, horizontal_spacing=0.01, vertical_spacing=0.025, subplot_titles=titles)
     for i in range(size):
         for j in range(size):
             fig = gen_and_save_dbm_matrix(results_2d, labels, _clf, _inv_model, grid_res, i, j, fig, start, step)
@@ -137,12 +137,16 @@ def get_matrix_fig(results_2d, labels, _clf, _inv_model, grid_res, start, step, 
         height=800,  # Set the height in pixels
         xaxis=dict(visible=False),  # Hide x-axis
         yaxis=dict(visible=False),  # Hide y-axis
-        margin=dict(l=0, r=0, t=15, b=0), # Remove margins
+        margin=dict(l=1, r=1, t=17, b=12), # Remove margins
     )
-    fig.update_annotations(font_size=10, yshift=-5) # New coordinates
-    fig.update_xaxes(visible=False)
-    fig.update_yaxes(visible=False)
+    
+    fig.update_annotations(font_size=11, yshift=0, font_color="black") # New coordinates
+    fig.update_xaxes(visible=True, showticklabels=False)
+    fig.update_yaxes(visible=True, showticklabels=False)
+    
     return fig
+
+
 
 def update_radio1_options():
     """Callback function to update radio2 options based on radio1 selection."""
@@ -155,6 +159,15 @@ def update_radio2_options():
     if st.session_state.radio2_key == st.session_state.radio1_key:
         st.session_state.radio2_value = "Off" # Reset selected value
         st.session_state.radio2_key = "Off" # Reset selected value
+
+def update_radios_options():
+    """Callback function to update radio2 options based on radio1 selection."""
+    st.session_state.radio0_value = "Off" # Reset selected value
+    st.session_state.radio0_key = "Off" # Reset selected value
+    st.session_state.radio1_value = "Off" # Reset selected value
+    st.session_state.radio1_key = "Off" # Reset selected value
+    st.session_state.radio2_value = "Off" # Reset selected value
+    st.session_state.radio2_key = "Off" # Reset selected value
 
 if __name__ == "__main__":
 
@@ -226,10 +239,17 @@ if __name__ == "__main__":
     x = st.sidebar.slider('x', limits[0], limits[1], 0.0, step=10**(sliderx_step), format=f"%0.{np.array([np.abs(sliderx_step)], dtype=np.int8)[0]}f")
     y = st.sidebar.slider('y', limits[2], limits[3], 0.0, step=10**(slidery_step), format=f"%0.{np.array([np.abs(slidery_step)], dtype=np.int8)[0]}f")
 
+    single_vis = False
+
+    single_vis = st.sidebar.toggle("Images Ontop", value=False, on_change=update_radios_options)
+
+    st.session_state.radio_disabled = single_vis
+
     scatter = st.sidebar.radio(
         "Scatterplots",
         ["Off", "On", "Locally"],
-        key="radio0_key"
+        key="radio0_key",
+        disabled=single_vis,
     )
 
     closest_tp = st.sidebar.radio(
@@ -237,6 +257,7 @@ if __name__ == "__main__":
         ["Off", "On", "Exclusive"],
         key="radio1_key", # Unique key for this widget
         on_change=update_radio2_options,
+        disabled=single_vis,
     )
 
     class_confidence = st.sidebar.radio(
@@ -244,9 +265,13 @@ if __name__ == "__main__":
         ["Off", "On", "Exclusive"],
         key="radio2_key", # Unique key for this widget
         on_change=update_radio1_options,
+        disabled=single_vis,
     )
 
     grid_res = st.sidebar.selectbox("DBM Resolution", (50, 75, 100, 150, 200))
+
+    
+
     start = (-1.0,-1.0)
     step  = (0.25,0.25)
     size = 9
@@ -260,41 +285,83 @@ if __name__ == "__main__":
 
         fig = get_matrix_fig(results_2d, labels, clf, inv_model, grid_res, start, step, size)
         # fig.show() # debug
+
+        for i in range(size*size):
+            if i%size == np.round((x+1)*(size-1)/2) and i//size == np.round((y+1)*(size-1)/2):
+                fig.layout.annotations[i].bgcolor = "red"
+            else:
+                fig.layout.annotations[i].bgcolor = "white"
         
         st.plotly_chart(fig, use_container_width=True)#, 
 
     with col2:
         fig2 = go.Figure()
-        if closest_tp == "Exclusive":
-            fig2 = gen_and_save_nnm(results_2d, labels, augmentation_values, clf, nn_model, inv_model, grid_res, x, y, fig2, scatter, class_confidence, cmap_nn)
-        elif class_confidence == "Exclusive":
-            fig2 = gen_and_save_ccm(results_2d, labels, augmentation_values, clf, nn_model, inv_model, grid_res, x, y, fig2, scatter, closest_tp, cmap_nn)
+        if not single_vis:
+            if closest_tp == "Exclusive":
+                fig2, ret_values = gen_and_save_nnm(results_2d, labels, augmentation_values, clf, nn_model, inv_model, grid_res, x, y, fig2, scatter, class_confidence, cmap_nn)
+            elif class_confidence == "Exclusive":
+                fig2, ret_values = gen_and_save_ccm(results_2d, labels, augmentation_values, clf, nn_model, inv_model, grid_res, x, y, fig2, scatter, closest_tp, cmap_nn)
+            else:
+                fig2, ret_values = gen_and_save_dbm(results_2d, labels, augmentation_values, clf, nn_model, inv_model, grid_res, x, y, fig2, scatter, closest_tp, class_confidence, cmap_main)
         else:
-            fig2 = gen_and_save_dbm(results_2d, labels, augmentation_values, clf, nn_model, inv_model, grid_res, x, y, fig2, scatter, closest_tp, class_confidence, cmap_main)
+            fig2 = gen_images_grid_plotly(inv_model, clf, results_2d, grid_res, x, y, cmap=cmap_main)
+            ret_values = (0.0,0.0)
         fig2.update_layout(
+            title={
+            'text': f"({x},{y})",
+            # 'y':0.9,
+            'x':0.575,
+            'xanchor': 'center',
+            'yanchor': 'top'},
             hovermode='closest',
             width=1000,  # Set the width in pixels
             height=650,  # Set the height in pixels
             xaxis=dict(visible=False),  # Hide x-axis
             yaxis=dict(visible=False),  # Hide y-axis
-            margin=dict(l=100, r=0, t=0, b=0), # Remove margins
+            margin=dict(l=100, r=0, t=15, b=0), # Remove margins
         )
        
         selected_points = st.plotly_chart(fig2, use_container_width=True, on_select="rerun", selection_mode="points", key="my_chart")#, 
         # st.write(selected_points)
-
+        if single_vis:
+            selected_points.selection.points = []
         img = []
         if len(selected_points.selection.points) == 0:
-            img = np.ones((28, 28, 3))
+            img = np.ones((28, 28, 4))
+            metric_nn = [0]
+            metric_cc = [0, 0, 0]
+            top_cc_values = [0,0,0]
         else:
             point = selected_points.selection.points[0]
-            img_1d = inv_model.inverse_transform(np.reshape(np.array([(point["x"]-25)/25,(point["y"]-25)/25,x,y]),(1,4)))
+            half_grid_res = grid_res//2
+            point_4d = np.reshape(np.array([(point["x"]-half_grid_res)/half_grid_res,(point["y"]-half_grid_res)/half_grid_res,x,y]),(1,4))
+            img_1d = inv_model.inverse_transform(point_4d)
             img = np.reshape(img_1d,(28, 28))
-            # print(img)
             img = 255*np.stack([img, img, img, np.ones(np.shape(img))], axis=-1)
-        # print(np.shape(img))
 
-        col21, col22 = st.columns([1, 2])
+            metric_nn = metric_distance_to_nearest_neighbor(img_1d, nn_model)
+            metric_cc = clf.predict_proba(img_1d)
+            metric_cc = metric_cc[0]
+            top_cc_values = np.argpartition(metric_cc, -4)[-3:]
+            top_cc_values = top_cc_values[np.argsort(metric_cc[top_cc_values])]
+            
+
+        st.markdown("""
+            <style>
+            .font {
+                font-size:14px !important; 
+                margin: 0px;
+            }
+            .title {
+                font-size:18px !important;
+                font-weight: bold;
+                margin: 0px;       
+            }
+            </style>
+            """, unsafe_allow_html=True
+        )
+
+        col21, col22, col23 = st.columns([1, 1.5, 1.5])
 
         with col21:
             fi = go.Figure()
@@ -311,19 +378,15 @@ if __name__ == "__main__":
             )
             st.plotly_chart(fi)#, 
         with col22:
-            st.markdown("""
-                <style>
-                .font {
-                    font-size:14px !important; 
-                    color: green;
-                    margin: 0px;
-                }
-                </style>
-                """, unsafe_allow_html=True
-            )
-            st.markdown('<p class="font">This text is big and blue!</p>', unsafe_allow_html=True)
-            st.markdown('<p class="font">This text is small and green.</p>', unsafe_allow_html=True)
-
+            st.markdown('<p class="title">Nearest Neighbor Info:</p>', unsafe_allow_html=True)
+            st.markdown(f'<p class="font">Nearest Point Distance: <b>{ret_values[1]:.5f}</b></p>', unsafe_allow_html=True)
+            st.markdown(f'<p class="font">Farthest Point Distance: <b>{ret_values[0]:.5f}</b></p>', unsafe_allow_html=True)
+            st.markdown(f'<p class="font">Selected Point Distance: <b>{metric_nn[0]:.5f}</b></p>', unsafe_allow_html=True)
+        with col23:
+            st.markdown('<p class="title">Classifier Confidence Info:</p>', unsafe_allow_html=True)
+            st.markdown(f'<p class="font">Class <b>{top_cc_values[-1]}</b>: <b>{metric_cc[top_cc_values[-1]]:.5f}</b></p>', unsafe_allow_html=True)
+            st.markdown(f'<p class="font">Class <b>{top_cc_values[-2]}</b>: <b>{metric_cc[top_cc_values[-2]]:.5f}</b></p>', unsafe_allow_html=True)
+            st.markdown(f'<p class="font">Class <b>{top_cc_values[-3]}</b>: <b>{metric_cc[top_cc_values[-3]]:.5f}</b></p>', unsafe_allow_html=True)
 
 
         

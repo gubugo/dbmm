@@ -1,9 +1,12 @@
 
 
+import math
 import string
 from typing import Union, Any
 from matplotlib import colors, pyplot as plt
 import numpy as np
+from PIL import Image
+
 from sklearn.base import ClassifierMixin
 from sklearn.neural_network import MLPClassifier
 from sklearn.neighbors import NearestNeighbors
@@ -12,7 +15,7 @@ from sklearn.preprocessing import minmax_scale
 import plotly.graph_objects as go
 
 from utils.metrics import metric_distance_to_nearest_neighbor
-from utils.utils import generate_map_w_scatterplots, make_grid, get_bounding_box
+from utils.utils import generate_grid_coords, generate_map_w_scatterplots, make_grid, get_bounding_box
 
 import models.sharp as sharp
 import models.ssnp as ssnp
@@ -48,13 +51,11 @@ def generate_dbm(
 
     cmapped = cmap(classes)
     # print(np.shape(cmapped))
-    v1 = None
-    v2 = None
+    ret_values = (0,0)
 
     if closest_tp == "On":
         metric_matrix = metric_distance_to_nearest_neighbor(inverted_grid, nn_model)
-        v1 = np.max(metric_matrix)
-        v2 = np.min(metric_matrix)
+        ret_values = (np.max(metric_matrix),np.min(metric_matrix))
         scaled_mm = minmax_scale(metric_matrix)
         cmapped[:,0] = cmapped[:,0]*scaled_mm
         cmapped[:,1] = cmapped[:,1]*scaled_mm
@@ -62,11 +63,12 @@ def generate_dbm(
 
     if class_confidence == "On":
         res = model.predict_proba(inverted_grid)
-     
+
         confidence = np.zeros(np.shape(res)[0])
 
         for i,lis in enumerate(res):
             confidence[i] = np.max(lis)
+
         cmapped[:,0] = cmapped[:,0]*confidence
         cmapped[:,1] = cmapped[:,1]*confidence
         cmapped[:,2] = cmapped[:,2]*confidence
@@ -90,7 +92,7 @@ def generate_dbm(
             showlegend=False
         )
     )
-    return fig, v1, v2
+    return fig, ret_values
 
 def gen_and_save_dbm(
     X_2d: np.ndarray,
@@ -108,7 +110,7 @@ def gen_and_save_dbm(
     class_confidence: string,
     cmap: Any
 ):
-    fig, v1, v2 = generate_dbm(
+    fig, ret_values = generate_dbm(
         classifier,
         nn_model,
         inverter,
@@ -146,6 +148,94 @@ def gen_and_save_dbm(
 
               
     # print(fig)
-    return fig
+    return fig, ret_values
 
+
+def gen_images_grid_plotly(
+    ssnp_model,
+    clf,
+    data: np.ndarray,
+    grid_res: int,
+    pos1: float,
+    pos2: float,
+    image_shape=(28, 28),
+    latent_range=(-1.0, 1.0),
+    img_size=1.6,
+    proximity=20.8,
+    cmap=[]
+    # figsize=(900, 700),
+    # projection_technique_name="t-SNE",
+    # dataset_name="MNIST",
+    # cmap="gray",
+    # save_path="generated_images_grid_plotly.html"
+):
+    # cria figura
+    fig = go.Figure()
+
+    # gera coordenadas do grid
+    bounding_box = get_bounding_box(data)
+    grid = make_grid(*bounding_box, pos1, pos2, grid_res)
+    classes = clf.predict(ssnp_model.inverse_transform(grid))
+    coords = generate_grid_coords(latent_range, img_size, proximity, pos1, pos2)
+
+    if len(coords) == 0:
+        print("Nenhuma coordenada gerada para o grid.")
+        return
+
+    # gera imagens com o modelo
+    images = ssnp_model.inverse_transform(coords)
+    images = images.reshape(-1, *image_shape)
+
+    # normaliza para 0–255
+    images = (
+        255 * (images - images.min()) /
+        (images.max() - images.min())
+    ).astype(np.uint8)
+
+    # adiciona imagens ao gráfico
+    cmapped = 255*cmap(classes)
+    fig.add_trace(
+        go.Image(z=np.reshape(cmapped,(grid_res, grid_res, 4)))
+    )
+    for values, img_array in zip(coords, images):
+        # print(x)
+        # print(y)
+        # print(np.shape(img_array))
+        img2 = np.stack([img_array, img_array, img_array], axis=-1)
+        img = Image.fromarray(img2, mode="RGB")
+
+        # converte pra RGB (plotly exige RGB)
+        # img = Image.merge("RGB", (img, img, img))
+
+        # adiciona imagem centralizada na coordenada
+        fig.add_layout_image(
+            dict(
+                source=img,
+                x=50*(values[0]+1)/2-1,
+                y=50*(values[1]+1)/2-1,
+                sizex=img_size,
+                sizey=img_size,
+                xref="x",
+                yref="y",
+                layer="above",
+                opacity=1
+            )
+        )
+    return fig
+    # # layout final
+    # fig.update_layout(
+    #     width=figsize[0],
+    #     height=figsize[1],
+    #     xaxis=dict(showgrid=False, zeroline=False, range=list(latent_range)),
+    #     yaxis=dict(showgrid=False, zeroline=False, range=list(latent_range),
+    #                scaleanchor="x", scaleratio=1),
+    #     plot_bgcolor="white",
+    #     margin=dict(l=0, r=0, t=50, b=0)
+    # )
+
+    # # salvar HTML
+    # output_dir = os.path.join("results", projection_technique_name, dataset_name)
+    # os.makedirs(output_dir, exist_ok=True)
+    # filepath = os.path.join(output_dir, save_path)
+    # fig.write_html(filepath)
 

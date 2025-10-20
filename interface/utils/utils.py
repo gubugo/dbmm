@@ -52,6 +52,16 @@ def get_bounding_box(X_proj: np.ndarray) -> tuple[float, float, float, float]:
 
     return x_min, x_max, y_min, y_max
 
+# generate a grid of coordinates in the latent space
+def generate_grid_coords(latent_range=(0.0, 1.0), img_size=0.05, proximity=1.6, v1=0.0, v2=0.0):
+    num_cols = int(proximity*(latent_range[1]-latent_range[0]) / img_size)
+    num_rows = int(proximity*(latent_range[1]-latent_range[0]) / img_size)
+    xs = np.linspace(latent_range[0], latent_range[1], num_cols)
+    ys = np.linspace(latent_range[0], latent_range[1], num_rows)
+    xx, yy = np.meshgrid(xs, ys)
+    coords = [[i[0], i[1], v1, v2] for i in np.stack([xx.ravel(), yy.ravel()], axis=1)]
+    return coords
+
 def generate_map_w_scatterplots(
     data: np.ndarray,
     labels: np.ndarray,
