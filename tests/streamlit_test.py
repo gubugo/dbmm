@@ -143,39 +143,103 @@
 #     st.write(f"You selected: {selection_with_none}")
 ##############################
 
-import streamlit as st
+# import streamlit as st
 
-def update_radio1_options():
-    """Callback function to update radio2 options based on radio1 selection."""
-    st.session_state.radio1_value = "Option A1" # Reset selected value
-    st.session_state.radio1_key = "Option A1" # Reset selected value
+# def update_radio1_options():
+#     """Callback function to update radio2 options based on radio1 selection."""
+#     st.session_state.radio1_value = "Option A1" # Reset selected value
+#     st.session_state.radio1_key = "Option A1" # Reset selected value
 
-def update_radio2_options():
-    """Callback function to update radio2 options based on radio1 selection."""
-    st.session_state.radio2_value = "Option B1" # Reset selected value
-    st.session_state.radio2_key = "Option B1" # Reset selected value
+# def update_radio2_options():
+#     """Callback function to update radio2 options based on radio1 selection."""
+#     st.session_state.radio2_value = "Option B1" # Reset selected value
+#     st.session_state.radio2_key = "Option B1" # Reset selected value
 
 
-st.title("Chained Radio Buttons")
+# st.title("Chained Radio Buttons")
 
-# First radio button, with a callback to modify the second
-st.radio(
-    "Select a category:",
-    options=["Option A1", "Option A2", "Option A3"],
-    key="radio1_key", # Unique key for this widget
-    on_change=update_radio2_options,
+# # First radio button, with a callback to modify the second
+# st.radio(
+#     "Select a category:",
+#     options=["Option A1", "Option A2", "Option A3"],
+#     key="radio1_key", # Unique key for this widget
+#     on_change=update_radio2_options,
+# )
+
+# # Update the session state variable for the first radio button after its value is selected
+# # st.session_state.radio1_value = st.session_state.radio1_key
+
+# # Second radio button, whose options and value are controlled by the first
+# st.radio(
+#     "Select an item:",
+#     options=["Option B1", "Option B2", "Option B3"],
+#     key="radio2_key", # Unique key for this widget
+#     on_change=update_radio1_options,
+# )
+
+# st.write(f"You selected Category: {st.session_state.radio1_key}")
+# st.write(f"You selected Item: {st.session_state.radio2_key}")
+
+import numpy as np
+import plotly.graph_objs as go
+from plotly.subplots import make_subplots
+
+# Grid size
+n_rows = 9
+n_cols = 9
+
+# Create 9x9 subplot grid
+fig = make_subplots(
+    rows=n_rows,
+    cols=n_cols,
+    vertical_spacing=0.003,
+    horizontal_spacing=0.003
 )
 
-# Update the session state variable for the first radio button after its value is selected
-# st.session_state.radio1_value = st.session_state.radio1_key
+img_data = np.random.rand(100, 100, 3)
 
-# Second radio button, whose options and value are controlled by the first
-st.radio(
-    "Select an item:",
-    options=["Option B1", "Option B2", "Option B3"],
-    key="radio2_key", # Unique key for this widget
-    on_change=update_radio1_options,
+# Optional: Fill all subplots with a dummy line (or leave empty)
+for row in range(1, n_rows + 1):
+    for col in range(1, n_cols + 1):
+        # Add a basic line in each subplot
+        fig.add_trace(
+            go.Image(z=255*img_data),
+            row=row,
+            col=col
+        )
+
+# Target subplot (e.g. row 5, col 5)
+target_row = 5
+target_col = 5
+
+# Calculate paper domain for background shape
+x0 = (target_col - 1) / n_cols
+x1 = target_col / n_cols
+y0 = 1 - (target_row / n_rows)
+y1 = 1 - ((target_row - 1) / n_rows)
+
+# Add background color behind the specific subplot
+fig.update_layout(
+    shapes=[
+        dict(
+            type="rect",
+            xref="paper",
+            yref="paper",
+            x0=x0,
+            x1=x1,
+            y0=y0,
+            y1=y1,
+            fillcolor="lightyellow",
+            layer="below",
+            line_width=0,
+        )
+    ],
+    height=900,
+    width=900,
+    showlegend=False,
+    margin=dict(l=10, r=10, t=10, b=10),
+    xaxis=dict(visible=False),  # Hide x-axis
+    yaxis=dict(visible=False),  # Hide y-axis
 )
 
-st.write(f"You selected Category: {st.session_state.radio1_key}")
-st.write(f"You selected Item: {st.session_state.radio2_key}")
+fig.show()

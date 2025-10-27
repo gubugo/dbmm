@@ -1,9 +1,11 @@
+import io
 from typing import Any
 from matplotlib import pyplot as plt
 import numpy as np
 
 import plotly.graph_objects as go
 from sklearn.preprocessing import minmax_scale
+from PIL import Image, ImageTk
 
 from utils.scatterplot import apply_local_points_to_alpha
 
@@ -104,3 +106,10 @@ def generate_map_w_scatterplots(
     )
 
     return fig
+
+def plotly_to_image_tk(fig, max_w=700, max_h=700):
+    png_bytes = fig.to_image(format="png", scale=2)  # requires kaleido
+    im = Image.open(io.BytesIO(png_bytes))
+    # resize to fit
+    im.thumbnail((max_w, max_h), Image.LANCZOS)
+    return ImageTk.PhotoImage(im)
