@@ -3,7 +3,12 @@ import threading
 import tkinter as tk
 from tkinter import ttk
 
+import matplotlib
 from matplotlib import pyplot as plt
+matplotlib.use("TkAgg")
+from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
+                                               NavigationToolbar2Tk)
+from matplotlib.figure import Figure
 import plotly.graph_objects as go
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -15,7 +20,8 @@ from training.auto_encoders import load_or_fit_model_ae
 from training.classifier import load_or_fit_mlp_classifier
 from training.inv_proj import load_or_fit_model_inv_proj
 from utils.augmentations import get_augmentation_pca
-from utils.dbm import gen_and_save_dbm, gen_images_grid_plotly
+from utils.mpl_dbm import gen_and_save_dbm
+from utils.dbm import gen_images_grid_plotly
 from utils.dbm_matrix import gen_and_save_dbm_matrix
 from utils.maps import gen_and_save_ccm, gen_and_save_nnm
 from utils.metrics import metric_distance_to_nearest_neighbor
@@ -39,11 +45,12 @@ class LabeledScale(ttk.Frame):
         self.label.pack(side="top", anchor="w", pady=(0, 5))
 
         # Scale widget. The 'variable' option links it to self.var.
-        self.scale = ttk.Scale(
+        self.scale = tk.Scale(
             self,
             from_=from_value,
             to=to_value,
             variable=self.var,
+            resolution=0.01,
             command=self._update_label,
             **kwargs
         )
@@ -52,6 +59,7 @@ class LabeledScale(ttk.Frame):
     def _update_label(self, value):
         """Callback to update the label text with the scale's current value."""
         self.label.config(text=f"{self.label.cget('text').split(':')[0]}: {float(value):.2f}")
+        self.var.set(np.round(float(value), decimals=2))
         self.command()
 
     def get(self):
@@ -85,7 +93,11 @@ class App(tk.Tk):
 
         self.generate_matrix = True
         self.data_loaded = False
-
+        self.right_fig = plt.figure()
+        self.right_ax  = self.right_fig.add_subplot(111)
+        # self.right_fig, self.right_ax = plt.subplot(1,1)
+        
+        # self.right_canvas.get_tk_widget().grid(row=1, column=1, sticky="nse")
         self.cmap_main = plt.get_cmap("tab10")
         self.cmap_nn   = plt.get_cmap("viridis")
 
@@ -177,12 +189,21 @@ class App(tk.Tk):
         self.img_label_matrix = ttk.Label(content)
         self.img_label_matrix.grid(row=2, column=0, sticky="nsew")
 
-        ttk.Label(content, text="Neighbors / Confidence View").grid(row=0, column=1, sticky="w")
         self.img_label_right = ttk.Label(content)
-        self.img_label_right.grid(row=2, column=1, sticky="nsew")
+        self.img_label_right.grid(row=1, column=1, sticky="nsew")
 
-        self.thread = threading.Thread(target=self.gen_dbm, daemon=True)
-        self.thread.start()
+        self.img_label_right2 = ttk.Label(content)
+        self.img_label_right2.grid(row=3, column=1, sticky="nsew")
+
+        # self.right_canvas.get_tk_widget().grid(row=1, column=1, sticky="ns")
+        self.right_canvas = FigureCanvasTkAgg(self.right_fig, master=content)
+        self.right_canvas.get_tk_widget().grid(column=1, row=2, sticky="WNES")
+        self.right_canvas.draw()
+
+        self.right_toolbar = NavigationToolbar2Tk(self.right_canvas, self.img_label_right2)
+        self.right_toolbar.update()
+
+        self.gen_dbm()
 
     def _combobox_wrap(self, _):
         self.gen_dbm()
@@ -396,7 +417,7 @@ class App(tk.Tk):
         #     return
 
         # self.status.set("Rendering plots…")
-        # self.update_idletasks()
+        # self.update()
 
         # Left figure (matrix)
         start = (-1.0, -1.0)
@@ -412,8 +433,8 @@ class App(tk.Tk):
             self.image_matrix = img 
             self.img_label_matrix.configure(image=self.image_matrix, text="", compound=None)
 
+        # self.update()
         # Right figure (neighbors/confidence)
-
         fig2 = go.Figure()
         grid_res = int(self.resolution.get())
         x = float(self.x_v.get())
@@ -421,10 +442,9 @@ class App(tk.Tk):
         scatter = bool(self.scatter.get())
         class_conf = bool(self.class_conf.get())
         closest_tp = self.closest_tp.get()
-
-        fig2 = go.Figure()
+        
+        fig2 = self.right_ax
         if self.images.get() == "0":
-            print("yddd")
             if closest_tp == "Exclusive":
                 fig2, ret_values = gen_and_save_nnm(self.results_2d, self.labels, self.augmentation_values, self.clf, self.nn_model, self.inv_model, grid_res, x, y, fig2, scatter, class_conf, self.cmap_nn)
             elif class_conf == "Exclusive":
@@ -432,30 +452,36 @@ class App(tk.Tk):
             else:
                 fig2, ret_values = gen_and_save_dbm(self.results_2d, self.labels, self.augmentation_values, self.clf, self.nn_model, self.inv_model, grid_res, x, y, fig2, scatter, closest_tp, class_conf, self.cmap_main)
         else:
-            print("wefwef")
             fig2 = gen_images_grid_plotly(self.inv_model, self.clf, self.results_2d, grid_res, x, y, cmap=self.cmap_main)
             ret_values = (0.0,0.0)
-        fig2.update_layout(
-            title={
-            'text': f"({x},{y})",
-            # 'y':0.9,
-            'x':0.575,
-            'xanchor': 'center',
-            'yanchor': 'top'},
-            hovermode='closest',
-            width=1000,  # Set the width in pixels
-            height=650,  # Set the height in pixels
-            xaxis=dict(visible=False),  # Hide x-axis
-            yaxis=dict(visible=False),  # Hide y-axis
-            margin=dict(l=100, r=0, t=15, b=0), # Remove margins
-        )
+        # plt.show()
+        # self.right_ax.relim()
+        # self.right_ax.autoscale_view()
+        self.right_canvas.draw()
+        self.right_toolbar.update()
+        # self.update()
+        # fig2.update_layout(
+        #     title={
+        #     'text': f"({x},{y})",
+        #     'y':0.0,
+        #     'x':0.575,
+        #     'xanchor': 'center',
+        #     'yanchor': 'top'},
+        #     hovermode='closest',
+        #     width=1000,  # Set the width in pixels
+        #     height=650,  # Set the height in pixels
+        #     xaxis=dict(visible=False),  # Hide x-axis
+        #     yaxis=dict(visible=False),  # Hide y-axis
+        #     margin=dict(l=100, r=0, t=15, b=0), # Remove margins
+        # )
 
-        img2 = plotly_to_image_tk(fig2)
-        # if isinstance(img2, str):
-        #     self.img_label_right.configure(text=img2, image="", compound=None)
-        # else:
-        self.image_matrix2 = img2 
-        self.img_label_right.configure(image=self.image_matrix2, text="", compound=None)
+        # img2 = plotly_to_image_tk(fig2)
+        # # self.update()
+        # # if isinstance(img2, str):
+        # #     self.img_label_right.configure(text=img2, image="", compound=None)
+        # # else:
+        # self.image_matrix2 = img2 
+        # self.img_label_right.configure(image=self.image_matrix2, text="", compound=None)
         #     self.img_label_right.image = img2  # keep reference
 
         self.status.set("Plots updated.")
