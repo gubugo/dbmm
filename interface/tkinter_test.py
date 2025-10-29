@@ -20,10 +20,10 @@ from training.auto_encoders import load_or_fit_model_ae
 from training.classifier import load_or_fit_mlp_classifier
 from training.inv_proj import load_or_fit_model_inv_proj
 from utils.augmentations import get_augmentation_pca
-from utils.mpl_dbm import gen_and_save_dbm
+from utils.mpl_dbm import gen_and_save_dbm, plot_generated_images_grid_with_dbm
 from utils.dbm import gen_images_grid_plotly
 from utils.dbm_matrix import gen_and_save_dbm_matrix
-from utils.maps import gen_and_save_ccm, gen_and_save_nnm
+from utils.mpl_maps import gen_and_save_ccm, gen_and_save_nnm
 from utils.metrics import metric_distance_to_nearest_neighbor
 from utils.utils import get_bounding_box, make_grid, make_titles, plotly_to_image_tk
 
@@ -75,8 +75,8 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("DBM Experiment — Tkinter")
-        self.geometry("1600x800")
-        self.minsize(1600, 800)
+        self.geometry("1600x900")
+        self.minsize(1600, 900)
 
         # State
         self.results_2d = None
@@ -94,7 +94,14 @@ class App(tk.Tk):
         self.generate_matrix = True
         self.data_loaded = False
         self.right_fig = plt.figure()
+        self.right_fig.set_size_inches(5,5)
         self.right_ax  = self.right_fig.add_subplot(111)
+        self.img_fig = plt.figure()
+        self.img_fig.set_size_inches(2,2)
+        self.img_ax  = self.img_fig.add_subplot(111)
+        self.img_ax.axis("off") 
+        self.matrix_side_size = 9
+        self.matrix_fig, self.matrix_ax = plt.subplots(self.matrix_side_size,self.matrix_side_size,figsize=(75/10, 75/10))
         # self.right_fig, self.right_ax = plt.subplot(1,1)
         
         # self.right_canvas.get_tk_widget().grid(row=1, column=1, sticky="nse")
@@ -174,7 +181,8 @@ class App(tk.Tk):
         # ttk.Button(sb, text="Compute Projection", command=self.compute_projection).grid(row=13, column=0, sticky="ew", pady=(10,4))
         # ttk.Button(sb, text="Update Plots", command=self.update_plots).grid(row=14, column=0, sticky="ew")
 
-        # Content area
+        ## Content area
+        # Column 0 (Matrix)
         content = ttk.Frame(self, padding=12)
         content.grid(row=0, column=1, sticky="nsew")
         content.rowconfigure(1, weight=1)
@@ -185,23 +193,67 @@ class App(tk.Tk):
         self.status = tk.StringVar(value="Ready.")
         ttk.Label(content, textvariable=self.status).grid(row=0, column=0, sticky="w")
 
-        ttk.Label(content, text="Decision Boundary Matrix").grid(row=1, column=0, sticky="w")
-        self.img_label_matrix = ttk.Label(content)
-        self.img_label_matrix.grid(row=2, column=0, sticky="nsew")
+        # self.img_label_matrix = ttk.Label(content)
+        # self.img_label_matrix.grid(row=1, column=0, sticky="nsew")
 
-        self.img_label_right = ttk.Label(content)
+        self.matrix_canvas = FigureCanvasTkAgg(self.matrix_fig, master=content)
+        self.matrix_canvas.get_tk_widget().grid(column=0, row=1, sticky="WNES")
+        self.matrix_canvas.draw()
+
+        # Column 1 (DBM and stuff)
+        self.img_label_right = ttk.Frame(content, padding=12)
         self.img_label_right.grid(row=1, column=1, sticky="nsew")
 
-        self.img_label_right2 = ttk.Label(content)
-        self.img_label_right2.grid(row=3, column=1, sticky="nsew")
+        self.img_label_right2 = ttk.Label(self.img_label_right)
+        self.img_label_right2.grid(row=1, column=0, sticky="nsew")
 
         # self.right_canvas.get_tk_widget().grid(row=1, column=1, sticky="ns")
-        self.right_canvas = FigureCanvasTkAgg(self.right_fig, master=content)
-        self.right_canvas.get_tk_widget().grid(column=1, row=2, sticky="WNES")
+        self.right_canvas = FigureCanvasTkAgg(self.right_fig, master=self.img_label_right)
+        self.right_canvas.get_tk_widget().grid(column=0, row=0, sticky="WNES")
         self.right_canvas.draw()
+        self.right_canvas.mpl_connect('button_press_event', self.on_mouse_event)
 
         self.right_toolbar = NavigationToolbar2Tk(self.right_canvas, self.img_label_right2)
         self.right_toolbar.update()
+
+        # Column 1, bottom Row (img + info)
+        image_place = ttk.Frame(self.img_label_right, padding=12)
+        image_place.grid(row=3, column=0, sticky="nsew")
+
+        self.img_canvas = FigureCanvasTkAgg(self.img_fig, master=image_place)
+        self.img_canvas.get_tk_widget().grid(column=0, row=0, sticky="WNES")
+        self.img_canvas.draw()
+
+        self.title_style = ttk.Style()
+        self.title_style.configure("Bold.TLabel", font=("Helvetica", 12, "bold"))
+        self.text_style = ttk.Style()
+        self.text_style.configure("Normal.TLabel", font=("Helvetica", 9))
+
+        # Column 1, Bottom Row, 2nd Column: Data 1: Nearest Training Point
+        ntp_place = ttk.Frame(image_place, padding=12)
+        ntp_place.grid(row=0, column=2, sticky="nsew")
+
+        self.title_ctp = tk.StringVar(value="Nearest Neighbor Info:")
+        ttk.Label(ntp_place, textvariable=self.title_ctp, style="Bold.TLabel").grid(row=0, column=0, sticky="WS")
+        self.np_dist_ctp = tk.StringVar(value="Nearest Point Distance:")
+        ttk.Label(ntp_place, textvariable=self.np_dist_ctp, style="Normal.TLabel").grid(row=1, column=0, sticky="WS")
+        self.fp_dist_ctp = tk.StringVar(value="Farthest Point Distance:")
+        ttk.Label(ntp_place, textvariable=self.fp_dist_ctp, style="Normal.TLabel").grid(row=2, column=0, sticky="WS")
+        self.sp_dist_ctp = tk.StringVar(value="Selected Point Distance:")
+        ttk.Label(ntp_place, textvariable=self.sp_dist_ctp, style="Normal.TLabel").grid(row=3, column=0, sticky="WS")
+
+        # Column 1, Bottom Row, 3rd Column: Data 2: Class Confidence
+        cc_place = ttk.Frame(image_place, padding=12)
+        cc_place.grid(row=0, column=4, sticky="nsew")
+        
+        self.title_cc = tk.StringVar(value="Classifier Confidence Info:")
+        ttk.Label(cc_place, textvariable=self.title_cc, style="Bold.TLabel").grid(row=0, column=0, sticky="WS")
+        self.cc_class1 = tk.StringVar(value="Class ")
+        ttk.Label(cc_place, textvariable=self.cc_class1, style="Normal.TLabel").grid(row=1, column=0, sticky="WS")
+        self.cc_class2 = tk.StringVar(value="Class ")
+        ttk.Label(cc_place, textvariable=self.cc_class2, style="Normal.TLabel").grid(row=2, column=0, sticky="WS")
+        self.cc_class3 = tk.StringVar(value="Class ")
+        ttk.Label(cc_place, textvariable=self.cc_class3, style="Normal.TLabel").grid(row=3, column=0, sticky="WS")
 
         self.gen_dbm()
 
@@ -247,6 +299,48 @@ class App(tk.Tk):
             self.compute_projection()
         self.update_plots()
 
+    def on_mouse_event(self, event):
+        if event.inaxes:  # Check if the mouse is within the plot area
+            img = np.ones((28, 28, 4))
+            metric_nn = [0]
+            metric_cc = [0, 0, 0]
+            top_cc_values = [0,0,0]
+
+            bounding_box = get_bounding_box(self.results_2d)
+            half_grid_res = int(self.resolution.get())//2
+            grid_res = int(self.resolution.get())
+            
+            x = bounding_box[0]+(bounding_box[1]-bounding_box[0])*(event.xdata+0.5)/grid_res
+            y = bounding_box[2]+(bounding_box[3]-bounding_box[2])*(event.ydata+0.5)/grid_res
+            point_4d = np.reshape(np.array([x,y,float(self.x_v.get()),float(self.y_v.get())]),(1,4))
+            img_1d = self.inv_model.inverse_transform(point_4d)
+            img = np.reshape(img_1d,(28, 28))
+            img = np.stack([img, img, img, np.ones(np.shape(img))], axis=-1)
+
+            metric_nn = metric_distance_to_nearest_neighbor(img_1d, self.nn_model)
+            metric_cc = self.clf.predict_proba(img_1d)
+            metric_cc = metric_cc[0]
+            top_cc_values = np.argpartition(metric_cc, -4)[-3:]
+            top_cc_values = top_cc_values[np.argsort(metric_cc[top_cc_values])]
+            self.img_ax.imshow(
+                img,
+                interpolation="none",
+                resample=False,
+            )
+            self.img_fig.set_size_inches(2,2)
+            self.img_canvas.draw()
+            
+            self.sp_dist_ctp.set(f"Selected Point Distance:{metric_nn[0]:.5f}")
+
+            self.cc_class1.set(f"Class {top_cc_values[-1]}:{metric_cc[top_cc_values[-1]]:.5f}")
+            self.cc_class2.set(f"Class {top_cc_values[-2]}:{metric_cc[top_cc_values[-2]]:.5f}")
+            self.cc_class3.set(f"Class {top_cc_values[-3]}:{metric_cc[top_cc_values[-3]]:.5f}")
+            # x_data = event.xdata  # Data coordinates
+            # y_data = event.ydata
+            # x_pixel = event.x     # Pixel coordinates relative to the canvas
+            # y_pixel = event.y
+            # print(f"Data Coords: ({x_data:.2f}, {y_data:.2f}), Pixel Coords: ({x_pixel}, {y_pixel})")
+
 
     def Load_data(self, path, dataset):
         X = np.load(os.path.join(path, dataset, "X.npy"))
@@ -277,13 +371,13 @@ class App(tk.Tk):
         augmentation_test = X_test[:,-2:]
         X_test = X_test[:,:-2]
 
-        X_proj, _model, limits = load_or_fit_model_ae(X, y, augmentation, X_test, output_dir, _model, dataset_name, model_name, method, epochs)
+        X_proj, _model = load_or_fit_model_ae(X, y, augmentation, X_test, output_dir, _model, dataset_name, model_name, method, epochs)
         classifier = load_or_fit_mlp_classifier(X, y, f'{output_dir}/{dataset_name}')
 
         neighbor_finder_model = NearestNeighbors(n_neighbors=5) 
         neighbor_finder_model.fit(X)
 
-        return X_proj, y_test, augmentation_test, _model, classifier, neighbor_finder_model, limits
+        return X_proj, y_test, augmentation_test, _model, classifier, neighbor_finder_model
 
     def get_inv_proj_data_mlp(self, output_dir, _model, _inv_model, dataset_name, model_name, method, epochs, random_state):
         data_dir = "./data/"
@@ -322,28 +416,51 @@ class App(tk.Tk):
 
         return minmax_scale(metric_matrix), max_v, min_v
 
-    def get_matrix_fig(self, results_2d, labels, _clf, _inv_model, grid_res, start, step, size):
-        titles = make_titles(start,step,size)
-        
-        fig = make_subplots(rows=size, cols=size, horizontal_spacing=0.01, vertical_spacing=0.025, subplot_titles=titles)
+    def get_matrix_fig(self, results_2d, _clf, _inv_model, grid_res, start, step, size, ax):
+        bounding_box = get_bounding_box(results_2d)
+        cmapped = np.zeros((size*size,grid_res*grid_res,4))
         for i in range(size):
             for j in range(size):
-                fig = gen_and_save_dbm_matrix(results_2d, labels, _clf, _inv_model, grid_res, i, j, fig, start, step)
+                grid = make_grid(*bounding_box, start[0]+i*step[0], start[1]+j*step[1], grid_res)
+                inverted_grid = _inv_model.inverse_transform(grid)
+
+                classes = _clf.predict(inverted_grid).astype(np.uint8)
+
+                cmapped[size*i+j] = self.cmap_main(classes)
+
+                ax[i,j].imshow(
+                    cmapped[size*i+j].reshape((grid_res, grid_res, 4)),
+                    origin="lower",
+                    interpolation="none",
+                    resample=False,
+                )
+                coords = f"({np.round(start[0]+i*step[0],2)},{np.round(start[1]+j*step[1],2)})"
+                ax[i,j].axis("off") 
+                ax[i,j].set_title(coords, fontsize=grid_res/(size), x=0.5, y=1-5/grid_res) 
+                
+        return ax
+        # PLOTLY
+        # titles = make_titles(start,step,size)
         
-        fig.update_layout(
-            hovermode='closest',
-            width=800,  # Set the width in pixels
-            height=800,  # Set the height in pixels
-            xaxis=dict(visible=False),  # Hide x-axis
-            yaxis=dict(visible=False),  # Hide y-axis
-            margin=dict(l=1, r=1, t=17, b=12), # Remove margins
-        )
+        # fig = make_subplots(rows=size, cols=size, horizontal_spacing=0.01, vertical_spacing=0.025, subplot_titles=titles)
+        # for i in range(size):
+        #     for j in range(size):
+        #         fig = gen_and_save_dbm_matrix(results_2d, labels, _clf, _inv_model, grid_res, i, j, fig, start, step)
         
-        fig.update_annotations(font_size=11, yshift=0, font_color="black") # New coordinates
-        fig.update_xaxes(visible=False, showticklabels=False)
-        fig.update_yaxes(visible=False, showticklabels=False)
+        # fig.update_layout(
+        #     hovermode='closest',
+        #     width=800,  # Set the width in pixels
+        #     height=800,  # Set the height in pixels
+        #     xaxis=dict(visible=False),  # Hide x-axis
+        #     yaxis=dict(visible=False),  # Hide y-axis
+        #     margin=dict(l=1, r=1, t=17, b=12), # Remove margins
+        # )
         
-        return fig
+        # fig.update_annotations(font_size=11, yshift=0, font_color="black") # New coordinates
+        # fig.update_xaxes(visible=False, showticklabels=False)
+        # fig.update_yaxes(visible=False, showticklabels=False)
+        
+        # return fig
     
     def compute_projection(self):
         """Run backend to obtain projection, models, etc."""
@@ -382,7 +499,7 @@ class App(tk.Tk):
             bottleneck_l2=0.1,
         )
 
-        self.results_2d, self.labels, self.augmentation_values, self.inv_model, self.clf, self.nn_model, self.limits = self.get_inv_proj_data_ae(
+        self.results_2d, self.labels, self.augmentation_values, self.inv_model, self.clf, self.nn_model = self.get_inv_proj_data_ae(
             output_dir,
             sharp_model,
             dataset_name,
@@ -423,24 +540,26 @@ class App(tk.Tk):
         start = (-1.0, -1.0)
         step = (0.25, 0.25)
         size = 9
+        grid_res = int(self.resolution.get())
         if self.generate_matrix:
-            fig = self.get_matrix_fig(
-                self.results_2d, self.labels, self.clf, self.inv_model,
-                int(self.resolution.get()), start, step, size
-            )
+            self.matrix_ax = self.get_matrix_fig(self.results_2d, self.clf, self.inv_model, grid_res, start, step, size, self.matrix_ax)
             self.generate_matrix = False
-            img = plotly_to_image_tk(fig)
-            self.image_matrix = img 
-            self.img_label_matrix.configure(image=self.image_matrix, text="", compound=None)
+                        
+            # PLOTLY
+            # fig = self.get_matrix_fig(
+            #     self.results_2d, self.labels, self.clf, self.inv_model,
+            #     int(self.resolution.get()), start, step, size
+            # )
+            # img = plotly_to_image_tk(fig)
+            # self.image_matrix = img 
+            # self.img_label_matrix.configure(image=self.image_matrix, text="", compound=None)
 
         # self.update()
         # Right figure (neighbors/confidence)
-        fig2 = go.Figure()
-        grid_res = int(self.resolution.get())
         x = float(self.x_v.get())
         y = float(self.y_v.get())
-        scatter = bool(self.scatter.get())
-        class_conf = bool(self.class_conf.get())
+        scatter = self.scatter.get()
+        class_conf = self.class_conf.get()
         closest_tp = self.closest_tp.get()
         
         fig2 = self.right_ax
@@ -452,13 +571,14 @@ class App(tk.Tk):
             else:
                 fig2, ret_values = gen_and_save_dbm(self.results_2d, self.labels, self.augmentation_values, self.clf, self.nn_model, self.inv_model, grid_res, x, y, fig2, scatter, closest_tp, class_conf, self.cmap_main)
         else:
-            fig2 = gen_images_grid_plotly(self.inv_model, self.clf, self.results_2d, grid_res, x, y, cmap=self.cmap_main)
+            fig2 = plot_generated_images_grid_with_dbm(self.results_2d, self.clf, self.inv_model, grid_res, x, y, fig2, self.cmap_main)
             ret_values = (0.0,0.0)
-        # plt.show()
-        # self.right_ax.relim()
-        # self.right_ax.autoscale_view()
+        
         self.right_canvas.draw()
         self.right_toolbar.update()
+
+        self.np_dist_ctp.set(f"Nearest Point Distance: {ret_values[1]:.5f}")
+        self.fp_dist_ctp.set(f"Farthest Point Distance:{ret_values[0]:.5f}")
         # self.update()
         # fig2.update_layout(
         #     title={

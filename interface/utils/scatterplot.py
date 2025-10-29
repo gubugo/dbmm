@@ -6,6 +6,12 @@ import numpy as np
 def get_normal_dist(x, mu, sig):
     return np.exp(-1*((x-mu)/sig)**2)#(1/sig*np.sqrt(2*np.pi))*
 
+# def sigmoid(x):
+#     return 1/(1+np.exp(-x))
+
+# def sigmoid_der(x):
+#     return sigmoid(x)*(1-sigmoid(x))
+
 def make_grid(
     x_min: float, x_max: float, y_min: float, y_max: float, v1: float, v2: float, side_length: int
 ) -> np.ndarray:
@@ -87,9 +93,20 @@ def plot_decision_map_with_points(decision_map, points, labels, map_size, matrix
     fig.grid(False)
     fig.axis("off") 
 
-    # if save_path:
-    #     plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    # plt.show()
+def plot_points_on_decision_map(points, labels, grid_res, locally, map_extra_coords, augmentation, fig=None):
+
+    if locally:
+        labels = apply_local_points_to_alpha(labels, augmentation, map_extra_coords)
+    # else:
+    #     cmap_colors = np.ones((np.shape(points)[0],4))
+    map_size = grid_res-1
+    scatter = fig.scatter(map_size*(points[:, 0]-np.min(points[:, 0]))/(np.max(points[:, 0])-np.min(points[:, 0])), 
+                          map_size*(points[:, 1]-np.min(points[:, 1]))/(np.max(points[:, 1])-np.min(points[:, 1])), 
+                          c=labels, s=36, edgecolor='k', linewidth=0.2*labels[:,3])
+    #/(matrix_side)
+    # fig.grid(False)
+    # fig.axis("off") 
+
 
 def plot_generated_images_grid_with_dbm(model_nninv, classifier, grid_res, bb, matrix_origin, step, image_shape=(28,28),
                                     latent_range=(0.0,1.0), img_size=0.05, proximity=1.0,
@@ -195,7 +212,6 @@ def apply_local_points_to_alpha(colors, extra_dims, map_extra_coords):
     
     for i, value in enumerate(extra_dims):
         v = get_normal_dist(value[0],map_extra_coords[0],inv_sqrt_2pi)*get_normal_dist(value[1],map_extra_coords[1],inv_sqrt_2pi)
-
         # print(v)
         # labels[i,0:3] = v*labels[i,0:3]
         colors[i,3] = (np.exp(3*v-3)-np.exp(-3))*colors[i,3]

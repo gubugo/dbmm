@@ -13,4 +13,4 @@ def load_or_fit_model_ae(X, y, aug, X_test, output_dir, _model, dataset_name, mo
         _model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
     projected_data = _model.transform(X_test)
     
-    return projected_data, _model, [-1.0, 1.0, -1.0, 1.0]
+    return projected_data, _model

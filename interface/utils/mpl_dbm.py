@@ -4,8 +4,8 @@ import math
 import string
 from typing import Union, Any
 from matplotlib import colors, pyplot as plt
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import numpy as np
-from PIL import Image
 
 from sklearn.base import ClassifierMixin
 from sklearn.neural_network import MLPClassifier
@@ -14,6 +14,7 @@ from sklearn.preprocessing import minmax_scale
 
 import plotly.graph_objects as go
 
+from utils.scatterplot import plot_points_on_decision_map
 from utils.metrics import metric_distance_to_nearest_neighbor
 from utils.utils import generate_grid_coords, generate_map_w_scatterplots, make_grid, get_bounding_box
 
@@ -72,6 +73,7 @@ def generate_dbm(
         cmapped[:,0] = cmapped[:,0]*confidence
         cmapped[:,1] = cmapped[:,1]*confidence
         cmapped[:,2] = cmapped[:,2]*confidence
+    coords = f"({pos1},{pos2})"
     # fig.clear()
     fig.imshow(
         cmapped.reshape((grid_res, grid_res, 4)),
@@ -79,7 +81,8 @@ def generate_dbm(
         interpolation="none",
         resample=False,
     )
-    # fig.axis("off") 
+    fig.set_title(coords, fontsize=10, x=0.5, y=1)
+    fig.axis("off") 
     # fig.draw()
     return fig, ret_values
 
@@ -99,6 +102,7 @@ def gen_and_save_dbm(
     class_confidence: string,
     cmap: Any
 ):
+    fig.clear()
     fig, ret_values = generate_dbm(
         classifier,
         nn_model,
@@ -115,26 +119,73 @@ def gen_and_save_dbm(
         cmap=cmap,  
     )
     if scatter == "On":    
-        fig = generate_map_w_scatterplots(
+        fig = plot_points_on_decision_map(
             X_2d,
-            y,
+            cmap(y),
             grid_res=grid_res,
             locally=False,
             map_extra_coords=[pos1,pos2],
             augmentation=aug,
-            fig=fig,     
+            fig=fig,
         )
     elif scatter == "Locally":
-        fig = generate_map_w_scatterplots(
+        fig = plot_points_on_decision_map(
             X_2d,
-            y,
+            cmap(y),
             grid_res=grid_res,
             locally=True,
             map_extra_coords=[pos1,pos2],
             augmentation=aug,
-            fig=fig,     
+            fig=fig,      
         )
 
               
     # print(fig)
     return fig, ret_values
+
+
+# gets the decision map matrix and a NNInv model as parameters,
+# generates a grid of images using the NNInv model on a uniform grid of coordinates,
+# and plots them on top of the decision map, saving the result
+def plot_generated_images_grid_with_dbm(data, clf, inv_model, grid_res, pos1, pos2, ax, cmap,
+                                        img_size=0.5, proximity=1.75,
+                                        figsize=(10,8), cmap_images='gray'):
+    bounding_box = get_bounding_box(data)
+    grid = make_grid(*bounding_box, pos1, pos2, grid_res)
+    inverted_grid = inv_model.inverse_transform(grid)
+
+    classes = clf.predict(inverted_grid).astype(np.uint8)
+
+    cmapped = cmap(classes)
+
+    ax.imshow(
+        cmapped.reshape(grid_res, grid_res, 4),
+        interpolation='none',
+        # extent=bounding_box,
+        origin='lower'
+    )
+
+    # generate coordinates and images
+    coords = generate_grid_coords(bounding_box, img_size, proximity, pos1, pos2)
+    images = inv_model.inverse_transform(coords)
+    images = images.reshape(-1, 28, 28)
+
+    tcoords = np.array(coords).T
+
+    tcoords[0] = minmax_scale(tcoords[0])*(grid_res-1)
+    tcoords[1] = minmax_scale(tcoords[1])*(grid_res-1)
+
+    coords = tcoords.T
+    # print(minmax_scale(coords[]))
+    # plot images on grid above DBM
+    images = np.clip(images, 0, 1)
+    for (x, y, z, w), img in zip(coords, images):
+        img_obj = OffsetImage(img, cmap=cmap_images, zoom=img_size)
+        ab = AnnotationBbox(img_obj, (x, y), frameon=False)
+        ax.add_artist(ab)
+
+    # ax.set_xlim(bounding_box[:2])
+    # ax.set_ylim(bounding_box[-2:])
+    ax.axis('off')
+
+    return ax

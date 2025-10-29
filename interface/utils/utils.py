@@ -55,11 +55,12 @@ def get_bounding_box(X_proj: np.ndarray) -> tuple[float, float, float, float]:
     return x_min, x_max, y_min, y_max
 
 # generate a grid of coordinates in the latent space
-def generate_grid_coords(latent_range=(0.0, 1.0), img_size=0.05, proximity=1.6, v1=0.0, v2=0.0):
+def generate_grid_coords(latent_range=(0.0, 1.0, 0.0, 1.0), img_size=0.05, proximity=1.6, v1=0.0, v2=0.0):
     num_cols = int(proximity*(latent_range[1]-latent_range[0]) / img_size)
-    num_rows = int(proximity*(latent_range[1]-latent_range[0]) / img_size)
-    xs = np.linspace(latent_range[0], latent_range[1], num_cols)
-    ys = np.linspace(latent_range[0], latent_range[1], num_rows)
+    num_rows = int(proximity*(latent_range[3]-latent_range[2]) / img_size)
+    minv = np.min([num_cols, num_rows])
+    xs = np.linspace(latent_range[0], latent_range[1], minv)
+    ys = np.linspace(latent_range[2], latent_range[3], minv)
     xx, yy = np.meshgrid(xs, ys)
     coords = [[i[0], i[1], v1, v2] for i in np.stack([xx.ravel(), yy.ravel()], axis=1)]
     return coords
