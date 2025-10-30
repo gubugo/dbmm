@@ -13,6 +13,7 @@ from sklearn.preprocessing import minmax_scale
 import tensorflow as tf
 
 import interface.models.sharp as sharp
+import interface.models.sharp_og as sharp_og
 import interface.models.nninv as nninv
 
 def compute_knn_indices(X, k):
@@ -42,6 +43,7 @@ def local_id_from_covariances(X, knn_indices, theta=0.95):
     n_samples = X.shape[0]
     di_list = np.zeros(n_samples)
 
+    # pega o rage, faz uma lista, separa a lista e passa como argumento pras threads...?
     for i in range(n_samples):
         S = X[knn_indices[i]]
         cov = np.cov(S, rowvar=False, ddof=0)
@@ -100,25 +102,52 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
     
     print("computing...")
     
-    id_nd_data = get_intrinsic_dimension(nd_data, 120, 0.95)
-    print(f"id of nd data: {id_nd_data}")
+    # # id_nd_data = get_intrinsic_dimension(nd_data, 120, 0.95)
+    # # print(f"id of nd data: {id_nd_data}")
     
-    id_2d_data = get_intrinsic_dimension(x_data, 120, 0.95)
-    print(f"id of 2d data: {id_2d_data}") 
+    # # id_2d_data = get_intrinsic_dimension(x_data, 120, 0.95)
+    # # print(f"id of 2d data: {id_2d_data}") 
     
-    # concat = np.concatenate((x_data,noise), axis=1)
-    # id_4d_data = get_intrinsic_dimension(concat, 120, 0.95)
-    # print(f"id of 4d data: {id_4d_data}") 
+    # # concat = np.concatenate((x_data,noise), axis=1)
+    # # id_4d_data = get_intrinsic_dimension(concat, 120, 0.95)
+    # # print(f"id of 4d data: {id_4d_data}") 
 
-    ip_data = inverter.inverse_transform(x_data) # concat
-    id_ndd_data = get_intrinsic_dimension(ip_data, 120, 0.95)
-    print(f"id of nd' data: {id_ndd_data}") 
+    # # ip_data = inverter.inverse_transform(concat) # concat
+    # # id_ndd_data = get_intrinsic_dimension(ip_data, 120, 0.95)
+    # # print(f"id of nd' data: {id_ndd_data}") 
 
     # grid = make_grid(*bounding_box, 0.0, 0.0, grid_res)
-    grid = make_grid_normal(*bounding_box, grid_res)
-    dbm00_data = inverter.inverse_transform(grid)
-    id_dbm00_data = get_intrinsic_dimension(dbm00_data, 120, 0.95)
-    print(f"id of dbm00: {id_dbm00_data}")
+    # dbm00_data = inverter.inverse_transform(grid)
+    # id_dbm00_data = get_intrinsic_dimension(dbm00_data, 120, 0.95)
+    # print(f"id of dbm00: {id_dbm00_data}")
+
+    normal_grid = make_grid_normal(*bounding_box, grid_res)
+
+
+    rngex = (np.array(list(range(21))*21)-10)/10
+    rngey = (np.array(sorted(list(range(21))*21))-10)/10
+    matrix_values = np.c_[rngex, rngey]
+    di_list = np.ones(np.shape(normal_grid)[0])
+    print(np.shape(di_list))
+
+    for index,i in enumerate(normal_grid):
+        pixelv = [[i[0], i[1], j[0], j[1]] for j in matrix_values]
+        invp_pixelv = inverter.inverse_transform(pixelv)
+        id_pixelv = get_intrinsic_dimension(invp_pixelv, 120, 0.95)
+        di_list[index] = id_pixelv
+        print(f"done pixel: {index}")
+
+    fig_main, ax_main = plt.subplots(1,1,figsize=(100,100))
+
+    ax_main.imshow(
+        di_list.reshape((grid_res, grid_res,1)),
+        cmap="viridis",
+        origin="lower",
+        interpolation="none",
+        resample=False,
+    )
+
+    fig_main.savefig(f"DBM_PIXEL.png")
 
     # allgrids = []
     # for i in range(matrix_side_size):
@@ -152,6 +181,15 @@ id of 4d data: 3.8542
 id of nd' data: 16.1826
 id of dbm00: 26.1056
 id of matrix: 17.240384
+"""
+
+# results (using 5000 samples, wo augmentation):
+#sharp
+"""
+id of nd data: 53.4848
+id of 2d data: 2.0
+id of nd' data: 2.5904
+id of dbm: 5.3984
 """
 
 def make_and_fit_mlp(X, y) -> MLPClassifier:
@@ -212,7 +250,7 @@ def get_inv_proj_data_i_wo_augmentation(output_dir, _model, _inv_model, dataset_
         clf = make_and_fit_mlp(X_train, y_train)
         dump(clf, f'{output_dir}/{dataset_name}/class.joblib')
 
-    return X_test, X_model_2d, y_test, clf, _inv_model
+    return X_test, X_model_2d, y_test, [], clf, _inv_model
 
 def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name, method, epochs):
     data_dir = "./data/"
@@ -325,12 +363,12 @@ def get_inv_proj_data_sharp(output_dir, _model, dataset_name, model_name, method
 if __name__ == "__main__":
 
     output_dir = "weights"
-    model_name = "nninv"
+    model_name = "sharp"
     dataset_ops = ["mnist", "fashionmnist"] 
     dataset = dataset_ops[0]
     method = "noise"
     
-    grid_res = 25
+    grid_res = 100
 
     epochs_dataset = {}
     epochs_dataset["fashionmnist"] = 10
@@ -351,13 +389,13 @@ if __name__ == "__main__":
     classes = sharp_dims_classes[dataset][1]
     noise = []
     if model_name == "sharp":
-        results_nd, results_2d, y_values, noise, clf, inv_model = get_inv_proj_data_sharp( #get_inv_proj_data_sharp(output_dir)
+        results_nd, results_2d, y_values, noise, clf, inv_model = get_inv_proj_data_sharp(
             output_dir, 
             sharp.ShaRP(
                 dims,
                 classes,
                 "diagonal_normal",
-                latent_dim= (2 if method=="noise" else 4),
+                latent_dim=2,
                 variational_layer_kwargs=dict(kl_weight=0.05, kl_mu_weight=0),
                 var_leaky_relu_alpha=-0.0001,
                 bottleneck_activation="linear",
@@ -370,7 +408,7 @@ if __name__ == "__main__":
             epochs
         )
     if model_name == "nninv":#noise,
-        results_nd, results_2d, y_values,  clf, inv_model = get_inv_proj_data_i_wo_augmentation(
+        results_nd, results_2d, y_values, noise, clf, inv_model = get_inv_proj_data_i_wo_augmentation(
             output_dir, 
             TSNE(
                 n_jobs=4, 

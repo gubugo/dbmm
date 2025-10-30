@@ -72,7 +72,7 @@ class NNInv:
         **kwargs,
     ):
         self.stop = EarlyStopping(
-            verbose=0, min_delta=0.0001, mode="min", patience=50, restore_best_weights=True
+            verbose=0, min_delta=0.001, mode="min", patience=50, restore_best_weights=True
         )
         self.callbacks = [self.stop]
         self.verbose = verbose
