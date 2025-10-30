@@ -150,7 +150,7 @@ class NNInv:
         self.model.fit(
             X,
             y,
-            batch_size=64,
+            batch_size=256,
             epochs=epochs,
             verbose=self.verbose,
             validation_split=0.05,
@@ -161,15 +161,10 @@ class NNInv:
         #this is unnecessary, but to fit into my pipeline it had to be done I guess
         encoded_input = Input(shape=(self.latent_dims,))
         l = self.model.get_layer("l1")(encoded_input)
-        l = self.model.get_layer("bn1")(l)
         l = self.model.get_layer("l2")(l)
-        l = self.model.get_layer("bn2")(l)
         l = self.model.get_layer("l3")(l)
-        l = self.model.get_layer("bn3")(l)
         l = self.model.get_layer("l4")(l)
-        l = self.model.get_layer("bn4")(l)
-        l = self.model.get_layer("output")(l)
-        decoder_layer = self.model.get_layer("a5")(l)
+        decoder_layer = self.model.get_layer("output")(l)
 
         self.inv = Model(encoded_input, decoder_layer)
 
