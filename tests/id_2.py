@@ -38,18 +38,16 @@ def local_id_from_covariances(X, knn_indices, theta=0.95):
 
 def local_id_from_covariances_mt(i, X, knn_indices, theta):
     S = X[knn_indices[i]]
-    # cov = np.cov(S, rowvar=False, ddof=0)
-    # eigenvals = np.linalg.eigvalsh(cov)
-    S_centered = S - S.mean(axis=0, keepdims=True)
-    _, s, _ = np.linalg.svd(S_centered, full_matrices=False)
-    eigenvals = (s**2) / S_centered.shape[0]
-    eigenvals = np.sort(eigenvals)[::-1]
+    N_samples, N_features = S.shape
+    pca = PCA(n_components=min(N_samples, N_features))
+    pca.fit(S)
+    eigenvalues = pca.explained_variance_
+    eigenvals = np.sort(eigenvalues)[::-1]
     total = np.sum(eigenvals)
     if total == 0:
         return 0
     eigenvals = eigenvals / total
     cumulative = np.cumsum(eigenvals)
-    print(f"finish {i}")
     return np.searchsorted(cumulative, theta) + 1
 
 def make_grid_normal(

@@ -42,24 +42,9 @@ def local_id_from_covariances(X, knn_indices, theta=0.95):
     di_list = np.zeros(n_samples)
 
     # pega o rage, faz uma lista, separa a lista e passa como argumento pras threads...?
-    di_list = Parallel(n_jobs=-3)(delayed(local_id_from_covariances_mt)(i, X, knn_indices, theta) for i in range(n_samples))
+    di_list = Parallel(n_jobs=-3)(delayed(get_intrinsic_dimension_pca)(i, X, knn_indices, theta) for i in range(n_samples))
 
     return di_list
-
-def local_id_from_covariances_mt(i, X, knn_indices, theta):
-    S = X[knn_indices[i]]
-    # cov = np.cov(S, rowvar=False, ddof=0)
-    # eigenvals = np.linalg.eigvalsh(cov)
-    S_centered = S - S.mean(axis=0, keepdims=True)
-    _, s, _ = np.linalg.svd(S_centered, full_matrices=False)
-    eigenvals = (s**2) / S_centered.shape[0]
-    eigenvals = np.sort(eigenvals)[::-1]
-    total = np.sum(eigenvals)
-    if total == 0:
-        return 0
-    eigenvals = eigenvals / total
-    cumulative = np.cumsum(eigenvals)
-    return np.searchsorted(cumulative, theta) + 1
 
 def get_intrinsic_dimension_pca(i, X, knn_indices, theta):
     S = X[knn_indices[i]]
@@ -73,7 +58,7 @@ def get_intrinsic_dimension_pca(i, X, knn_indices, theta):
         return 0
     eigenvals = eigenvals / total
     cumulative = np.cumsum(eigenvals)
-    np.searchsorted(cumulative, theta) + 1
+    return np.searchsorted(cumulative, theta) + 1
 
 # BASE IMPLEMENTATION
 # def local_id_from_covariances(X, knn_indices, theta):
@@ -107,7 +92,7 @@ def get_intrinsic_dimension(X, k, theta):
 def get_intrinsic_dimension_sv(index, X, k, theta):
     knn_idx = compute_knn_indices(X, k)
     # covariancias = neighborhood_covariances()
-    di_list = local_id_from_covariances_mt(index, X, knn_idx, theta)
+    di_list = get_intrinsic_dimension_pca(index, X, knn_idx, theta)
     d_avg = np.mean(di_list)
     return d_avg
 
@@ -140,7 +125,7 @@ def get_bounding_box(X_proj: np.ndarray) -> tuple[float, float, float, float]:
 
 def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
 
-    grid_res = 100
+    grid_res = 50
     
     X_size = np.shape(x_data)[0]
 
@@ -175,12 +160,12 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
     theta = 0.95
     index_coord = pixel_width**2//2
 
-    dist = 6
+    dist = 22 # 12 # 6
 
     coords_grid = make_grid_normal(*bounding_box, dist)
 
-    c0 = coords_grid[14]
-    c1 = coords_grid[21]
+    c0 = coords_grid[130]#65#14
+    c1 = coords_grid[153]#78#21
 
     normal_grid = make_grid_normal(c0[0], c1[0], c0[1], c1[1], grid_res)
     normal_grid_ = make_grid(c0[0], c1[0], c0[1], c1[1], 0.0, 0.0, grid_res)
@@ -188,24 +173,24 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
     # normal_grid_ = make_grid(*bounding_box, -1.0, -1.0, grid_res)
     invp_grid_base = inverter.inverse_transform(normal_grid_)
 
-    rngex = (np.array(list(range(pixel_width))*pixel_width)-half_pixel_width)/half_pixel_width
-    rngey = (np.array(sorted(list(range(pixel_width))*pixel_width))-half_pixel_width)/half_pixel_width
+    rngex = (1/21)*(np.array(list(range(pixel_width))*pixel_width)-half_pixel_width)/half_pixel_width
+    rngey = (1/21)*(np.array(sorted(list(range(pixel_width))*pixel_width))-half_pixel_width)/half_pixel_width
     matrix_values = np.c_[rngex, rngey]
     di_list = np.ones(np.shape(normal_grid)[0])
     print(np.shape(di_list))
 
-    # for index,i in enumerate(normal_grid):
-    #     start_time = time.perf_counter()
-    #     grid = [[i[0], i[1], j[0], j[1]] for j in matrix_values]
-    #     invp_grid = np.concatenate((inverter.inverse_transform(grid),invp_grid_base))
-    #     print(np.shape(invp_grid))
-    #     id_pixelv = get_intrinsic_dimension_sv(index_coord, invp_grid, k, theta)
-    #     di_list[index] = id_pixelv
-    #     end_time = time.perf_counter()
-    #     elapsed_time = end_time - start_time
-    #     print(f"Elapsed time: {elapsed_time:.4f} seconds")
-    #     if not bool(index % 10):
-    #         print(f"done pixel: {index}")
+    for index,i in enumerate(normal_grid):
+        start_time = time.perf_counter()
+        grid = [[i[0], i[1], j[0], j[1]] for j in matrix_values]
+        invp_grid = np.concatenate((inverter.inverse_transform(grid),invp_grid_base))
+        print(np.shape(invp_grid))
+        id_pixelv = get_intrinsic_dimension_sv(index_coord, invp_grid, k, theta)
+        di_list[index] = id_pixelv
+        end_time = time.perf_counter()
+        elapsed_time = end_time - start_time
+        print(f"Elapsed time: {elapsed_time:.4f} seconds")
+        if not bool(index % 10):
+            print(f"done pixel: {index}")
 
 
     # for index,i in enumerate(normal_grid):
@@ -223,7 +208,7 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
 
 
     fig_main, ax_main = plt.subplots(1,1,figsize=(200,200))
-    di_list = np.load(f'my_array({pixel_width})_{k}_{index_coord}_all.npy')
+    np.save(f'my_array({pixel_width})_{k}_{index_coord}_central_21.npy', di_list)
     max_v = np.max(di_list)
     min_v = np.min(di_list)
     # for index, i in enumerate(di_list):
@@ -238,13 +223,13 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
         resample=False,
     )
 
-    coords_grid = minmax_scale(coords_grid)
-    ax_main.scatter(
-        100*coords_grid[:,0],100*coords_grid[:,1], 1600, "black"
-    )
+    # coords_grid = minmax_scale(coords_grid)
+    # ax_main.scatter(
+    #     100*coords_grid[:,0],100*coords_grid[:,1], 1600, "black"
+    # )
     print(max_v)
     print(min_v)
-    fig_main.savefig(f"DBM_PIXEL({pixel_width})_{k}_{index_coord}_all.png")
+    fig_main.savefig(f"DBM_PIXEL({pixel_width})_{k}_{index_coord}_central_21.png")
 
 
 def make_and_fit_mlp(X, y) -> MLPClassifier:
