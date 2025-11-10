@@ -5,4 +5,4 @@ I think thats everything, i will fix requirements.txt later (also multicore tsne
 
 `python get_data.py`.
 
-`streamlit run interface/dbm_experiment.py `
+`python interface/tkinter_app.py `

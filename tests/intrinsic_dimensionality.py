@@ -1,16 +1,22 @@
 import os
 import sys
+import time
 from joblib import dump, load
 from matplotlib import pyplot as plt
 import numpy as np
+from numba import njit
+import skdim
 from sklearn.datasets import make_blobs
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from sklearn.model_selection import train_test_split
-from sklearn.neighbors import NearestNeighbors
+from sklearn.neighbors import KDTree, NearestNeighbors
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import minmax_scale
 import tensorflow as tf
+from joblib import Parallel, delayed
+import torch
+torch.backends.cuda.preferred_linalg_library("magma")
 
 import interface.models.sharp as sharp
 import interface.models.sharp_og as sharp_og
@@ -28,44 +34,81 @@ def compute_knn_indices(X, k):
     knn_indices = indices[:, 1:] 
     return knn_indices
 
-def neighborhood_covariances(X, knn_indices):
-    n_samples = X.shape[0]
-    n_features = X.shape[1]
-    covs = np.zeros((n_samples, n_features, n_features))
-    for i in range(n_samples):
-        S = X[knn_indices[i]]
-        cov = np.cov(S, rowvar=False, ddof=0)
-        covs[i] = cov
-    return covs
 
+# CPU THREADING
 def local_id_from_covariances(X, knn_indices, theta=0.95):
     # n_samples = covariances.shape[0]
     n_samples = X.shape[0]
     di_list = np.zeros(n_samples)
 
     # pega o rage, faz uma lista, separa a lista e passa como argumento pras threads...?
-    for i in range(n_samples):
-        S = X[knn_indices[i]]
-        cov = np.cov(S, rowvar=False, ddof=0)
-        # cov = covariances[i]
-        eigenvals = np.linalg.eigvalsh(cov)
-        eigenvals = np.sort(eigenvals)[::-1]
-        total = np.sum(eigenvals)
-        if total == 0:
-            di_list[i] = 0
-            continue
-        eigenvals /= total
-        cumulative = np.cumsum(eigenvals)
-        d_i = np.searchsorted(cumulative, theta) + 1
-        di_list[i] = d_i
+    di_list = Parallel(n_jobs=-3)(delayed(local_id_from_covariances_mt)(i, X, knn_indices, theta) for i in range(n_samples))
 
-    d_avg = np.mean(di_list)
-    return di_list, d_avg
+    return di_list
+
+def local_id_from_covariances_mt(i, X, knn_indices, theta):
+    S = X[knn_indices[i]]
+    # cov = np.cov(S, rowvar=False, ddof=0)
+    # eigenvals = np.linalg.eigvalsh(cov)
+    S_centered = S - S.mean(axis=0, keepdims=True)
+    _, s, _ = np.linalg.svd(S_centered, full_matrices=False)
+    eigenvals = (s**2) / S_centered.shape[0]
+    eigenvals = np.sort(eigenvals)[::-1]
+    total = np.sum(eigenvals)
+    if total == 0:
+        return 0
+    eigenvals = eigenvals / total
+    cumulative = np.cumsum(eigenvals)
+    return np.searchsorted(cumulative, theta) + 1
+
+def get_intrinsic_dimension_pca(i, X, knn_indices, theta):
+    S = X[knn_indices[i]]
+    N_samples, N_features = S.shape
+    pca = PCA(n_components=min(N_samples, N_features))
+    pca.fit(S)
+    eigenvalues = pca.explained_variance_
+    eigenvals = np.sort(eigenvalues)[::-1]
+    total = np.sum(eigenvals)
+    if total == 0:
+        return 0
+    eigenvals = eigenvals / total
+    cumulative = np.cumsum(eigenvals)
+    np.searchsorted(cumulative, theta) + 1
+
+# BASE IMPLEMENTATION
+# def local_id_from_covariances(X, knn_indices, theta):
+#     n_samples = knn_indices.shape[0]
+#     di_list = np.empty(n_samples, dtype=np.int32)
+#     for i in range(n_samples):
+#         S = X[knn_indices[i]]
+#         S_mean = np.mean(S)
+#         S_centered = S - S_mean
+#         cov = (S_centered.T @ S_centered) / S.shape[0]  # same as np.cov(rowvar=False, ddof=0)
+#         eigenvals = np.linalg.eigvalsh(cov)
+#         eigenvals = eigenvals[::-1]  # descending order
+#         total = np.sum(eigenvals)
+#         if total == 0:
+#             di_list[i] = 0
+#             continue
+#         eigenvals /= total
+#         cumulative = np.cumsum(eigenvals)
+#         d_i = np.searchsorted(cumulative, theta) + 1
+#         di_list[i] = d_i
+#     d_avg = np.mean(di_list)
+#     return di_list, d_avg
 
 def get_intrinsic_dimension(X, k, theta):
-    knn_idx = compute_knn_indices(X, k=k)
+    knn_idx = compute_knn_indices(X, k)
     # covariancias = neighborhood_covariances()
-    di_list, d_avg = local_id_from_covariances(X, knn_idx, theta=0.95)
+    di_list = local_id_from_covariances(X, knn_idx, theta)
+    d_avg = np.mean(di_list)
+    return d_avg
+
+def get_intrinsic_dimension_sv(index, X, k, theta):
+    knn_idx = compute_knn_indices(X, k)
+    # covariancias = neighborhood_covariances()
+    di_list = local_id_from_covariances_mt(index, X, knn_idx, theta)
+    d_avg = np.mean(di_list)
     return d_avg
 
 cmap = plt.get_cmap("tab10")
@@ -96,7 +139,10 @@ def get_bounding_box(X_proj: np.ndarray) -> tuple[float, float, float, float]:
     return x_min, x_max, y_min, y_max
 
 def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
-    fig_main, ax_main = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
+
+    grid_res = 100
+    
+    X_size = np.shape(x_data)[0]
 
     bounding_box = get_bounding_box(x_data)
     
@@ -120,77 +166,86 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
     # dbm00_data = inverter.inverse_transform(grid)
     # id_dbm00_data = get_intrinsic_dimension(dbm00_data, 120, 0.95)
     # print(f"id of dbm00: {id_dbm00_data}")
+    
+    k = 120
+    pixel_width = 51#np.ceil(np.sqrt(X_size))
+    # pixel_width = np.uint16(pixel_width+1 if pixel_width//2 == 0 else pixel_width)
+    
+    half_pixel_width = pixel_width//2
+    theta = 0.95
+    index_coord = pixel_width**2//2
 
-    normal_grid = make_grid_normal(*bounding_box, grid_res)
+    dist = 6
 
+    coords_grid = make_grid_normal(*bounding_box, dist)
 
-    rngex = (np.array(list(range(21))*21)-10)/10
-    rngey = (np.array(sorted(list(range(21))*21))-10)/10
+    c0 = coords_grid[14]
+    c1 = coords_grid[21]
+
+    normal_grid = make_grid_normal(c0[0], c1[0], c0[1], c1[1], grid_res)
+    normal_grid_ = make_grid(c0[0], c1[0], c0[1], c1[1], 0.0, 0.0, grid_res)
+    # normal_grid = make_grid_normal(*bounding_box, grid_res)
+    # normal_grid_ = make_grid(*bounding_box, -1.0, -1.0, grid_res)
+    invp_grid_base = inverter.inverse_transform(normal_grid_)
+
+    rngex = (np.array(list(range(pixel_width))*pixel_width)-half_pixel_width)/half_pixel_width
+    rngey = (np.array(sorted(list(range(pixel_width))*pixel_width))-half_pixel_width)/half_pixel_width
     matrix_values = np.c_[rngex, rngey]
     di_list = np.ones(np.shape(normal_grid)[0])
     print(np.shape(di_list))
 
-    for index,i in enumerate(normal_grid):
-        pixelv = [[i[0], i[1], j[0], j[1]] for j in matrix_values]
-        invp_pixelv = inverter.inverse_transform(pixelv)
-        id_pixelv = get_intrinsic_dimension(invp_pixelv, 120, 0.95)
-        di_list[index] = id_pixelv
-        print(f"done pixel: {index}")
+    # for index,i in enumerate(normal_grid):
+    #     start_time = time.perf_counter()
+    #     grid = [[i[0], i[1], j[0], j[1]] for j in matrix_values]
+    #     invp_grid = np.concatenate((inverter.inverse_transform(grid),invp_grid_base))
+    #     print(np.shape(invp_grid))
+    #     id_pixelv = get_intrinsic_dimension_sv(index_coord, invp_grid, k, theta)
+    #     di_list[index] = id_pixelv
+    #     end_time = time.perf_counter()
+    #     elapsed_time = end_time - start_time
+    #     print(f"Elapsed time: {elapsed_time:.4f} seconds")
+    #     if not bool(index % 10):
+    #         print(f"done pixel: {index}")
 
-    fig_main, ax_main = plt.subplots(1,1,figsize=(100,100))
 
+    # for index,i in enumerate(normal_grid):
+    #     pixelv = [[i[0], i[1], j[0], j[1]] for j in matrix_values]
+    #     invp_pixelv = inverter.inverse_transform(pixelv)
+    #     start_time = time.perf_counter()
+    #     id_pixelv = get_intrinsic_dimension(invp_pixelv, k, theta)
+    #     di_list[index] = id_pixelv
+    #     end_time = time.perf_counter()
+    #     elapsed_time = end_time - start_time
+    #     print(f"Elapsed time: {elapsed_time:.4f} seconds")
+    #     if not bool(index % 10):
+    #         print(f"done pixel: {index}")
+    
+
+
+    fig_main, ax_main = plt.subplots(1,1,figsize=(200,200))
+    di_list = np.load(f'my_array({pixel_width})_{k}_{index_coord}_all.npy')
+    max_v = np.max(di_list)
+    min_v = np.min(di_list)
+    # for index, i in enumerate(di_list):
+    #     if i != 6.0 and i != 7.0 and i != 8.0:
+    #         print(f"{index}: {i}")
+    # di_list = (di_list - min_v)/(max_v-min_v)
+    
     ax_main.imshow(
         di_list.reshape((grid_res, grid_res,1)),
         cmap="viridis",
-        origin="lower",
         interpolation="none",
         resample=False,
     )
 
-    fig_main.savefig(f"DBM_PIXEL.png")
+    coords_grid = minmax_scale(coords_grid)
+    ax_main.scatter(
+        100*coords_grid[:,0],100*coords_grid[:,1], 1600, "black"
+    )
+    print(max_v)
+    print(min_v)
+    fig_main.savefig(f"DBM_PIXEL({pixel_width})_{k}_{index_coord}_all.png")
 
-    # allgrids = []
-    # for i in range(matrix_side_size):
-    #     for j in range(matrix_side_size):
-    #         grid = make_grid(*bounding_box, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], grid_res)
-            
-    #         if len(allgrids) == 0:
-    #             allgrids = grid
-    #         else:
-    #             allgrids = np.concatenate((allgrids, grid), axis=0)
-
-    # inverted_grids = inverter.inverse_transform(allgrids)
-    # id_matrix_data = get_intrinsic_dimension(inverted_grids, 120, 0.95)
-    # print(f"id of matrix: {id_matrix_data}")
-
-# results (using 5000 samples, with augmentation):
-#sharp:
-"""
-id of nd data: 53.4848
-id of 2d data: 2.0
-id of 4d data: 3.9962
-id of nd' data: 5.6678
-id of dbm00: 5.7024
-id of matrix: 5.364864
-"""
-#nninv:
-"""
-id of nd data: 53.3488
-id of 2d data: 2.0
-id of 4d data: 3.8542
-id of nd' data: 16.1826
-id of dbm00: 26.1056
-id of matrix: 17.240384
-"""
-
-# results (using 5000 samples, wo augmentation):
-#sharp
-"""
-id of nd data: 53.4848
-id of 2d data: 2.0
-id of nd' data: 2.5904
-id of dbm: 5.3984
-"""
 
 def make_and_fit_mlp(X, y) -> MLPClassifier:
     return MLPClassifier(
@@ -435,3 +490,8 @@ if __name__ == "__main__":
     
     fig = plot_matrix(clf, inv_model, results_nd, results_2d, y_values, noise, grid_res, matrix_size, matrix_origin, matrix_step, format_step, figname=f"./matrices/matrices/{model_name}/{method}/{grid_res}_{matrix_size}_{txt}_ID_EXPERIMENT")
   
+
+import numpy as np
+from sklearn.decomposition import PCA
+
+
