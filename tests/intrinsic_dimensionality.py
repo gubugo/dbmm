@@ -3,6 +3,7 @@ import sys
 import time
 from joblib import dump, load
 from matplotlib import pyplot as plt
+from matplotlib.colors import BoundaryNorm
 import numpy as np
 from numba import njit
 import skdim
@@ -158,23 +159,21 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
     
     half_pixel_width = pixel_width//2
     theta = 0.95
-    index_coord = pixel_width**2//2
+    index_coord = 0#pixel_width**2//2
 
-    dist = 22 # 12 # 6
-
+    dist = 12 #6 #22 
     coords_grid = make_grid_normal(*bounding_box, dist)
-
-    c0 = coords_grid[130]#65#14
-    c1 = coords_grid[153]#78#21
+    c0 = coords_grid[65]#14#130##
+    c1 = coords_grid[78]#21#153##
 
     normal_grid = make_grid_normal(c0[0], c1[0], c0[1], c1[1], grid_res)
-    normal_grid_ = make_grid(c0[0], c1[0], c0[1], c1[1], 0.0, 0.0, grid_res)
+    normal_grid_ = make_grid(c0[0], c1[0], c0[1], c1[1], -1.0, -1.0, grid_res)
     # normal_grid = make_grid_normal(*bounding_box, grid_res)
     # normal_grid_ = make_grid(*bounding_box, -1.0, -1.0, grid_res)
     invp_grid_base = inverter.inverse_transform(normal_grid_)
-
-    rngex = (1/21)*(np.array(list(range(pixel_width))*pixel_width)-half_pixel_width)/half_pixel_width
-    rngey = (1/21)*(np.array(sorted(list(range(pixel_width))*pixel_width))-half_pixel_width)/half_pixel_width
+    #(1/21)*
+    rngex = (1/11)*(np.array(list(range(pixel_width))*pixel_width)-half_pixel_width)/half_pixel_width
+    rngey = (1/11)*(np.array(sorted(list(range(pixel_width))*pixel_width))-half_pixel_width)/half_pixel_width
     matrix_values = np.c_[rngex, rngey]
     di_list = np.ones(np.shape(normal_grid)[0])
     print(np.shape(di_list))
@@ -183,7 +182,7 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
         start_time = time.perf_counter()
         grid = [[i[0], i[1], j[0], j[1]] for j in matrix_values]
         invp_grid = np.concatenate((inverter.inverse_transform(grid),invp_grid_base))
-        print(np.shape(invp_grid))
+        # print(np.shape(invp_grid))
         id_pixelv = get_intrinsic_dimension_sv(index_coord, invp_grid, k, theta)
         di_list[index] = id_pixelv
         end_time = time.perf_counter()
@@ -207,8 +206,8 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
     
 
 
-    fig_main, ax_main = plt.subplots(1,1,figsize=(200,200))
-    np.save(f'my_array({pixel_width})_{k}_{index_coord}_central_21.npy', di_list)
+    fig_id, ax_id = plt.subplots(1,1,figsize=(200,200))
+    np.save(f'my_array({pixel_width})_{k}_{index_coord}_central_11.npy', di_list)
     max_v = np.max(di_list)
     min_v = np.min(di_list)
     # for index, i in enumerate(di_list):
@@ -216,7 +215,7 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
     #         print(f"{index}: {i}")
     # di_list = (di_list - min_v)/(max_v-min_v)
     
-    ax_main.imshow(
+    ax_id.imshow(
         di_list.reshape((grid_res, grid_res,1)),
         cmap="viridis",
         interpolation="none",
@@ -224,12 +223,108 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
     )
 
     # coords_grid = minmax_scale(coords_grid)
-    # ax_main.scatter(
+    # ax_id.scatter(
     #     100*coords_grid[:,0],100*coords_grid[:,1], 1600, "black"
     # )
     print(max_v)
     print(min_v)
-    fig_main.savefig(f"DBM_PIXEL({pixel_width})_{k}_{index_coord}_central_21.png")
+    fig_id.savefig(f"DBM_PIXEL({pixel_width})_{k}_{index_coord}_central_11.png")
+
+def plot_matrix_true(clf, inverter, nd_data, x_data, y_data, noise, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
+
+    grid_res = 40
+    
+    X_size = np.shape(x_data)[0]
+
+    bounding_box = get_bounding_box(x_data)
+    
+    print("computing...")
+    k = 120
+    pixel_width = 41
+    half_pixel_width = pixel_width//2
+    theta = 0.95
+    matrix_side = 5
+    half_matrix_side = matrix_side//2
+
+    res_id =  np.zeros((matrix_side,matrix_side,grid_res,grid_res))
+    res_dbm = np.zeros((matrix_side,matrix_side,grid_res*grid_res,4))
+
+    step_x =             (pixel_width-1)//(matrix_side-1)
+    step_y = pixel_width*(pixel_width-1)//(matrix_side-1)
+
+    cmap_dbm = plt.get_cmap('tab10')
+    
+    for x in range(matrix_side):
+        for y in range(matrix_side):
+            index_coord = x*step_x+y*step_y#pixel_width**2//2
+
+            normal_grid = make_grid_normal(*bounding_box, grid_res)
+            normal_grid_ = make_grid(*bounding_box, (x-half_matrix_side)/half_matrix_side, (y-half_matrix_side)/half_matrix_side, grid_res)
+            invp_grid_base = inverter.inverse_transform(normal_grid_)
+            
+            #(1/21)*
+            rngex = (np.array(list(range(pixel_width))*pixel_width)-half_pixel_width)/half_pixel_width
+            rngey = (np.array(sorted(list(range(pixel_width))*pixel_width))-half_pixel_width)/half_pixel_width
+            matrix_values = np.c_[rngex, rngey]
+            di_list = np.ones(np.shape(normal_grid)[0])
+
+            # for index,i in enumerate(normal_grid):
+            #     start_time = time.perf_counter()
+            #     grid = [[i[0], i[1], j[0], j[1]] for j in matrix_values]
+            #     invp_grid = np.concatenate((inverter.inverse_transform(grid),invp_grid_base))
+            #     # print(np.shape(invp_grid))
+            #     id_pixelv = get_intrinsic_dimension_sv(index_coord, invp_grid, k, theta)
+            #     di_list[index] = id_pixelv
+            #     end_time = time.perf_counter()
+            #     elapsed_time = end_time - start_time
+            #     print(f"Elapsed time: {elapsed_time:.4f} seconds")
+            #     if not bool(index % 10):
+            #         print(f"done pixel: {index}")
+            res_dbm[x,y] = cmap_dbm(clf.predict(invp_grid_base).astype(np.uint8))
+            res_id[x,y] = di_list.reshape((grid_res, grid_res))
+            print(f"ready {x},{y}")
+
+    # fig_id, ax_id = plt.subplots(matrix_side,matrix_side,figsize=(100,100))
+    fig_dbm, ax_dbm = plt.subplots(matrix_side,matrix_side,figsize=(100,100))
+    
+    # np.save(f'matrix({pixel_width})_{k}_{matrix_side}.npy', res_id)
+    # max_v = np.max(res_id)
+    # min_v = np.min(res_id)
+    # cmap = plt.get_cmap('jet', int(max_v-min_v+1))
+    
+    # images = []
+    for x in range(matrix_side):
+        for y in range(matrix_side):
+            # images.append(
+            #     ax_id[x,y].imshow(
+            #         res_id[x,y].reshape((grid_res, grid_res,1)),
+            #         interpolation="none",
+            #         resample=False,
+            #         cmap=cmap,
+            #         vmin=min_v,
+            #         vmax=max_v,
+            #     )
+            # )
+            # ax_id[x,y].set_title(f"{(x-half_matrix_side)/half_matrix_side}, {(y-half_matrix_side)/half_matrix_side}", fontsize=200)
+            # ax_id[x,y].axis("off")
+            ax_dbm[x,y].imshow(
+                res_dbm[x,y].reshape((grid_res, grid_res,4)),
+                interpolation="none",
+                resample=False,
+            )
+            ax_dbm[x,y].set_title(f"{(x-half_matrix_side)/half_matrix_side}, {(y-half_matrix_side)/half_matrix_side}", fontsize=100)
+            ax_dbm[x,y].axis("off")
+             
+
+    # bounds = np.arange(int(max_v-min_v+2)) + min_v - 0.5 # Boundaries for each color segment
+    # norm = BoundaryNorm(bounds, cmap.N)
+    # cbar = fig_id.colorbar(images[0], ax=ax_id, orientation='horizontal', fraction=0.05, norm=norm, boundaries=bounds, ticks=list(range(int(min_v), int(max_v+1))))
+    # cbar.ax.tick_params(labelsize=200)
+    
+    # print(max_v)
+    # print(min_v)
+    fig_dbm.savefig(f"matrix_dbm({pixel_width})_{k}_{matrix_side}.png")
+    # fig_id.savefig(f"matrix_id({pixel_width})_{k}_{matrix_side}.png")
 
 
 def make_and_fit_mlp(X, y) -> MLPClassifier:
@@ -473,7 +568,7 @@ if __name__ == "__main__":
     
     txt = f"({np.round(matrix_origin[0],np.uint8(format_step[0]))}_{np.round(matrix_origin[1],np.uint8(format_step[1]))})_({np.round(matrix_step[0],np.uint8(format_step[0]))}_{np.round(matrix_step[1],np.uint8(format_step[1]))})"
     
-    fig = plot_matrix(clf, inv_model, results_nd, results_2d, y_values, noise, grid_res, matrix_size, matrix_origin, matrix_step, format_step, figname=f"./matrices/matrices/{model_name}/{method}/{grid_res}_{matrix_size}_{txt}_ID_EXPERIMENT")
+    fig = plot_matrix_true(clf, inv_model, results_nd, results_2d, y_values, noise, grid_res, matrix_size, matrix_origin, matrix_step, format_step, figname=f"./matrices/matrices/{model_name}/{method}/{grid_res}_{matrix_size}_{txt}_ID_EXPERIMENT")
   
 
 import numpy as np
