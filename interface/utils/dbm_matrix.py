@@ -11,10 +11,10 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 
-from utils.utils import make_grid, get_bounding_box
-import models.sharp as sharp
-import models.ssnp as ssnp
-import models.nninv as nninv
+from interface.utils.utils import make_grid, get_bounding_box
+import interface.models.sharp as sharp
+import interface.models.ssnp as ssnp
+import interface.models.nninv as nninv
 
 cmap = plt.get_cmap("tab10")
 

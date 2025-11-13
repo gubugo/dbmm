@@ -6,7 +6,6 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import BoundaryNorm
 import numpy as np
 from numba import njit
-import skdim
 from sklearn.datasets import make_blobs
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
@@ -16,8 +15,6 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import minmax_scale
 import tensorflow as tf
 from joblib import Parallel, delayed
-import torch
-torch.backends.cuda.preferred_linalg_library("magma")
 
 import interface.models.sharp as sharp
 import interface.models.sharp_og as sharp_og
@@ -262,8 +259,8 @@ def plot_matrix_pixel_plane(clf, inverter, nd_data, x_data, y_data, noise, grid_
         rngex = (np.array(list(range(pixel_width))*pixel_width)-half_pixel_width)/half_pixel_width
         rngey = (np.array(sorted(list(range(pixel_width))*pixel_width))-half_pixel_width)/half_pixel_width
         matrix_values = np.c_[rngex, rngey]
-        pix_x = index//grid_res
-        pix_y = index%grid_res
+        pix_x = index%grid_res
+        pix_y = index//grid_res
         grid = [[i[0], i[1], j[0], j[1]] for j in matrix_values]
         invp_grid = inverter.inverse_transform(grid)#np.concatenate((,invp_grid_base))
         for x,y in zip(grid_x,grid_y):

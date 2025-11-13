@@ -15,17 +15,17 @@ from sklearn.model_selection import train_test_split
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import minmax_scale
 
-from models import sharp
-from training.auto_encoders import load_or_fit_model_ae
-from training.classifier import load_or_fit_mlp_classifier
-from training.inv_proj import load_or_fit_model_inv_proj
-from utils.augmentations import get_augmentation_pca
-from utils.mpl_dbm import gen_and_save_dbm, plot_generated_images_grid_with_dbm
-from utils.dbm import gen_images_grid_plotly
-from utils.dbm_matrix import gen_and_save_dbm_matrix
-from utils.mpl_maps import gen_and_save_ccm, gen_and_save_nnm
-from utils.metrics import metric_distance_to_nearest_neighbor
-from utils.utils import get_bounding_box, make_grid, make_titles, plotly_to_image_tk
+from interface.models import sharp
+from interface.training.auto_encoders import load_or_fit_model_ae
+from interface.training.classifier import load_or_fit_mlp_classifier
+from interface.training.inv_proj import load_or_fit_model_inv_proj
+from interface.utils.augmentations import get_augmentation_pca
+from interface.utils.mpl_dbm import gen_and_save_dbm, plot_generated_images_grid_with_dbm
+from interface.utils.dbm import gen_images_grid_plotly
+from interface.utils.dbm_matrix import gen_and_save_dbm_matrix
+from interface.utils.mpl_maps import gen_and_save_ccm, gen_and_save_nnm
+from interface.utils.metrics import metric_distance_to_nearest_neighbor
+from interface.utils.utils import get_bounding_box, make_grid, make_titles, plotly_to_image_tk
 
 from plotly.subplots import make_subplots
 
@@ -472,8 +472,8 @@ class App(tk.Tk):
         # get_inv_proj_data_ae(output_dir, _model, dataset_name, model_name, method, epochs, random_state)
         output_dir = "weights"
         dataset_name = self.dataset.get()
-        model_name = "ae"
-        method = "diagonal_normal"
+        model_name = "sharp"
+        method = "noise"
         epochs = 10
         random_state = 420
 

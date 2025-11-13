@@ -14,13 +14,13 @@ from sklearn.preprocessing import minmax_scale
 
 import plotly.graph_objects as go
 
-from utils.scatterplot import plot_points_on_decision_map
-from utils.metrics import metric_distance_to_nearest_neighbor
-from utils.utils import generate_grid_coords, generate_map_w_scatterplots, make_grid, get_bounding_box
+from interface.utils.scatterplot import plot_points_on_decision_map
+from interface.utils.metrics import metric_distance_to_nearest_neighbor
+from interface.utils.utils import generate_grid_coords, generate_map_w_scatterplots, make_grid, get_bounding_box
 
-import models.sharp as sharp
-import models.ssnp as ssnp
-import models.nninv as nninv
+import interface.models.sharp as sharp
+import interface.models.ssnp as ssnp
+import interface.models.nninv as nninv
 
 def generate_dbm(
     model: MLPClassifier,
