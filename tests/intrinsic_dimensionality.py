@@ -21,6 +21,9 @@ import interface.models.sharp_og as sharp_og
 import interface.models.nninv as nninv
 import faiss 
 
+faiss.omp_set_num_threads(8)  # Set to the number of CPU cores you have
+gpu_res = faiss.StandardGpuResources()  # Initialize GPU resources
+
 def compute_knn_indices(X, k):
     n_samples = X.shape[0]
     if k >= n_samples:
@@ -41,11 +44,19 @@ def compute_knn_indices_single(X, k, index):
         print(f"[warning] k ajustado para {k} pois era >= n_samples")
 
                      # make faiss available
-    index = faiss.IndexFlatL2(n_dims)   # build the index
-    print(index.is_trained)
-    index.add(X)                  # add vectors to the index
-    print(index.ntotal)
-    _, I = index.search([X[index]], k)
+    search = faiss.IndexFlatL2(n_dims)   # build the inde
+    # search = faiss.IndexIVFFlat(quantizer, n_dims, 32) 
+
+    # Train the index
+    search = faiss.index_cpu_to_gpu(gpu_res, 0, search)  # Move index to GPU (GPU 0)
+    # search.train(X)
+
+    # Add vectors to the index
+    search.add(X)
+
+    # Set number of clusters to search (nprobe)
+    search.nprobe = 8         
+    _, I = search.search(np.array([X[index]]), k)
     knn_indices = I[:, 1:] 
     return knn_indices
 
@@ -123,11 +134,19 @@ cmap2 = plt.get_cmap("viridis")
 def make_grid(
     x_min: float, x_max: float, y_min: float, y_max: float, v1: float, v2: float, side_length: int
 ) -> np.ndarray:
-    xx, yy = np.meshgrid(
-        np.linspace(x_min, x_max, side_length), np.linspace(y_min, y_max, side_length)
-    )
+    # Create 1D arrays of evenly spaced values for each dimension
+    x_values = np.linspace(x_min, x_max, side_length)
+    y_values = np.linspace(y_min, y_max, side_length)
     
-    return np.array([[i[0], i[1], v1, v2] for i in np.c_[xx.ravel(), yy.ravel()]])
+    # Create the 2D grid using meshgrid
+    xx, yy = np.meshgrid(x_values, y_values)
+    
+    grid_points = np.c_[xx.ravel(), yy.ravel()]
+
+    extra_coords_collumn = np.column_stack([np.full(grid_points.shape[0], v1), 
+                                    np.full(grid_points.shape[0], v2)])
+    grid_points = np.hstack([grid_points, extra_coords_collumn])
+    return grid_points
 
 def make_grid_normal(
     x_min: float, x_max: float, y_min: float, y_max: float, side_length: int
@@ -137,6 +156,24 @@ def make_grid_normal(
     )
     
     return np.c_[xx.ravel(), yy.ravel()]
+
+
+def make_grid_reverse(
+    x_min: float, x_max: float, y_min: float, y_max: float, v1: float, v2: float, side_length: int
+) -> np.ndarray:
+    # Create 1D arrays of evenly spaced values for each dimension
+    x_values = np.linspace(x_min, x_max, side_length)
+    y_values = np.linspace(y_min, y_max, side_length)
+    
+    # Create the 2D grid using meshgrid
+    xx, yy = np.meshgrid(x_values, y_values)
+    
+    grid_points = np.c_[xx.ravel(), yy.ravel()]
+
+    extra_coords_collumn = np.column_stack([np.full(grid_points.shape[0], v1), 
+                                            np.full(grid_points.shape[0], v2)])
+    grid_points = np.hstack([extra_coords_collumn, grid_points])
+    return grid_points
 
 def get_bounding_box(X_proj: np.ndarray) -> tuple[float, float, float, float]:
     x_min, y_min = X_proj.min(axis=0)
@@ -197,7 +234,8 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
 
     for index,i in enumerate(normal_grid):
         start_time = time.perf_counter()
-        grid = [[i[0], i[1], j[0], j[1]] for j in matrix_values]
+        grid = make_grid_reverse(-1.0,1.0,-1.0,1.0,i[0],i[1],pixel_width) #[[i[0], i[1], j[0], j[1]] for j in matrix_values]
+        # print(np.shape(invp_grid))
         invp_grid = np.concatenate((inverter.inverse_transform(grid),invp_grid_base))
         # print(np.shape(invp_grid))
         id_pixelv = get_intrinsic_dimension_sv(index_coord, invp_grid, k, theta)
