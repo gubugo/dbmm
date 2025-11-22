@@ -121,11 +121,11 @@ class App(tk.Tk):
         sb = ttk.Frame(self, padding=12)
         sb.grid(row=0, column=0, sticky="ns")
 
-        ttk.Label(sb, text="Dataset").grid(row=0, column=0, sticky="w")
-        self.dataset = tk.StringVar(value="mnist")
-        combobox1 = ttk.Combobox(sb, textvariable=self.dataset, state="readonly", values=["mnist", "fashionmnist"])
-        combobox1.grid(row=1, column=0, sticky="ew", pady=(0,8))
-        combobox1.bind("<<ComboboxSelected>>", self._combobox_wrap)
+        # ttk.Label(sb, text="Dataset").grid(row=0, column=0, sticky="w")
+        # self.dataset = tk.StringVar(value="mnist")
+        # combobox1 = ttk.Combobox(sb, textvariable=self.dataset, state="readonly", values=["mnist", "fashionmnist"])
+        # combobox1.grid(row=1, column=0, sticky="ew", pady=(0,8))
+        # combobox1.bind("<<ComboboxSelected>>", self._combobox_wrap)
 
         ttk.Separator(sb).grid(row=2, column=0, sticky="ew", pady=8)
 
@@ -293,7 +293,7 @@ class App(tk.Tk):
         print(self.closest_tp.get())
         print(self.scatter.get())
         print(self.images.get())
-        print(self.dataset.get())
+        # print(self.dataset.get())
 
         if not self.data_loaded:
             self.compute_projection()
@@ -310,8 +310,8 @@ class App(tk.Tk):
             half_grid_res = int(self.resolution.get())//2
             grid_res = int(self.resolution.get())
             
-            x = bounding_box[0]+(bounding_box[1]-bounding_box[0])*(event.xdata+0.5)/grid_res
-            y = bounding_box[2]+(bounding_box[3]-bounding_box[2])*(event.ydata+0.5)/grid_res
+            x = bounding_box[0]+(bounding_box[1]-bounding_box[0])*(int(event.xdata+0.5))/grid_res
+            y = bounding_box[2]+(bounding_box[3]-bounding_box[2])*(int(event.ydata+0.5))/grid_res
             point_4d = np.reshape(np.array([x,y,float(self.x_v.get()),float(self.y_v.get())]),(1,4))
             img_1d = self.inv_model.inverse_transform(point_4d)
             img = np.reshape(img_1d,(28, 28))
@@ -471,7 +471,7 @@ class App(tk.Tk):
         # Signature inferred from code slices:
         # get_inv_proj_data_ae(output_dir, _model, dataset_name, model_name, method, epochs, random_state)
         output_dir = "weights"
-        dataset_name = self.dataset.get()
+        dataset_name = "mnist"#self.dataset.get()
         model_name = "sharp"
         method = "noise"
         epochs = 10
@@ -561,18 +561,17 @@ class App(tk.Tk):
         scatter = self.scatter.get()
         class_conf = self.class_conf.get()
         closest_tp = self.closest_tp.get()
+
+        reconstruct = self.images.get()
         
         fig2 = self.right_ax
-        if self.images.get() == "0":
-            if closest_tp == "Exclusive":
-                fig2, ret_values = gen_and_save_nnm(self.results_2d, self.labels, self.augmentation_values, self.clf, self.nn_model, self.inv_model, grid_res, x, y, fig2, scatter, class_conf, self.cmap_nn)
-            elif class_conf == "Exclusive":
-                fig2, ret_values = gen_and_save_ccm(self.results_2d, self.labels, self.augmentation_values, self.clf, self.nn_model, self.inv_model, grid_res, x, y, fig2, scatter, closest_tp, self.cmap_nn)
-            else:
-                fig2, ret_values = gen_and_save_dbm(self.results_2d, self.labels, self.augmentation_values, self.clf, self.nn_model, self.inv_model, grid_res, x, y, fig2, scatter, closest_tp, class_conf, self.cmap_main)
+        # if self.images.get() == "0":
+        if closest_tp == "Exclusive":
+            fig2, ret_values = gen_and_save_nnm(self.results_2d, self.labels, self.augmentation_values, self.clf, self.nn_model, self.inv_model, grid_res, x, y, fig2, scatter, class_conf, self.cmap_nn, reconstruct)
+        elif class_conf == "Exclusive":
+            fig2, ret_values = gen_and_save_ccm(self.results_2d, self.labels, self.augmentation_values, self.clf, self.nn_model, self.inv_model, grid_res, x, y, fig2, scatter, closest_tp, self.cmap_nn, reconstruct)
         else:
-            fig2 = plot_generated_images_grid_with_dbm(self.results_2d, self.clf, self.inv_model, grid_res, x, y, fig2, self.cmap_main)
-            ret_values = (0.0,0.0)
+            fig2, ret_values = gen_and_save_dbm(self.results_2d, self.labels, self.augmentation_values, self.clf, self.nn_model, self.inv_model, grid_res, x, y, fig2, scatter, closest_tp, class_conf, self.cmap_main, reconstruct)
         
         self.right_canvas.draw()
         self.right_toolbar.update()

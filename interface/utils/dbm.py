@@ -56,7 +56,7 @@ def generate_dbm(
     if closest_tp == "On":
         metric_matrix = metric_distance_to_nearest_neighbor(inverted_grid, nn_model)
         ret_values = (np.max(metric_matrix),np.min(metric_matrix))
-        scaled_mm = minmax_scale(metric_matrix)
+        scaled_mm = 1-minmax_scale(metric_matrix)
         cmapped[:,0] = cmapped[:,0]*scaled_mm
         cmapped[:,1] = cmapped[:,1]*scaled_mm
         cmapped[:,2] = cmapped[:,2]*scaled_mm

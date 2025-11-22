@@ -368,7 +368,7 @@ class ShaRP(tfk.Model):
         return self.fwd.predict(inputs)
 
     def inverse_transform(self, inputs):
-        return self.inv.predict(inputs)
+        return self.inv.predict(inputs, batch_size=4096)
 
     def log_var_embedding(self, inputs):
         return self.log_var_model.predict(inputs)

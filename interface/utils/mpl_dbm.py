@@ -57,7 +57,7 @@ def generate_dbm(
     if closest_tp == "On":
         metric_matrix = metric_distance_to_nearest_neighbor(inverted_grid, nn_model)
         ret_values = (np.max(metric_matrix),np.min(metric_matrix))
-        scaled_mm = minmax_scale(metric_matrix)
+        scaled_mm = 1-minmax_scale(metric_matrix)
         cmapped[:,0] = cmapped[:,0]*scaled_mm
         cmapped[:,1] = cmapped[:,1]*scaled_mm
         cmapped[:,2] = cmapped[:,2]*scaled_mm
@@ -100,7 +100,8 @@ def gen_and_save_dbm(
     scatter: string, 
     closest_tp: string,
     class_confidence: string,
-    cmap: Any
+    cmap: Any,
+    reconstruct: string
 ):
     fig.clear()
     fig, ret_values = generate_dbm(
@@ -138,6 +139,16 @@ def gen_and_save_dbm(
             augmentation=aug,
             fig=fig,      
         )
+    
+    if reconstruct == "1":
+        fig = plot_generated_images_grid_with_dbm(
+            X_2d, 
+            inverter, 
+            grid_res, 
+            pos1, 
+            pos2, 
+            fig
+        )
 
               
     # print(fig)
@@ -147,23 +158,10 @@ def gen_and_save_dbm(
 # gets the decision map matrix and a NNInv model as parameters,
 # generates a grid of images using the NNInv model on a uniform grid of coordinates,
 # and plots them on top of the decision map, saving the result
-def plot_generated_images_grid_with_dbm(data, clf, inv_model, grid_res, pos1, pos2, ax, cmap,
+def plot_generated_images_grid_with_dbm(data, inv_model, grid_res, pos1, pos2, ax,
                                         img_size=0.5, proximity=1.75,
                                         figsize=(10,8), cmap_images='gray'):
     bounding_box = get_bounding_box(data)
-    grid = make_grid(*bounding_box, pos1, pos2, grid_res)
-    inverted_grid = inv_model.inverse_transform(grid)
-
-    classes = clf.predict(inverted_grid).astype(np.uint8)
-
-    cmapped = cmap(classes)
-
-    ax.imshow(
-        cmapped.reshape(grid_res, grid_res, 4),
-        interpolation='none',
-        # extent=bounding_box,
-        origin='lower'
-    )
 
     # generate coordinates and images
     coords = generate_grid_coords(bounding_box, img_size, proximity, pos1, pos2)

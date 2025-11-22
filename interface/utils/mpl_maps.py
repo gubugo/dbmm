@@ -62,7 +62,7 @@ def generate_ccm(
         interpolation="none",
         resample=False,
     )
-    fig.set_title(coords, fontsize=grid_res/5, x=0.5, y=1)
+    fig.set_title(coords, fontsize=10, x=0.5, y=1)
     fig.axis("off") 
     return fig, ret_values
 
@@ -143,7 +143,7 @@ def generate_nnm(
 
     # res = model.predict_proba(inverted_grid)
 
-    cmapped = cmap(minmax_scale(metric_matrix))
+    cmapped = cmap(1-minmax_scale(metric_matrix))
     # print(np.shape(cmapped))
     ret_values = (np.max(metric_matrix),np.min(metric_matrix))
     
@@ -166,7 +166,7 @@ def generate_nnm(
         interpolation="none",
         resample=False,
     )
-    fig.set_title(coords, fontsize=grid_res/5, x=0.5, y=1)
+    fig.set_title(coords, fontsize=10, x=0.5, y=1)
     fig.axis("off") 
     return fig, ret_values
 
