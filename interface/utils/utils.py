@@ -41,11 +41,19 @@ def make_titles(start, step, size):
 def make_grid(
     x_min: float, x_max: float, y_min: float, y_max: float, v1: float, v2: float, side_length: int
 ) -> np.ndarray:
-    xx, yy = np.meshgrid(
-        np.linspace(x_min, x_max, side_length), np.linspace(y_min, y_max, side_length)
-    )
+    # Create 1D arrays of evenly spaced values for each dimension
+    x_values = np.linspace(x_min, x_max, side_length)
+    y_values = np.linspace(y_min, y_max, side_length)
     
-    return np.array([[i[0], i[1], v1, v2] for i in np.c_[xx.ravel(), yy.ravel()]])
+    # Create the 2D grid using meshgrid
+    xx, yy = np.meshgrid(x_values, y_values)
+    
+    grid_points = np.c_[xx.ravel(), yy.ravel()]
+
+    extra_coords_collumn = np.column_stack([np.full(grid_points.shape[0], v1), 
+                                    np.full(grid_points.shape[0], v2)])
+    grid_points = np.hstack([grid_points, extra_coords_collumn])
+    return grid_points
 
 
 def get_bounding_box(X_proj: np.ndarray) -> tuple[float, float, float, float]:

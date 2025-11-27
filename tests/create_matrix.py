@@ -141,16 +141,21 @@ def plot(X, y, figname=None):
     plt.close("all")
     del fig
     del ax
-
-def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder, x_data, y_data, noise, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
-    fig_main, ax_main = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
-    fig_metric, ax_metric = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
-    fig_metric2, ax_metric2 = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
-    fig_scatter, ax_scatter = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
-    fig_scatter2, ax_scatter2 = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
-    fig_scatter3, ax_scatter3 = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
-    fig_diff, ax_diff = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
-    fig_combined, ax_combined = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
+    
+def plot_matrix(classifier, inverter, neighbor_finder, x_data, y_data, noise, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
+    fig_main, ax_main = plt.subplots(1,1,figsize=(grid_res/10, grid_res/10))
+    fig_conf, ax_conf = plt.subplots(1,1,figsize=(grid_res/10, grid_res/10))
+    fig_mainconf, ax_mainconf = plt.subplots(1,1,figsize=(grid_res/10, grid_res/10))
+    fig_metric, ax_metric = plt.subplots(1,1,figsize=(grid_res/10, grid_res/10))
+    fig_mainmetric, ax_mainmetric = plt.subplots(1,1,figsize=(grid_res/10, grid_res/10))
+    fig_glob_metric, ax_glob_metric = plt.subplots(1,1,figsize=(grid_res/10, grid_res/10))
+    fig_glob_mainmetric, ax_glob_mainmetric = plt.subplots(1,1,figsize=(grid_res/10, grid_res/10))
+    # fig_metric2, ax_metric2 = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
+    # fig_scatter, ax_scatter = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
+    # fig_scatter2, ax_scatter2 = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
+    # fig_scatter3, ax_scatter3 = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
+    # fig_diff, ax_diff = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
+    # fig_combined, ax_combined = plt.subplots(matrix_side_size,matrix_side_size,figsize=(grid_res/10, grid_res/10))
     
     # print(figname)
 
@@ -160,6 +165,8 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
     metric_matrix = np.zeros((matrix_side_size*matrix_side_size,grid_res*grid_res))
     metric_matrix2 = np.zeros((matrix_side_size*matrix_side_size,grid_res*grid_res))
     cmapped = np.zeros((matrix_side_size*matrix_side_size,grid_res*grid_res,4))
+    conf_dbm = np.zeros((grid_res*grid_res,4))
+    ntp_dbm = np.zeros((grid_res*grid_res,4))
     # print(metric_matrix)
     # print(np.size(metric_matrix[0]))
 
@@ -169,35 +176,12 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
     classes = classifier.predict(inverted_grid).astype(np.uint8)
     cmapped_base = cmap(classes)
 
-    # predict raw data positions (get inverse points)
-    # preds = []
-    # for i in range(0, len(x_data), 128):
-    #     batch_coords = x_data[i:i + 128]
-    #     gen_imgs = inverter.inverse_transform(np.array([[i[0], i[1], 0, 0] for i in batch_coords])) #
-    #     # gen_imgs = gen_imgs.reshape(-1, 28, 28, 1).astype('float32')
-        
-    #     batch_preds = classifier.predict(gen_imgs)
-    #     # print(batch_preds)
-    #     preds.append(batch_preds)
-    #     # for j in range(np.shape(batch_preds)[0]):
-    #     #     if batch_preds[j] == 2:
-    #     #         plt.figure()
-    #     #         plt.imshow(gen_imgs[j,:].reshape((28,28,1)),origin="lower",interpolation="none",resample=False)
-    #     #         plt.savefig(f"test{i+j}_classPred{batch_preds[j]}.png")
-
-    # # print(preds)
-    # predictions = np.concatenate(preds)
-
-    # scatterplot.plot_generated_images_grid_with_dbm(inverter, classifier, grid_res, bounding_box, matrix_origin, step)
-
     for i in range(matrix_side_size):
         for j in range(matrix_side_size):
             grid = make_grid(*bounding_box, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], grid_res)
             inverted_grid = inverter.inverse_transform(grid)
 
             classes = classifier.predict(inverted_grid).astype(np.uint8)
-
-            cmapped[matrix_side_size*i+j] = cmap(classes)
 
             # print(y_data)
             
@@ -207,125 +191,108 @@ def plot_matrix(classifier, inverter, neighbor_finder, per_class_neighbor_finder
             # scatterplot.plot_decision_map_with_points(classes.reshape((grid_res, grid_res, 1)), x_data, cmap(y_data), grid_res, matrix_side_size, fig=ax_scatter[i,j])
             # scatterplot.plot_decision_map_with_accuracy(classes.reshape((grid_res, grid_res, 1)), x_data, y_data, predictions, inverter, classifier, grid_res, matrix_side_size, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], fig=ax_scatter2[i,j])
             # metrics.metric_difference_dbms(cmapped_base, cmapped, grid_res, ax_diff[i,j])
-            
             # scatterplot.plot_decision_map_with_points_relative(classes.reshape((grid_res, grid_res, 1)), x_data, cmap(y_data), noise, (matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1]), grid_res, matrix_side_size, cmap='tab10', fig=ax_scatter3[i,j])
 
-            
+            # ntp_values = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
 
-            # plt.subplots()
-            # plt.imshow(
-            #     cmapped.reshape((grid_res, grid_res, 4)),
-            #     origin="lower",
-            #     interpolation="none",
-            #     resample=False,
-            # )
-            # plt.axis("off")
-            # plt.title(coords, fontsize="medium", x=0.5, y=1)
-            # coords = coords.replace(",","_")
-            # plt.savefig(os.path.join(figname,f"{coords}.png"))
-            # print(inverted_grid)
-            # print(np.shape(inverted_grid))
-            # print(np.shape(inverted_grid[0]))
-            
-            # if i == 0 and j == 0:
-            #     for k, image in enumerate(inverted_grid):
-            #         m = metric_matrix[matrix_side_size*i+j]
-            #         m2 = metric_matrix2[matrix_side_size*i+j]
-            #         if m[k] > 6.5:
-            #             name = f"{classes[k]}_({k%grid_res},{k//grid_res})_nn_{m[k]}_nn2_{m2[k]}"
-            #             plt.subplots()
-            #             plt.imshow(
-            #                 inverted_grid[k].reshape((28, 28, 1)),
-            #                 origin="lower",
-            #                 interpolation="none",
-            #                 resample=False,
-            #             )
-            #             plt.axis("off")
-            #             plt.title(name, fontsize="medium", x=0.5, y=1)
-            #             plt.savefig(os.path.join("images",f"{name}.png"))
-            #             plt.close("all")
-            #         else:
-            #             cmapped[k] = [0.0,0.0,0.0,0.0]
-            #         if m2[k] > 6.0:
-            #             name = f"{classes[k]}_({k%grid_res},{k//grid_res})_nn_{m[k]}_nn2_{m2[k]}"
-            #             plt.subplots()
-            #             plt.imshow(
-            #                 inverted_grid[k].reshape((28, 28, 1)),
-            #                 origin="lower",
-            #                 interpolation="none",
-            #                 resample=False,
-            #             )
-            #             plt.axis("off")
-            #             plt.title(name, fontsize="medium", x=0.5, y=1)
-            #             plt.savefig(os.path.join("images2",f"{name}.png"))
-            #             plt.close("all")
+            cmapped[matrix_side_size*i+j] = cmap(classes)
 
-            ax_main[i,j].imshow(
+            # res = classifier.predict_proba(inverted_grid)
+     
+            # confidence = np.zeros(np.shape(res)[0])
+
+            # for k,lis in enumerate(res):
+            #     confidence[k] = np.max(lis)
+
+            coords = f"({np.round(matrix_origin[0]+i*step[0],np.uint8(format_step[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_step[1]))})"
+            ax_main.imshow(
                 cmapped[matrix_side_size*i+j].reshape((grid_res, grid_res, 4)),
                 origin="lower",
                 interpolation="none",
                 resample=False,
             )
+            ax_main.axis("off") 
+            fig_main.savefig(f"nninv/dbm/{coords}.png", bbox_inches="tight", pad_inches=0.0)
             
-            coords = f"({np.round(matrix_origin[0]+i*step[0],np.uint8(format_step[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_step[1]))})"
-            ax_main[i,j].axis("off") 
-            ax_main[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
-            ax_diff[i,j].axis("off") 
-            ax_diff[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
-            ax_scatter[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
-            ax_scatter3[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
-            ax_combined[i,j].axis("off") 
-            ax_combined[i,j].set_title(coords, fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res) 
+            # ax_conf.imshow(
+            #     cmap2(confidence).reshape((grid_res, grid_res, 4)),
+            #     origin="lower",
+            #     interpolation="none",
+            #     resample=False,
+            # )
+            # ax_conf.axis("off") 
+            # fig_conf.savefig(f"sharp/conf/{coords}.png", bbox_inches="tight", pad_inches=0.0)
             
+            # conf_dbm[:,0] = cmapped[matrix_side_size*i+j,:,0]*confidence
+            # conf_dbm[:,1] = cmapped[matrix_side_size*i+j,:,1]*confidence
+            # conf_dbm[:,2] = cmapped[matrix_side_size*i+j,:,2]*confidence
+            # conf_dbm[:,3] = cmapped[matrix_side_size*i+j,:,3]
 
-    metric_matrix_scaled  = (metric_matrix-np.min(metric_matrix))/(np.max(metric_matrix)-np.min(metric_matrix))
-    metric_matrix2_scaled = (metric_matrix2-np.min(metric_matrix2))/(np.max(metric_matrix2)-np.min(metric_matrix2))
-    cmapped2 = cmap2(metric_matrix_scaled,)
-    cmapped3 = cmap2(metric_matrix2_scaled,)
+            # ax_mainconf.imshow(
+            #     conf_dbm.reshape((grid_res, grid_res, 4)),
+            #     origin="lower",
+            #     interpolation="none",
+            #     resample=False,
+            # )
+            # ax_mainconf.axis("off") 
+            # fig_mainconf.savefig(f"sharp/dbm_conf/{coords}.png", bbox_inches="tight", pad_inches=0.0)
 
-    for i in range(matrix_side_size):
-        for j in range(matrix_side_size):
-            fixed_metric_matrix = np.power(1-metric_matrix_scaled[matrix_side_size*i+j],1/1.25)
-            cmapped[matrix_side_size*i+j,:,0] = cmapped[matrix_side_size*i+j,:,0]*fixed_metric_matrix
-            cmapped[matrix_side_size*i+j,:,1] = cmapped[matrix_side_size*i+j,:,1]*fixed_metric_matrix
-            cmapped[matrix_side_size*i+j,:,2] = cmapped[matrix_side_size*i+j,:,2]*fixed_metric_matrix
-            cmapped[matrix_side_size*i+j,:,3] = cmapped[matrix_side_size*i+j,:,3]
+            # ax_metric.imshow(
+            #     cmap2(1.0-minmax_scale(metric_matrix[matrix_side_size*i+j])).reshape((grid_res, grid_res, 4)),
+            #     origin="lower",
+            #     interpolation="none",
+            #     resample=False,
+            # )
+            # ax_metric.axis("off") 
+            # fig_metric.savefig(f"sharp/ntp/{coords}.png", bbox_inches="tight", pad_inches=0.0)
 
-            ax_combined[i,j].imshow(
-                cmapped[matrix_side_size*i+j,:,:].reshape((grid_res, grid_res, 4)),
-                origin="lower",
-                interpolation="none",
-                resample=False,
-            )
+            # ntp_dbm[:,0] = cmapped[matrix_side_size*i+j,:,0]*(1.0-minmax_scale(metric_matrix[matrix_side_size*i+j]))
+            # ntp_dbm[:,1] = cmapped[matrix_side_size*i+j,:,1]*(1.0-minmax_scale(metric_matrix[matrix_side_size*i+j]))
+            # ntp_dbm[:,2] = cmapped[matrix_side_size*i+j,:,2]*(1.0-minmax_scale(metric_matrix[matrix_side_size*i+j]))
+            # ntp_dbm[:,3] = cmapped[matrix_side_size*i+j,:,3]
 
-            coords = f"({np.round(matrix_origin[0]+i*step[0],np.uint8(format_step[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_step[1]))})"
+            # ax_mainmetric.imshow(
+            #     ntp_dbm.reshape((grid_res, grid_res, 4)),
+            #     origin="lower",
+            #     interpolation="none",
+            #     resample=False,
+            # )
+            # ax_mainmetric.axis("off") 
+            # fig_mainmetric.savefig(f"sharp/dbm_ntp/{coords}.png", bbox_inches="tight", pad_inches=0.0)
 
-            ax_metric[i,j].imshow(
-                cmapped2[matrix_side_size*i+j].reshape((grid_res, grid_res, 4)),
-                origin="lower",
-                interpolation="none",
-                resample=False,
-            )
-            ax_metric[i,j].axis("off") 
-            ax_metric[i,j].set_title(f"{coords}_{np.round(np.max(metric_matrix[i*matrix_side_size+j,:]),3)}", fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res)
+            print(f"finish {i} {j}")
 
-            ax_metric2[i,j].imshow(
-                cmapped3[matrix_side_size*i+j].reshape((grid_res, grid_res, 4)),
-                origin="lower",
-                interpolation="none",
-                resample=False,
-            )
-            ax_metric2[i,j].axis("off") 
-            ax_metric2[i,j].set_title(f"{coords}_{np.round(np.max(metric_matrix[i*matrix_side_size+j,:]),3)}", fontsize=grid_res/(2*matrix_side_size), x=0.5, y=1-5/grid_res)  
+    # metric_matrix_scaled  = 1.0-minmax_scale(metric_matrix)#-np.min(metric_matrix))/(np.max(metric_matrix)-np.min(metric_matrix))
+    # cmapped2  = cmap2(1.0-minmax_scale(metric_matrix))
 
-    fig_main.savefig(f"{figname}.png")
-    fig_metric.savefig(f"{figname}_metric_nn.png")
-    # fig_metric2.savefig(f"{figname}_metric_nn2.png")
-    # fig_scatter.savefig(f"{figname}_scatter.png")
-    # fig_scatter2.savefig(f"{figname}_scatter2.png")
-    # fig_scatter3.savefig(f"{figname}_scatter3.png")
-    # fig_diff.savefig(f"{figname}_difference.png")
-    fig_combined.savefig(f"{figname}_metric_ontop.png")
+    # for i in range(matrix_side_size):
+    #     for j in range(matrix_side_size):
+    #         coords = f"({np.round(matrix_origin[0]+i*step[0],np.uint8(format_step[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_step[1]))})"
+
+    #         cmapped[matrix_side_size*i+j,:,0] = cmapped[matrix_side_size*i+j,:,0]*metric_matrix_scaled[matrix_side_size*i+j]
+    #         cmapped[matrix_side_size*i+j,:,1] = cmapped[matrix_side_size*i+j,:,1]*metric_matrix_scaled[matrix_side_size*i+j]
+    #         cmapped[matrix_side_size*i+j,:,2] = cmapped[matrix_side_size*i+j,:,2]*metric_matrix_scaled[matrix_side_size*i+j]
+    #         cmapped[matrix_side_size*i+j,:,3] = cmapped[matrix_side_size*i+j,:,3]
+
+    #         ax_glob_metric.imshow(
+    #             cmapped2[matrix_side_size*i+j].reshape((grid_res, grid_res, 4)),
+    #             origin="lower",
+    #             interpolation="none",
+    #             resample=False,
+    #         )
+    #         ax_glob_metric.axis("off") 
+    #         fig_glob_metric.savefig(f"sharp/ntp_glob/{coords}.png", bbox_inches="tight", pad_inches=0.0)
+
+    #         ax_glob_mainmetric.imshow(
+    #             cmapped[matrix_side_size*i+j].reshape((grid_res, grid_res, 4)),
+    #             origin="lower",
+    #             interpolation="none",
+    #             resample=False,
+    #         )
+    #         ax_glob_mainmetric.axis("off") 
+    #         fig_glob_mainmetric.savefig(f"sharp/dbm_ntp_glob//{coords}.png", bbox_inches="tight", pad_inches=0.0)
+
+
     plt.close("all")
 
 
@@ -361,77 +328,45 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
     train_size = min(int(n_samples * 0.9), 10000)
 
     X_train, _, y_train, _ = train_test_split(
-        X, y, train_size=30000, test_size=10, random_state=420, stratify=y
+        X, y, train_size=10000, test_size=10, random_state=420, stratify=y
     )
 
     if method == "noise":
         # noise = tf.random.stateless_uniform(seed=(420,420), minval=-1, maxval=1, shape=(X_train.shape[0],2))
-        # pca = PCA(n_components=2)
-        # noise = pca.fit_transform(X_train)
-        # noise = minmax_scale(noise, feature_range=(-1,1))
-        if os.path.exists(os.path.join(output_dir, dataset_name, "PCA_EXPERIMENT2", "X_pca.joblib")):
-            X_train = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X.joblib')
-            y_train = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/y.joblib')
-            noise   = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X_pca.joblib')
-
-            plot(noise, y_train, "teste_aug")
-        else:
-            print("here")
-            pca = PCA(n_components=2)
-            noise = pca.fit_transform(X_train)
-            noise = minmax_scale(noise, feature_range=(0,1))
-            noise = repel_particles_all1(noise, y_train, k=0.00001, alpha=0.02, beta=0.002, n_iter=15)
-            
-            # pca = PCA(n_components=2)
-            # noise = pca.fit_transform(X_train)
-            # noise = minmax_scale(noise, feature_range=(-1,1))
-            # noise = minmax_scale(repel_particles_all2(noise, y_train, n_iter=25), feature_range=(-1,1)) 
-            
-            # X_train, noise, y_train = expand_projection(X_train, y_train)
-            # dump(X_train, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X.joblib')
-            # dump(y_train, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/y.joblib')
-            dump(noise, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT2/X_pca.joblib')
+        pca = PCA(n_components=2)
+        noise = pca.fit_transform(X_train)
+        noise = minmax_scale(noise, feature_range=(-1,1))
     else:
         noise = tf.zeros((X_train.shape[0],0))
 
-    print(np.shape(X_train))
-    print(np.shape(noise))
     X_train= np.concatenate((X_train,noise), axis=1)
 
     _, X_test, _, y_test = train_test_split(
-        X_train, y_train, train_size=10, test_size=2000, random_state=420, stratify=y_train
+        X_train, y_train, train_size=10, test_size=5000, random_state=420, stratify=y_train
     )
     noise = X_train[:,-2:]
     X_train = X_train[:,:-2]
     noise_test = X_test[:,-2:]
     X_test = X_test[:,:-2]
 
-    # X_train, y_train = include_classes(X_train, y_train, [1,2])
-    # X_test, y_test = include_classes(X_test, y_test, [1,2])
-
-    # y_test = y_train#y_test
-    # pca = PCA(n_components=2)
-    # res = pca.fit_transform(X_test)
-    # plot(res,y_test,"test2")
-
     neighbor_finder = NearestNeighbors(
         n_neighbors=5
     ) 
     neighbor_finder.fit(X_train)
     
-    n_classes = len(np.unique(y_train))
-    per_class_neighbor_finder = {}
-    for cl in range(n_classes):
-        neighbor_finder2 = NearestNeighbors(n_neighbors=5)
-        neighbor_finder2.fit(X_train[y_train == cl])
-        per_class_neighbor_finder[cl] = neighbor_finder2
+    # n_classes = len(np.unique(y_train))
+    # per_class_neighbor_finder = {}
+    # for cl in range(n_classes):
+    #     neighbor_finder2 = NearestNeighbors(n_neighbors=5)
+    #     neighbor_finder2.fit(X_train[y_train == cl])
+    #     per_class_neighbor_finder[cl] = neighbor_finder2
 
     if method == "noise":
         if os.path.exists(f'{output_dir}/{dataset_name}/tsneData2d_train.joblib'):
             tsne_proj = load(f'{output_dir}/{dataset_name}/tsneData2d_train.joblib')
         else:
             tsne_proj = _model.fit_transform(X_train)
-            tsne_proj = minmax_scale(tsne_proj)
+            tsne_proj = minmax_scale(tsne_proj, feature_range=(-1,1))
             dump(tsne_proj, f'{output_dir}/{dataset_name}/tsneData2d_train.joblib')
         
         if os.path.exists(f'{output_dir}/{dataset_name}/tsneData2d_test.joblib'):
@@ -439,7 +374,7 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
         else:
             # X_model_res = tsne_proj
             X_model_res = _model.fit_transform(X_test)
-            X_model_res = minmax_scale(X_model_res)
+            X_model_res = minmax_scale(X_model_res, feature_range=(-1,1))
             dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData2d_test.joblib')
 
         if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
@@ -448,32 +383,8 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
             # noise = X
             _inv_model.fit_random(tsne_proj, X_train, noise, epochs=epochs)
             _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
-        
-        X_model_2d = X_model_res
-        z_min, w_min = -2, -2
-        z_max, w_max =  2,  2
-    else:
-        if os.path.exists(f'{output_dir}/{dataset_name}/tsneData4d_train.joblib'):
-            tsne_proj = load(f'{output_dir}/{dataset_name}/tsneData4d_train.joblib')
-        else:
-            tsne_proj = _model.fit_transform(X_train)
-            dump(tsne_proj, f'{output_dir}/{dataset_name}/tsneData4d_train.joblib')
-        
-        if os.path.exists(f'{output_dir}/{dataset_name}/tsneData4d_test.joblib'):
-            X_model_res = load(f'{output_dir}/{dataset_name}/tsneData4d_test.joblib')
-        else:
-            X_model_res = _model.fit_transform(X_test)
-            dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData4d_test.joblib')
 
-        if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
-            _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
-        else:
-            _inv_model.fit(tsne_proj, X_train, epochs=epochs)
-            _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
-        
-        X_model_2d = np.array([[i[0], i[1]] for i in X_model_res])
-        _, _, z_min, w_min = np.round(X_model_res.min(axis=0),2)
-        _, _, z_max, w_max = np.round(X_model_res.max(axis=0),2)
+        X_model_2d = X_model_res
 
     if os.path.exists(f'{output_dir}/{dataset_name}/class.joblib'):
         clf = load(f'{output_dir}/{dataset_name}/class.joblib')
@@ -481,18 +392,14 @@ def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name
         clf = make_and_fit_mlp(X_train, y_train)
         dump(clf, f'{output_dir}/{dataset_name}/class.joblib')
 
-    return X_model_2d, y_test, noise_test, clf, _inv_model, neighbor_finder, per_class_neighbor_finder,[float(z_min), float(z_max), float(w_min), float(w_max)]
+    return X_test, X_model_2d, y_test, noise_test, clf, _inv_model, neighbor_finder
 
-def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, epochs):
+def get_inv_proj_data_sharp(output_dir, _model, dataset_name, model_name, method, epochs):
     data_dir = "./data/"
 
     d = dataset_name
 
     X, y = Load_data(data_dir, d)
-
-    n_samples = X.shape[0]
-
-    train_size = min(int(n_samples * 0.9), 10000)
 
     X_train, _, y_train, _ = train_test_split(
         X, y, train_size=10000, test_size=500, random_state=420, stratify=y
@@ -503,43 +410,19 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
         pca = PCA(n_components=2)
         noise = pca.fit_transform(X_train)
         noise = minmax_scale(noise, feature_range=(-1,1))
-        # if os.path.exists(os.path.join(output_dir, dataset_name, "PCA_EXPERIMENT1", "X_pca.joblib")):
-        #     X_train = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X.joblib')
-        #     y_train = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/y.joblib')
-        #     noise   = load(f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X_pca.joblib')
-        # else:
 
-        #     # pca = PCA(n_components=2)
-        #     # noise = pca.fit_transform(X_train)
-        #     # noise = minmax_scale(noise, feature_range=(-1,1))
-        #     # noise = repel_particles_all1(noise, y_train, k=0.00001, alpha=0.02, beta=0.002, n_iter=25)
-            
-        #     # pca = PCA(n_components=2)
-        #     # noise = pca.fit_transform(X_train)
-        #     # noise = minmax_scale(noise, feature_range=(-1,1))
-        #     # noise = minmax_scale(repel_particles_all2(noise, y_train, n_iter=25), feature_range=(-1,1)) 
-            
-        #     X_train, noise, y_train = expand_projection(X_train, y_train)
-        #     dump(X_train, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X.joblib')
-        #     dump(y_train, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/y.joblib')
-        #     dump(noise, f'{output_dir}/{dataset_name}/PCA_EXPERIMENT1/X_pca.joblib')
     else:
         noise = tf.zeros((X_train.shape[0],0))
 
     X_train= np.concatenate((X_train,noise), axis=1)
 
     _, X_test, _, y_test = train_test_split(
-        X_train, y_train, train_size=100, test_size=1000, random_state=420, stratify=y_train
+        X_train, y_train, train_size=100, test_size=5000, random_state=420, stratify=y_train
     )     
     noise = X_train[:,-2:]
     X_train = X_train[:,:-2]
     noise_test = X_test[:,-2:]
     X_test = X_test[:,:-2]
-
-    # X_train, y_train = include_classes(X_train, y_train, [1,2])
-    # X_test, y_test = include_classes(X_test, y_test, [1,2])
-
-    # y_test = y_train#y_test
 
     neighbor_finder = NearestNeighbors(
         n_neighbors=5
@@ -553,29 +436,13 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
         neighbor_finder2.fit(X_train[y_train == cl])
         per_class_neighbor_finder[cl] = neighbor_finder2
 
-    if method == "noise":
-        if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
-            _model.load_weights(export_path=os.path.join(output_dir, dataset_name, model_name, method))
-        else:
-            _model.fit(X_train, y_train, noise, epochs=epochs)
-            _model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
-        X_model_res = _model.transform(X_test)
-        X_model_2d = X_model_res
-        z_min, w_min = -2, -2
-        z_max, w_max =  2,  2
+    if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
+        _model.load_weights(export_path=os.path.join(output_dir, dataset_name, model_name, method))
     else:
-        if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
-            _model.load_weights(export_path=os.path.abspath(os.path.join(output_dir, dataset_name, model_name, method)))
-        else:
-            _model.fit(X_train, y_train, noise, epochs=epochs)
-            _model.save_weights(export_path=os.path.abspath(os.path.join(output_dir, dataset_name, model_name, method)))
-
-        X_model_res = _model.transform(X_test)
-        X_model_2d = np.array([[i[0], i[1]] for i in X_model_res])
-        _, _, z_min, w_min = np.round(X_model_res.min(axis=0),2)
-        _, _, z_max, w_max = np.round(X_model_res.max(axis=0),2)
-    
-    # plot(X_model_2d, y, figname=None)
+        _model.fit(X_train, y_train, noise, epochs=epochs)
+        _model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
+    X_model_res = _model.transform(X_test)
+    X_model_2d = X_model_res
 
     if os.path.exists(f'{output_dir}/{dataset_name}/class.joblib'):
         clf = load(f'{output_dir}/{dataset_name}/class.joblib')
@@ -583,13 +450,14 @@ def get_inv_proj_data_pi(output_dir, _model, dataset_name, model_name, method, e
         clf = make_and_fit_mlp(X_train, y_train)
         dump(clf, f'{output_dir}/{dataset_name}/class.joblib')
 
-    return X_model_2d, y_test, noise_test, clf, _model, neighbor_finder, per_class_neighbor_finder,[float(z_min), float(z_max), float(w_min), float(w_max)]
+    return X_test, X_model_2d, y_test, noise_test, clf, _model, neighbor_finder
+
 
 if __name__ == "__main__":
 
     output_dir = "weights"
     model_name_ops = ["ssnp", "sharp", "nninv"]
-    model_name = model_name_ops[1]
+    model_name = model_name_ops[2]
     # dataset = "mnist"
     dataset_ops = ["mnist", "fashionmnist"] # , "har", "reuters"
     dataset = dataset_ops[0]
@@ -598,7 +466,7 @@ if __name__ == "__main__":
     method = method_ops[1] # , "har", "reuters"
     
     grid_res_ops = [100, 150, 200, 300, 500]
-    grid_res = 200#grid_res_ops[3]
+    grid_res = 500#grid_res_ops[3]
 
     epochs_dataset = {}
     epochs_dataset["fashionmnist"] = 10
@@ -619,22 +487,13 @@ if __name__ == "__main__":
         dims = sharp_dims_classes[dataset][0]
         classes = sharp_dims_classes[dataset][1]
 
-        results_2d, y_values, noise, clf, inv_model, neighbor_finder, per_class_neighbor_finder, limits = get_inv_proj_data_pi( #get_inv_proj_data_sharp(output_dir)
+        results_nd, results_2d, y_values, noise, clf, inv_model, neighbor_finder = get_inv_proj_data_sharp( #get_inv_proj_data_sharp(output_dir)
             output_dir, 
             sharp.ShaRP(
-                # dims,
-                # classes,
-                # "laplace",
-                # latent_dim=4,
-                # variational_layer_kwargs=dict(prior_scale=0.1),
-                # var_leaky_relu_alpha=-0.0001,
-                # bottleneck_activation="linear",
-                # bottleneck_l1=0.0,
-                # bottleneck_l2=0.5,
                 dims,
                 classes,
                 "diagonal_normal",
-                latent_dim= (2 if method=="noise" else 4),
+                latent_dim= 2,
                 variational_layer_kwargs=dict(kl_weight=0.05, kl_mu_weight=0),
                 var_leaky_relu_alpha=-0.0001,
                 bottleneck_activation="linear",
@@ -648,7 +507,7 @@ if __name__ == "__main__":
         )
 
     if model_name == "ssnp":
-        results_2d, y_values, noise, clf, inv_model, neighbor_finder, per_class_neighbor_finder, limits = get_inv_proj_data_pi(
+        results_nd, results_2d, y_values, noise, clf, inv_model, neighbor_finder = get_inv_proj_data_sharp(
             output_dir, 
             ssnp.SSNP(
                 verbose=True,
@@ -664,7 +523,7 @@ if __name__ == "__main__":
         )
 
     if model_name == "nninv":
-        results_2d, y_values, noise, clf, inv_model, neighbor_finder, per_class_neighbor_finder, limits = get_inv_proj_data_i(
+        results_nd, results_2d, y_values, noise, clf, inv_model, neighbor_finder = get_inv_proj_data_i(
             output_dir, 
             TSNE(
                 n_jobs=4, 
@@ -684,13 +543,10 @@ if __name__ == "__main__":
 
     matrix_size = 9
     if method == "noise":
-        matrix_origin = (0.0,0.0) if model_name == "nninv" else (-1.0,-1.0)
+        matrix_origin = (-1.0,-1.0)
 
-        matrix_step = (0.125,0.125) if model_name == "nninv" else (0.25,0.25)
-    else:
-        matrix_origin = (limits[0],limits[2])
-
-        matrix_step = ((limits[1]-limits[0])/matrix_size,(limits[3]-limits[2])/matrix_size)
+        matrix_step = (0.25,0.25)
+        # matrix_step = (0.125,0.125) if model_name == "nninv" else (1.0,1.0)
 
     # print(np.size(np.c_[xx.ravel(), yy.ravel()]))
     format_step =  ((0 if np.floor(np.log10(matrix_step[0])) >= 0 else np.abs(np.floor(np.log10(matrix_step[0])))) +1, 
@@ -701,7 +557,7 @@ if __name__ == "__main__":
     # print("here", sliderx_step, slidery_step)
     # if not os.path.exists(f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}"):
     #     os.makedirs(f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}")
-    fig = plot_matrix(clf, inv_model, neighbor_finder, per_class_neighbor_finder, results_2d, y_values, noise, grid_res, matrix_size, matrix_origin, matrix_step, format_step, figname=f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}")
+    fig = plot_matrix(clf, inv_model, neighbor_finder, results_2d, y_values, noise, grid_res, matrix_size, matrix_origin, matrix_step, format_step, figname=f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}")
   
 
 

@@ -74,7 +74,7 @@ class LabeledScale(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("DBM Experiment — Tkinter")
+        self.title("MDBM")
         self.geometry("1600x900")
         self.minsize(1600, 900)
 
@@ -100,6 +100,16 @@ class App(tk.Tk):
         self.img_fig.set_size_inches(2,2)
         self.img_ax  = self.img_fig.add_subplot(111)
         self.img_ax.axis("off") 
+        self.img_ax.margins(0) 
+        self.img_axis_fig, self.img_axis_ax = plt.subplots(2,11)
+        self.img_axis_fig.set_size_inches(8,2)
+        for ax_row in self.img_axis_ax:
+            for ax in ax_row:
+                ax.set_xticklabels([])  # Hide x tick labels
+                ax.set_yticklabels([])  # Hide y tick labels
+                ax.set_xticks([])      # Hide x tick marks
+                ax.set_yticks([])      # Hide y tick marks
+
         self.matrix_side_size = 9
         self.matrix_fig, self.matrix_ax = plt.subplots(self.matrix_side_size,self.matrix_side_size,figsize=(75/10, 75/10))
         # self.right_fig, self.right_ax = plt.subplot(1,1)
@@ -197,6 +207,8 @@ class App(tk.Tk):
         # self.img_label_matrix.grid(row=1, column=0, sticky="nsew")
 
         self.matrix_canvas = FigureCanvasTkAgg(self.matrix_fig, master=content)
+        # canvas_widget_M = self.matrix_canvas.get_tk_widget()
+        # canvas_widget_M.pack(fill=tk.BOTH, expand=True)
         self.matrix_canvas.get_tk_widget().grid(column=0, row=1, sticky="WNES")
         self.matrix_canvas.draw()
 
@@ -218,7 +230,7 @@ class App(tk.Tk):
 
         # Column 1, bottom Row (img + info)
         image_place = ttk.Frame(self.img_label_right, padding=12)
-        image_place.grid(row=3, column=0, sticky="nsew")
+        image_place.grid(row=2, column=0, sticky="nsew")
 
         self.img_canvas = FigureCanvasTkAgg(self.img_fig, master=image_place)
         self.img_canvas.get_tk_widget().grid(column=0, row=0, sticky="WNES")
@@ -254,6 +266,14 @@ class App(tk.Tk):
         ttk.Label(cc_place, textvariable=self.cc_class2, style="Normal.TLabel").grid(row=2, column=0, sticky="WS")
         self.cc_class3 = tk.StringVar(value="Class ")
         ttk.Label(cc_place, textvariable=self.cc_class3, style="Normal.TLabel").grid(row=3, column=0, sticky="WS")
+
+        # Column 1, bottom Row (image lines)
+        bottom_images = ttk.Frame(self.img_label_right, padding=12)
+        bottom_images.grid(row=3, column=0, sticky="nsew")
+
+        self.img_axis_canvas = FigureCanvasTkAgg(self.img_axis_fig, master=bottom_images)
+        self.img_axis_canvas.get_tk_widget().grid(column=0, row=0, sticky="WNES")
+        self.img_axis_canvas.draw()
 
         self.gen_dbm()
 
@@ -327,7 +347,9 @@ class App(tk.Tk):
                 interpolation="none",
                 resample=False,
             )
+            self.img_ax.margins(0) 
             self.img_fig.set_size_inches(2,2)
+            self.img_fig.savefig("image_recon.png", bbox_inches="tight", pad_inches=0.0)
             self.img_canvas.draw()
             
             self.sp_dist_ctp.set(f"Selected Point Distance:{metric_nn[0]:.5f}")
@@ -335,6 +357,38 @@ class App(tk.Tk):
             self.cc_class1.set(f"Class {top_cc_values[-1]}:{metric_cc[top_cc_values[-1]]:.5f}")
             self.cc_class2.set(f"Class {top_cc_values[-2]}:{metric_cc[top_cc_values[-2]]:.5f}")
             self.cc_class3.set(f"Class {top_cc_values[-3]}:{metric_cc[top_cc_values[-3]]:.5f}")
+
+            # AXES
+            dbm_coords_collumn = np.column_stack([np.full(11, x), np.full(11, y)])
+            mdbm_x_coords_collumn = np.column_stack([np.full(11, self.x_v.get())])
+            mdbm_y_coords_collumn = np.column_stack([np.full(11, self.y_v.get())])
+            extra_coords_collumn = np.linspace(-1, 1, 11).reshape((11,1))
+
+            grid_points_x = np.hstack([dbm_coords_collumn, extra_coords_collumn, mdbm_y_coords_collumn])
+            grid_points_y = np.hstack([dbm_coords_collumn, mdbm_x_coords_collumn, extra_coords_collumn])
+            both_axis = np.concatenate((grid_points_x,grid_points_y))
+
+            imgs_axis = self.inv_model.inverse_transform(both_axis)
+            imgs = np.reshape(imgs_axis,(22, 28, 28))
+            imgs = np.stack([imgs, imgs, imgs, np.ones(np.shape(imgs))], axis=-1)
+
+            for i in range(11):
+                for j in range(2):
+                    self.img_axis_ax[j,i].imshow(
+                        imgs[i+11*j],
+                        interpolation="none",
+                        resample=False,
+                    )
+                    self.img_axis_ax[j,i].margins(0)
+                    self.img_axis_ax[j,i].set_title(f"{(i-5)/5}", fontsize=10, x=0.5, y=1)
+            
+            self.img_axis_ax[0,0].set_ylabel('X axis MDBM', fontsize=7)
+            self.img_axis_ax[1,0].set_ylabel('Y axis MDBM', fontsize=7)
+            # self.img_axis_ax[0,0].yaxis.label.set_rotation(30) 
+            # self.img_axis_ax[1,0].yaxis.label.set_rotation(30) 
+            # self.img_axis_fig.set_size_inches(1,1)
+            self.img_axis_canvas.draw()
+
             # x_data = event.xdata  # Data coordinates
             # y_data = event.ydata
             # x_pixel = event.x     # Pixel coordinates relative to the canvas
@@ -567,12 +621,12 @@ class App(tk.Tk):
         fig2 = self.right_ax
         # if self.images.get() == "0":
         if closest_tp == "Exclusive":
-            fig2, ret_values = gen_and_save_nnm(self.results_2d, self.labels, self.augmentation_values, self.clf, self.nn_model, self.inv_model, grid_res, x, y, fig2, scatter, class_conf, self.cmap_nn, reconstruct)
+            fig2, ret_values = gen_and_save_nnm(self.results_2d, self.labels, self.augmentation_values, self.clf, self.nn_model, self.inv_model, grid_res, x, y, fig2, scatter, class_conf, self.cmap_nn)
         elif class_conf == "Exclusive":
-            fig2, ret_values = gen_and_save_ccm(self.results_2d, self.labels, self.augmentation_values, self.clf, self.nn_model, self.inv_model, grid_res, x, y, fig2, scatter, closest_tp, self.cmap_nn, reconstruct)
+            fig2, ret_values = gen_and_save_ccm(self.results_2d, self.labels, self.augmentation_values, self.clf, self.nn_model, self.inv_model, grid_res, x, y, fig2, scatter, closest_tp, self.cmap_nn)
         else:
             fig2, ret_values = gen_and_save_dbm(self.results_2d, self.labels, self.augmentation_values, self.clf, self.nn_model, self.inv_model, grid_res, x, y, fig2, scatter, closest_tp, class_conf, self.cmap_main, reconstruct)
-        
+        self.right_fig.savefig("dbm.png", bbox_inches="tight", pad_inches=0.0)
         self.right_canvas.draw()
         self.right_toolbar.update()
 

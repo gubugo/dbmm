@@ -23,10 +23,9 @@ import faiss
 import copy
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1' 
-faiss.omp_set_num_threads(8)  # Set to the number of CPU cores you have
+# faiss.omp_set_num_threads(8)  # Set to the number of CPU cores you have
 gpu_res = faiss.StandardGpuResources()  # Initialize GPU resources
 gpu_res.setTempMemory(2*301*301*784)
-search_faiss = faiss.IndexFlatL2(784)   # build the inde
 
 def compute_knn_indices(X, k):
     n_samples = X.shape[0]
@@ -47,7 +46,7 @@ def compute_knn_indices_single(X, k, index):
         k = n_samples - 1
         print(f"[warning] k ajustado para {k} pois era >= n_samples")
 
-    search = copy.copy(search_faiss)
+    search = faiss.IndexFlatL2(784)   # build the inde
     # search = faiss.IndexIVFFlat(quantizer, n_dims, 32) 
 
     search = faiss.index_cpu_to_gpu(gpu_res, 0, search)  # Move index to GPU (GPU 0)
@@ -57,7 +56,7 @@ def compute_knn_indices_single(X, k, index):
     _, I = search.search(np.array([X[index]]), k)
     knn_indices = I[:, 1:] 
     return knn_indices
-
+    # nn = copy.copy(nnf)
     # nn = NearestNeighbors(n_neighbors=k+1, algorithm='auto', metric='euclidean')
     # nn.fit(X)
     # distances, indices = nn.kneighbors([X[index]], return_distance=True)
@@ -190,22 +189,38 @@ def get_bounding_box(X_proj: np.ndarray) -> tuple[float, float, float, float]:
 
     return x_min, x_max, y_min, y_max
 
+def pct_bb(x_min, x_max, y_min, y_max) -> tuple[float, float, float, float]:
+    # zoom_5x:    0.3-0.5; 0.4-0.6;
+    # zoom_10x:   0.4-0.5; 0.4-0.5;
+    # zoom_10x_2: 0.4-0.5; 0.5-0.6;
+    # zoom_20x:   0.425-0.575; 0.525-0.575;
+    # zoom_20x_2: 0.475-0.525; 0.475-0.525;
+    n_x_min = 0.45*(x_max - x_min)+x_min 
+    n_x_max = 0.55*(x_max - x_min)+x_min 
+    n_y_min = 0.45*(y_max - y_min)+y_min 
+    n_y_max = 0.55*(y_max - y_min)+y_min 
+
+    return n_x_min, n_x_max, n_y_min, n_y_max
+
 def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
 
-    grid_res = 300
+    grid_res = 100
     
     X_size = np.shape(x_data)[0]
 
     bounding_box = get_bounding_box(x_data)
+    # bounding_box = pct_bb(*bounding_box)
+
     
+
     print("computing...")
     
     k = 120
-    pixel_width = 301#np.ceil(np.sqrt(X_size))
+    pixel_width = 101#np.ceil(np.sqrt(X_size))
     pixel_width_sqr = pixel_width**2
     half_pixel_width = pixel_width//2
     theta = 0.95
-    index_coord = 0#pixel_width**2//2
+    index_coord = pixel_width**2//2#0  #CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
 
     # dist = 12 #6 #22 
     # coords_grid = make_grid_normal(*bounding_box, dist)
@@ -215,27 +230,25 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
     # normal_grid = make_grid_normal(c0[0], c1[0], c0[1], c1[1], grid_res)
     # normal_grid_ = make_grid(c0[0], c1[0], c0[1], c1[1], -1.0, -1.0, grid_res)
     normal_grid = make_grid_normal(*bounding_box, grid_res)
-    normal_grid_ = make_grid(*bounding_box, -1.0, -1.0, grid_res)
+    normal_grid_ = make_grid(*bounding_box, 0.0, 0.0, grid_res) #CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
     invp_grid_base = inverter.inverse_transform(normal_grid_)
-    inverter_g = inverter
 
     di_list = np.ones(np.shape(normal_grid)[0])
     print(np.shape(normal_grid))
 
     
-    batch_size = 4
+    batch_size = 8
     for batch_index, start in enumerate(range(0, np.shape(normal_grid)[0], batch_size)):
         start_time = time.perf_counter()
         batch = normal_grid[start:start + batch_size]
         batch_coord = batch_index*batch_size
         # print(batch_index, batch.shape)
-        grid = make_grid_reverse(-1.0,1.0,-1.0,1.0,batch,pixel_width) #[[i[0], i[1], j[0], j[1]] for j in matrix_values]
+        grid = make_grid_reverse(-1.0,1.0,-1.0,1.0,batch,pixel_width)#CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
         # grid = grid.reshape(-1, grid.shape[2])
 
-        # print(np.shape(grid))
-        # print(grid[:10])
         inv_p_batch_grid = (inverter.inverse_transform(grid)).reshape(batch_size, pixel_width_sqr, 784)
         for index, i in enumerate(inv_p_batch_grid):
+            # print(np.shape(i))
             invp_grid = np.concatenate((i,invp_grid_base))
             id_pixelv = get_intrinsic_dimension_sv(index_coord, invp_grid, k, theta)
             di_list[index+batch_coord] = id_pixelv
@@ -249,7 +262,7 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
     # di_list = Parallel(n_jobs=2)(delayed(get_id_value)(i, index_coord, pixel_width, invp_grid_base, k, theta) for i in normal_grid)
     # for index,i in enumerate(normal_grid):
     #     start_time = time.perf_counter()
-    #     grid = make_grid_reverse(-1.0,1.0,-1.0,1.0,i[0],i[1],pixel_width) #[[i[0], i[1], j[0], j[1]] for j in matrix_values]
+    #     grid = make_grid_reverse(-0.05,0.05,-0.05,0.05,np.array([i]),pixel_width) #[[i[0], i[1], j[0], j[1]] for j in matrix_values]
     #     # print(np.shape(invp_grid))
     #     invp_grid = np.concatenate((inverter.inverse_transform(grid),invp_grid_base))
     #     # print(np.shape(invp_grid))
@@ -258,6 +271,7 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
     #     end_time = time.perf_counter()
     #     elapsed_time = end_time - start_time
     #     print(f"Elapsed time: {elapsed_time:.4f} seconds, done pixel: {index}")
+
 
     fig_id, ax_id = plt.subplots(1,1,figsize=(50,50))
     np.save(f'dbm_4d_({pixel_width})_{k}_{index_coord}.npy', di_list)
