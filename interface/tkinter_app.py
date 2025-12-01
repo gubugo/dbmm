@@ -22,7 +22,7 @@ from interface.training.inv_proj import load_or_fit_model_inv_proj
 from interface.utils.augmentations import get_augmentation_pca
 from interface.utils.mpl_dbm import gen_and_save_dbm, plot_generated_images_grid_with_dbm
 from interface.utils.dbm import gen_images_grid_plotly
-from interface.utils.dbm_matrix import gen_and_save_dbm_matrix
+from interface.utils.mpl_dbm_matrix import gen_and_save_dbm_matrix
 from interface.utils.mpl_maps import gen_and_save_ccm, gen_and_save_nnm
 from interface.utils.metrics import metric_distance_to_nearest_neighbor
 from interface.utils.utils import get_bounding_box, make_grid, make_titles, plotly_to_image_tk

@@ -1,20 +1,22 @@
 from matplotlib import pyplot as plt
 import numpy as np
 
-# Suppose your matrices are A1, A2, ..., A9
-di_list = np.zeros((25,100,100))
+side = 2
 
-for x_c in range(5):
-    for y_c in range(5):
-        a = np.load(f'500/dbm_4d_(101)_120_5100_{x_c}_{y_c}.npy')
-        di_list[x_c*5+y_c] = a.reshape((100,100))
+# Suppose your matrices are A1, A2, ..., A9
+di_list = np.zeros((side**2,100,100))
+
+for x_c in range(side):
+    for y_c in range(side):
+        a = np.load(f'center_15x/dbm_4d_(101)_120_5100_{x_c}_{y_c}.npy')
+        di_list[x_c*2+y_c] = a.reshape((100,100))
 
 big = np.block([
-    di_list[0:5],
-    di_list[5:10],
-    di_list[10:15],
-    di_list[15:20],
-    di_list[20:25],
+    di_list[0:2],
+    di_list[2:4],
+    # di_list[10:15],
+    # di_list[15:20],
+    # di_list[20:25],
 ])
 
 # big = np.block(blocks)
@@ -24,7 +26,7 @@ fig_id, ax_id = plt.subplots(1,1,figsize=(50,50))
 cmap = plt.get_cmap('jet', int(5-2+1))
             
 ax_id.imshow(
-    big.reshape((500, 500,1)),
+    big.reshape((side*100, side*100,1)),
     cmap=cmap,
     interpolation="none",
     resample=False,

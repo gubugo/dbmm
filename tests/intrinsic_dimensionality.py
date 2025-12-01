@@ -210,10 +210,10 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
     X_size = np.shape(x_data)[0]
 
     bb = get_bounding_box(x_data)
-    bb = pct_bb(*bb, 1/3, 2/3, 1/3, 2/3)
-    for x_c in range(5):
-        for y_c in range(5):
-            bounding_box = pct_bb(*bb, x_c/5, (x_c+1)/5, y_c/5, (y_c+1)/5)
+    bb = pct_bb(*bb, 7/15, 8/15, 7/15, 8/15)
+    for x_c in range(2):
+        for y_c in range(2):
+            bounding_box = pct_bb(*bb, x_c/2, (x_c+1)/2, y_c/2, (y_c+1)/2)
 
             print("computing...")
 
@@ -224,7 +224,7 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
             di_list = np.ones(np.shape(normal_grid)[0])
             print(np.shape(normal_grid))
 
-            grid_base = make_grid_normal(-1.0,1.0,-1.0,1.0, pixel_width)/15#CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
+            grid_base = make_grid_normal(-1.0,1.0,-1.0,1.0, pixel_width)/30#CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
 
             batch_size = 4
             for batch_index, start in enumerate(range(0, np.shape(normal_grid)[0], batch_size)):
@@ -263,7 +263,7 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
 
 
             fig_id, ax_id = plt.subplots(1,1,figsize=(50,50))
-            np.save(f'500/dbm_4d_({pixel_width})_{k}_{index_coord}_{x_c}_{y_c}.npy', di_list)
+            np.save(f'center_15x/dbm_4d_({pixel_width})_{k}_{index_coord}_{x_c}_{y_c}.npy', di_list)
             max_v = np.max(di_list)
             min_v = np.min(di_list)
 
@@ -281,7 +281,7 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
             ax_id.axis("off")  
             print(max_v)
             print(min_v)
-            fig_id.savefig(f"500/dbm_4d_({pixel_width})_{k}_{index_coord}_{x_c}_{y_c}.png", bbox_inches="tight", pad_inches=0.0)
+            fig_id.savefig(f"center_15x/dbm_4d_({pixel_width})_{k}_{index_coord}_{x_c}_{y_c}.png", bbox_inches="tight", pad_inches=0.0)
 
 def plot_matrix_pixel_plane(clf, inverter, nd_data, x_data, y_data, noise, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
 

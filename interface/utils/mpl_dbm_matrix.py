@@ -7,7 +7,6 @@ import numpy as np
 from sklearn.base import ClassifierMixin
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import minmax_scale
-import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 
