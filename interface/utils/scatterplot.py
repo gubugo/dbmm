@@ -78,16 +78,16 @@ def plot_decision_map_with_accuracy(decision_map, coordinates, true_labels, pred
     # return np.mean(correct_mask)
 
 
-def plot_decision_map_with_points(decision_map, points, labels, map_size, matrix_side, fig=None):
+def plot_decision_map_with_points(points, labels, map_size, matrix_side, fig=None):
     # putting the dbm in the background
-    fig.imshow(decision_map, interpolation='none', cmap='tab10',  vmin=0, vmax=9, origin='lower')
+    # fig.imshow(decision_map, interpolation='none', cmap='tab10',  vmin=0, vmax=9, origin='lower')
 
     # scatter points above the dbm
     # print(labels)
     # print(points)
-    scatter = fig.scatter(map_size*(points[:, 0]-np.min(points[:, 0]))/(np.max(points[:, 0])-np.min(points[:, 0])), 
-                          map_size*(points[:, 1]-np.min(points[:, 1]))/(np.max(points[:, 1])-np.min(points[:, 1])), 
-                          c=labels, s=36/(matrix_side), edgecolor='k', linewidth=0.2, alpha=0.7)
+    scatter = fig.scatter((map_size-1)*(points[:, 0]-np.min(points[:, 0]))/(np.max(points[:, 0])-np.min(points[:, 0])), 
+                          (map_size-1)*(points[:, 1]-np.min(points[:, 1]))/(np.max(points[:, 1])-np.min(points[:, 1])), 
+                          c=labels, s=1000, edgecolor='k', linewidth=0.5, alpha=1.0)
 
     # cbar = fig.colorbar(img, ticks=range(10))
     fig.grid(False)
@@ -100,8 +100,8 @@ def plot_points_on_decision_map(points, labels, grid_res, locally, map_extra_coo
     # else:
     #     cmap_colors = np.ones((np.shape(points)[0],4))
     map_size = grid_res-1
-    scatter = fig.scatter(map_size*(points[:, 0]-np.min(points[:, 0]))/(np.max(points[:, 0])-np.min(points[:, 0])), 
-                          map_size*(points[:, 1]-np.min(points[:, 1]))/(np.max(points[:, 1])-np.min(points[:, 1])), 
+    scatter = fig.scatter((map_size-1)*(points[:, 0]-np.min(points[:, 0]))/(np.max(points[:, 0])-np.min(points[:, 0])), 
+                          (map_size-1)*(points[:, 1]-np.min(points[:, 1]))/(np.max(points[:, 1])-np.min(points[:, 1])), 
                           c=labels, s=36, edgecolor='k', linewidth=0.2*labels[:,3])
     #/(matrix_side)
     # fig.grid(False)
@@ -183,28 +183,44 @@ def plot_generated_images_grid_with_dbm(model_nninv, classifier, grid_res, bb, m
     fig_main.savefig(filepath, dpi=300, bbox_inches="tight")
     print(f"Figure saved to {filepath}")
 
-def plot_decision_map_with_points_relative(decision_map, points, labels, extra_dims, map_extra_coords, map_size, matrix_side, fig=None):
+def plot_decision_map_with_points_relative(decision_map, points, labels, values, map_size, matrix_side, fig=None):
     # putting the dbm in the background
     fig.imshow(decision_map, interpolation='none', cmap='tab10',  vmin=0, vmax=9, origin='lower')
 
-    inv_sqrt_2pi = 1/np.sqrt(2*np.pi)
+    # inv_sqrt_2pi = 1/np.sqrt(2*np.pi)
 
-    for i, value in enumerate(extra_dims):
-        v = get_normal_dist(value[0],map_extra_coords[0],inv_sqrt_2pi)*get_normal_dist(value[1],map_extra_coords[1],inv_sqrt_2pi)
-        # print(v)
-        # labels[i,0:3] = v*labels[i,0:3]
-        labels[i,3] = (np.exp(v-1)-1*np.exp(-1))*labels[i,3]
+    for i, value in enumerate(values):
+        # v = get_normal_dist(value[0],map_extra_coords[0],inv_sqrt_2pi)*get_normal_dist(value[1],map_extra_coords[1],inv_sqrt_2pi)
+        # # print(v)
+        # # labels[i,0:3] = v*labels[i,0:3]
+        # labels[i,3] = (np.exp(v-1)-1*np.exp(-1))*labels[i,3]
+        labels[i,3] = np.exp(-((value-1.1)**2)/12)
+
+    # for i,j in zip(values,labels):
+    #     print(i,j[3])
 
     # scatter points above the dbm
     # print(labels)
     # print(points)
-    scatter = fig.scatter(map_size*(points[:, 0]-np.min(points[:, 0]))/(np.max(points[:, 0])-np.min(points[:, 0])), 
-                          map_size*(points[:, 1]-np.min(points[:, 1]))/(np.max(points[:, 1])-np.min(points[:, 1])), 
-                          c=labels, s=36/(matrix_side), edgecolor='k', linewidth=0.3*labels[:,3])
+    scatter = fig.scatter((map_size-1)*(points[:, 0]-np.min(points[:, 0]))/(np.max(points[:, 0])-np.min(points[:, 0])), 
+                          (map_size-1)*(points[:, 1]-np.min(points[:, 1]))/(np.max(points[:, 1])-np.min(points[:, 1])), 
+                          c=labels, s=1000, edgecolor='k', linewidth=1.3*labels[:,3])
 
     # cbar = fig.colorbar(img, ticks=range(10))
     fig.grid(False)
     fig.axis("off") 
+
+#(-1,-1)
+# 13.573357
+# 3.0015278
+# 8.741683
+# 8.737072
+
+#(1,1)
+# 13.2894535
+# 5.1125216
+# 10.875324
+# 10.692657
 
 
 def apply_local_points_to_alpha(colors, extra_dims, map_extra_coords):

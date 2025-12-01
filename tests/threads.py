@@ -1,56 +1,37 @@
-import threading
-import time
+from matplotlib import pyplot as plt
+import numpy as np
 
-def my_function(name):
-    """A function to be executed by a thread."""
-    print(f"Thread {name}: Starting")
-    # time.sleep(2)  # Simulate some work
-    print(f"Thread {name}: Finishing")
+# Suppose your matrices are A1, A2, ..., A9
+di_list = np.zeros((25,100,100))
 
-def chunk_list(data, n):
-    avg_chunk_size = len(data) / n
-    chunks = []
-    for i in range(n):
-        start = int(i * avg_chunk_size)
-        end = int((i + 1) * avg_chunk_size)
-        chunks.append(data[start:end])
-    return chunks
+for x_c in range(5):
+    for y_c in range(5):
+        a = np.load(f'500/dbm_4d_(101)_120_5100_{x_c}_{y_c}.npy')
+        di_list[x_c*5+y_c] = a.reshape((100,100))
 
-if __name__ == "__main__":
+big = np.block([
+    di_list[0:5],
+    di_list[5:10],
+    di_list[10:15],
+    di_list[15:20],
+    di_list[20:25],
+])
 
-    l = list(range(100))
+# big = np.block(blocks)
 
-    test = chunk_list(l, 10)
-    print(test)
+fig_id, ax_id = plt.subplots(1,1,figsize=(50,50))
 
-    print("Main: Before creating threads")
+cmap = plt.get_cmap('jet', int(5-2+1))
+            
+ax_id.imshow(
+    big.reshape((500, 500,1)),
+    cmap=cmap,
+    interpolation="none",
+    resample=False,
+    vmin=2,
+    vmax=5,
+)
 
-    # Create thread objects
-    thread1 = threading.Thread(target=my_function, args=("One",))
-    thread2 = threading.Thread(target=my_function, args=("Two",))
-    thread3 = threading.Thread(target=my_function, args=("Three",))
-    thread4 = threading.Thread(target=my_function, args=("Four",))
-    thread5 = threading.Thread(target=my_function, args=("Five",))
-    thread6 = threading.Thread(target=my_function, args=("Six",))
+ax_id.axis("off")  
 
-    print("Main: Before starting threads")
-
-    # Start the threads
-    thread1.start()
-    thread2.start()
-    thread3.start()
-    thread4.start()
-    thread5.start()
-    thread6.start()
-
-    print("Main: After starting threads")
-
-    # Wait for threads to complete
-    thread1.join()
-    thread2.join()
-    thread3.join()
-    thread4.join()
-    thread5.join()
-    thread6.join()
-
-    print("Main: All threads finished")
+fig_id.savefig(f"fth.png", bbox_inches="tight", pad_inches=0.0)

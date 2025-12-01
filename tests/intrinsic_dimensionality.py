@@ -78,7 +78,7 @@ def local_id_from_covariances(X, knn_indices, theta=0.95):
 def get_intrinsic_dimension_pca(i, X, knn_indices, theta):
     S = X[knn_indices[i]]
     N_samples, N_features = S.shape
-    pca = PCA(n_components=min(N_samples, N_features))
+    pca = PCA(n_components=N_samples)#min(N_samples, N_features))
     pca.fit(S)
     eigenvalues = pca.explained_variance_
     eigenvals = np.sort(eigenvalues)[::-1]
@@ -160,27 +160,22 @@ def weave_grid(values, grid_points):
 
 
 def make_grid_reverse(
-    x_min: float, x_max: float, y_min: float, y_max: float, vl: np.ndarray, side_length: int
+    base: np.ndarray, vl: np.ndarray, side_length: int
 ) -> np.ndarray:
-    xx, yy = np.meshgrid(np.linspace(x_min, x_max, side_length), np.linspace(y_min, y_max, side_length))
-    
-    grid_points = np.c_[xx.ravel(), yy.ravel()]
 
     grid_points_res = np.hstack(
                                 [np.column_stack(
-                                    [np.full(grid_points.shape[0], vl[0,0]), np.full(grid_points.shape[0], vl[0,1])]), 
-                                    grid_points
+                                    [np.full(base.shape[0], vl[0,0]), np.full(base.shape[0], vl[0,1])]), 
+                                    base
                                 ])
     for i in range(1, np.shape(vl)[0]):
         grid_points_res = np.concatenate((grid_points_res, np.hstack(
                                                             [np.column_stack(
-                                                                [np.full(grid_points.shape[0], vl[i,0]), np.full(grid_points.shape[0], vl[i,1])]), 
-                                                                grid_points
+                                                                [np.full(base.shape[0], vl[i,0]), np.full(base.shape[0], vl[i,1])]), 
+                                                                base
                                                             ]
                                                           )
                                                         ), axis=0)
-    # print(np.shape(grid_points_res))
-    del xx, yy, grid_points
     return np.array(grid_points_res)
 
 def get_bounding_box(X_proj: np.ndarray) -> tuple[float, float, float, float]:
@@ -189,73 +184,67 @@ def get_bounding_box(X_proj: np.ndarray) -> tuple[float, float, float, float]:
 
     return x_min, x_max, y_min, y_max
 
-def pct_bb(x_min, x_max, y_min, y_max) -> tuple[float, float, float, float]:
+def pct_bb(x_min, x_max, y_min, y_max, mult_x_min, mult_x_max, mult_y_min, mult_y_max) -> tuple[float, float, float, float]:
     # zoom_5x:    0.3-0.5; 0.4-0.6;
     # zoom_10x:   0.4-0.5; 0.4-0.5;
     # zoom_10x_2: 0.4-0.5; 0.5-0.6;
     # zoom_20x:   0.425-0.575; 0.525-0.575;
     # zoom_20x_2: 0.475-0.525; 0.475-0.525;
-    n_x_min = 0.45*(x_max - x_min)+x_min 
-    n_x_max = 0.55*(x_max - x_min)+x_min 
-    n_y_min = 0.45*(y_max - y_min)+y_min 
-    n_y_max = 0.55*(y_max - y_min)+y_min 
+    n_x_min = mult_x_min*(x_max - x_min)+x_min 
+    n_x_max = mult_x_max*(x_max - x_min)+x_min 
+    n_y_min = mult_y_min*(y_max - y_min)+y_min 
+    n_y_max = mult_y_max*(y_max - y_min)+y_min 
 
     return n_x_min, n_x_max, n_y_min, n_y_max
 
 def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
 
     grid_res = 100
-    
-    X_size = np.shape(x_data)[0]
-
-    bounding_box = get_bounding_box(x_data)
-    # bounding_box = pct_bb(*bounding_box)
-
-    
-
-    print("computing...")
-    
     k = 120
     pixel_width = 101#np.ceil(np.sqrt(X_size))
     pixel_width_sqr = pixel_width**2
     half_pixel_width = pixel_width//2
     theta = 0.95
     index_coord = pixel_width**2//2#0  #CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
-
-    # dist = 12 #6 #22 
-    # coords_grid = make_grid_normal(*bounding_box, dist)
-    # c0 = coords_grid[65]#14#130##
-    # c1 = coords_grid[78]#21#153##
-
-    # normal_grid = make_grid_normal(c0[0], c1[0], c0[1], c1[1], grid_res)
-    # normal_grid_ = make_grid(c0[0], c1[0], c0[1], c1[1], -1.0, -1.0, grid_res)
-    normal_grid = make_grid_normal(*bounding_box, grid_res)
-    normal_grid_ = make_grid(*bounding_box, 0.0, 0.0, grid_res) #CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
-    invp_grid_base = inverter.inverse_transform(normal_grid_)
-
-    di_list = np.ones(np.shape(normal_grid)[0])
-    print(np.shape(normal_grid))
-
     
-    batch_size = 8
-    for batch_index, start in enumerate(range(0, np.shape(normal_grid)[0], batch_size)):
-        start_time = time.perf_counter()
-        batch = normal_grid[start:start + batch_size]
-        batch_coord = batch_index*batch_size
-        # print(batch_index, batch.shape)
-        grid = make_grid_reverse(-1.0,1.0,-1.0,1.0,batch,pixel_width)#CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
-        # grid = grid.reshape(-1, grid.shape[2])
+    X_size = np.shape(x_data)[0]
 
-        inv_p_batch_grid = (inverter.inverse_transform(grid)).reshape(batch_size, pixel_width_sqr, 784)
-        for index, i in enumerate(inv_p_batch_grid):
-            # print(np.shape(i))
-            invp_grid = np.concatenate((i,invp_grid_base))
-            id_pixelv = get_intrinsic_dimension_sv(index_coord, invp_grid, k, theta)
-            di_list[index+batch_coord] = id_pixelv
+    bb = get_bounding_box(x_data)
+    bb = pct_bb(*bb, 1/3, 2/3, 1/3, 2/3)
+    for x_c in range(5):
+        for y_c in range(5):
+            bounding_box = pct_bb(*bb, x_c/5, (x_c+1)/5, y_c/5, (y_c+1)/5)
 
-        end_time = time.perf_counter()
-        elapsed_time = end_time - start_time
-        print(f"Elapsed time: {elapsed_time:.4f} seconds, done batch: {batch_index}")
+            print("computing...")
+
+            normal_grid = make_grid_normal(*bounding_box, grid_res)
+            normal_grid_ = make_grid(*bounding_box, 0.0, 0.0, grid_res) #CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
+            invp_grid_base = inverter.inverse_transform(normal_grid_)
+
+            di_list = np.ones(np.shape(normal_grid)[0])
+            print(np.shape(normal_grid))
+
+            grid_base = make_grid_normal(-1.0,1.0,-1.0,1.0, pixel_width)/15#CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
+
+            batch_size = 4
+            for batch_index, start in enumerate(range(0, np.shape(normal_grid)[0], batch_size)):
+                start_time = time.perf_counter()
+                batch = normal_grid[start:start + batch_size]
+                batch_coord = batch_index*batch_size
+                # print(batch_index, batch.shape)
+                grid = make_grid_reverse(grid_base,batch,pixel_width)
+                # grid = grid.reshape(-1, grid.shape[2])
+
+                inv_p_batch_grid = (inverter.inverse_transform(grid)).reshape(batch_size, pixel_width_sqr, 784)
+                for index, i in enumerate(inv_p_batch_grid):
+                    # print(np.shape(i))
+                    invp_grid = np.concatenate((i,invp_grid_base))
+                    id_pixelv = get_intrinsic_dimension_sv(index_coord, invp_grid, k, theta)
+                    di_list[index+batch_coord] = id_pixelv
+
+                end_time = time.perf_counter()
+                elapsed_time = end_time - start_time
+                print(f"Elapsed time: {elapsed_time:.4f} seconds, done batch: {batch_index}")
 
         
 
@@ -273,33 +262,30 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
     #     print(f"Elapsed time: {elapsed_time:.4f} seconds, done pixel: {index}")
 
 
-    fig_id, ax_id = plt.subplots(1,1,figsize=(50,50))
-    np.save(f'dbm_4d_({pixel_width})_{k}_{index_coord}.npy', di_list)
-    max_v = np.max(di_list)
-    min_v = np.min(di_list)
-    # for index, i in enumerate(di_list):
-    #     if i != 6.0 and i != 7.0 and i != 8.0:
-    #         print(f"{index}: {i}")
-    # di_list = (di_list - min_v)/(max_v-min_v)
-    
-    ax_id.imshow(
-        di_list.reshape((grid_res, grid_res,1)),
-        cmap="viridis",
-        interpolation="none",
-        resample=False,
-    )
+            fig_id, ax_id = plt.subplots(1,1,figsize=(50,50))
+            np.save(f'500/dbm_4d_({pixel_width})_{k}_{index_coord}_{x_c}_{y_c}.npy', di_list)
+            max_v = np.max(di_list)
+            min_v = np.min(di_list)
 
-    # coords_grid = minmax_scale(coords_grid)
-    # ax_id.scatter(
-    #     100*coords_grid[:,0],100*coords_grid[:,1], 1600, "black"
-    # )
-    print(max_v)
-    print(min_v)
-    fig_id.savefig(f"dbm_4d_({pixel_width})_{k}_{index_coord}.png")
+            cmap = plt.get_cmap('jet', int(5-2+1))
+            
+            ax_id.imshow(
+                di_list.reshape((grid_res, grid_res,1)),
+                cmap=cmap,
+                interpolation="none",
+                resample=False,
+                vmin=2,
+                vmax=5,
+            )
+
+            ax_id.axis("off")  
+            print(max_v)
+            print(min_v)
+            fig_id.savefig(f"500/dbm_4d_({pixel_width})_{k}_{index_coord}_{x_c}_{y_c}.png", bbox_inches="tight", pad_inches=0.0)
 
 def plot_matrix_pixel_plane(clf, inverter, nd_data, x_data, y_data, noise, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
 
-    grid_res = 50
+    grid_res = 300
     
     X_size = np.shape(x_data)[0]
 
@@ -307,76 +293,69 @@ def plot_matrix_pixel_plane(clf, inverter, nd_data, x_data, y_data, noise, grid_
     
     print("computing...")
     k = 120
-    pixel_width = 51
+    pixel_width = 301
+    pixel_width_sqr = pixel_width**2
     half_pixel_width = pixel_width//2
     theta = 0.95
     matrix_side = 5
     half_matrix_side = matrix_side//2
-
-    res_id =  np.zeros((matrix_side,matrix_side,grid_res,grid_res))
-    res_dbm = np.zeros((matrix_side,matrix_side,grid_res*grid_res,4))
-
-    step_x =             (pixel_width-1)//(matrix_side-1)
-    step_y = pixel_width*(pixel_width-1)//(matrix_side-1)
-
-    cmap_dbm = plt.get_cmap('tab10')
+    index_coord = 0#pixel_width**2//2
 
     normal_grid = make_grid_normal(*bounding_box, grid_res)
-    grid_x = list(range(matrix_side))
-    grid_y = sorted(list(range(matrix_side)))
 
-    for index,i in enumerate(normal_grid):
+    di_list = np.ones(np.shape(normal_grid)[0])
+
+    grid_base = make_grid_normal(-1.0,1.0,-1.0,1.0, pixel_width)#CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
+
+    batch_size = 4
+    for batch_index, start in enumerate(range(0, np.shape(normal_grid)[0], batch_size)):
         start_time = time.perf_counter()
-        rngex = (np.array(list(range(pixel_width))*pixel_width)-half_pixel_width)/half_pixel_width
-        rngey = (np.array(sorted(list(range(pixel_width))*pixel_width))-half_pixel_width)/half_pixel_width
-        matrix_values = np.c_[rngex, rngey]
-        pix_x = index%grid_res
-        pix_y = index//grid_res
-        grid = [[i[0], i[1], j[0], j[1]] for j in matrix_values]
-        invp_grid = inverter.inverse_transform(grid)#np.concatenate((,invp_grid_base))
-        for x,y in zip(grid_x,grid_y):
-            index_coord = x*step_x+y*step_y#pixel_width**2//2
-            
+        batch = normal_grid[start:start + batch_size]
+        batch_coord = batch_index*batch_size
+        # print(batch_index, batch.shape)
+        grid = make_grid_reverse(grid_base,batch,pixel_width)
+        # grid = grid.reshape(-1, grid.shape[2])
+
+        inv_p_batch_grid = inverter.inverse_transform(grid)
+        inv_p_batch_grid = inv_p_batch_grid.reshape((batch_size, pixel_width_sqr, 784))
+        
+        for index, i in enumerate(inv_p_batch_grid):
+            # print(np.shape(i))
+            invp_grid = i
             id_pixelv = get_intrinsic_dimension_sv(index_coord, invp_grid, k, theta)
-            res_id[x,y,pix_x,pix_y] = id_pixelv
+            di_list[index+batch_coord] = id_pixelv
 
         end_time = time.perf_counter()
         elapsed_time = end_time - start_time
-        print(f"Elapsed time: {elapsed_time:.4f} seconds")
-        if not bool(index % 10):
-            print(f"done pixel: {index}")
+        print(f"Elapsed time: {elapsed_time:.4f} seconds, done batch: {batch_index}")
 
-    fig_id, ax_id = plt.subplots(matrix_side,matrix_side,figsize=(100,100))
+    fig_id, ax_id = plt.subplots(1,1,figsize=(100,100))
     
+    res_id = di_list
     np.save(f'matrix({pixel_width})_{k}_{matrix_side}.npy', res_id)
     max_v = np.max(res_id)
     min_v = np.min(res_id)
-    cmap = plt.get_cmap('jet', int(max_v-min_v+1))
+    cmap = plt.get_cmap('jet', int(5-2+1))
     
-    images = []
-    for x in range(matrix_side):
-        for y in range(matrix_side):
-            images.append(
-                ax_id[x,y].imshow(
-                    res_id[x,y].reshape((grid_res, grid_res,1)),
-                    interpolation="none",
-                    resample=False,
-                    cmap=cmap,
-                    vmin=min_v,
-                    vmax=max_v,
-                )
-            )
-            ax_id[x,y].set_title(f"{(x-half_matrix_side)/half_matrix_side}, {(y-half_matrix_side)/half_matrix_side}", fontsize=100)
-            ax_id[x,y].axis("off")     
+    ax_id.imshow(
+            res_id.reshape((grid_res, grid_res,1)),
+            interpolation="none",
+            resample=False,
+            cmap=cmap,
+            vmin=2,
+            vmax=5,
+    )
+    
+    ax_id.axis("off")     
 
-    bounds = np.arange(int(max_v-min_v+2)) + min_v - 0.5 # Boundaries for each color segment
-    norm = BoundaryNorm(bounds, cmap.N)
-    cbar = fig_id.colorbar(images[0], ax=ax_id, orientation='horizontal', fraction=0.05, norm=norm, boundaries=bounds, ticks=list(range(int(min_v), int(max_v+1))))
-    cbar.ax.tick_params(labelsize=100)
+    # bounds = np.arange(int(max_v-min_v+2)) + min_v - 0.5 # Boundaries for each color segment
+    # norm = BoundaryNorm(bounds, cmap.N)
+    # cbar = fig_id.colorbar(images[0], ax=ax_id, orientation='horizontal', fraction=0.05, norm=norm, boundaries=bounds, ticks=list(range(int(min_v), int(max_v+1))))
+    # cbar.ax.tick_params(labelsize=100)
     
     print(max_v)
     print(min_v)
-    fig_id.savefig(f"matrix_id({pixel_width})_{k}_{matrix_side}.png")
+    fig_id.savefig(f"matrix_id({pixel_width})_{k}_{matrix_side}.png", bbox_inches="tight", pad_inches=0.0)
 
 def plot_matrix_dbm_plane(clf, inverter, nd_data, x_data, y_data, noise, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
 

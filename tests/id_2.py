@@ -5,6 +5,7 @@ import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import NearestNeighbors
+from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import minmax_scale
 import tensorflow as tf
 
@@ -98,6 +99,15 @@ def Load_data(path, dataset):
     y = np.load(os.path.join(path, dataset, "y.npy"))
     return X, y
 
+def make_and_fit_mlp(X, y) -> MLPClassifier:
+    return MLPClassifier(
+        verbose=True,
+        hidden_layer_sizes=(512, 128, 32),
+        activation="relu",
+        max_iter=100,
+        random_state=420,
+    ).fit(X, y)
+
 def get_inv_proj_data_sharp(output_dir, _model, dataset_name, model_name, method, epochs):
     data_dir = "./data/"
 
@@ -121,7 +131,9 @@ def get_inv_proj_data_sharp(output_dir, _model, dataset_name, model_name, method
     X_model_res = _model.transform(X_test)
     X_model_2d = X_model_res
 
-    return X_test, X_model_2d, y_test, _model
+    clf = make_and_fit_mlp(X_train, y_train)
+
+    return X_test, X_model_2d, y_test, _model, clf
 
 
 if __name__ == "__main__":
@@ -152,7 +164,7 @@ if __name__ == "__main__":
     classes = sharp_dims_classes[dataset][1]
     noise = []
 
-    results_nd, results_2d, y_values, inv_model = get_inv_proj_data_sharp(
+    results_nd, results_2d, y_values, inv_model, classifier = get_inv_proj_data_sharp(
         output_dir, 
         sharp.ShaRP(
             dims,
@@ -171,29 +183,65 @@ if __name__ == "__main__":
         epochs
     )
 
-    # id_map = intrinsic_dimension_map(ssnp_model=inv_model, data=results_2d, k=120, theta=0.95, grid_res=grid_res)
+    fig_dbm, ax_dbm = plt.subplots(1,1,figsize=(50, 50))
+    fig_scatter, ax_scatter = plt.subplots(1,1,figsize=(50, 50))
+
+    cmap_tab = plt.get_cmap('tab10')
+    point_colors = cmap_tab(y_values)
+
+    bounding_box = get_bounding_box(results_2d)
+    grid = make_grid_normal(*bounding_box, grid_res)
+    inverted_grid = inv_model.inverse_transform(grid)
+
+    classes = classifier.predict(inverted_grid).astype(np.uint8)
+
+    ax_dbm.grid(False)
+    ax_dbm.axis("off") 
+    ax_scatter.grid(False)
+    ax_scatter.axis("off") 
+
+    # putting the dbm in the background
+    ax_dbm.imshow(cmap_tab(classes).reshape((grid_res,grid_res,4)), interpolation='none', cmap='tab10',  vmin=0, vmax=9, origin='lower')
+
+    fig_dbm.savefig(f"sharp_2d_dbm.png", bbox_inches="tight", pad_inches=0.0)
+
+    ax_dbm.scatter((grid_res-1)*(results_2d[:, 0]-np.min(results_2d[:, 0]))/(np.max(results_2d[:, 0])-np.min(results_2d[:, 0])), 
+                   (grid_res-1)*(results_2d[:, 1]-np.min(results_2d[:, 1]))/(np.max(results_2d[:, 1])-np.min(results_2d[:, 1])), 
+                   c=point_colors, s=1000, edgecolor='k', linewidth=0.7*point_colors[:,3])
+    
+    fig_dbm.savefig(f"sharp_2d_dbm_scatter.png", bbox_inches="tight", pad_inches=0.0)
+
+    ax_scatter.scatter((grid_res-1)*(results_2d[:, 0]-np.min(results_2d[:, 0]))/(np.max(results_2d[:, 0])-np.min(results_2d[:, 0])), 
+                       (grid_res-1)*(results_2d[:, 1]-np.min(results_2d[:, 1]))/(np.max(results_2d[:, 1])-np.min(results_2d[:, 1])), 
+                       c=point_colors, s=1000, edgecolor='k', linewidth=0.7*point_colors[:,3])
+    
+    fig_scatter.savefig(f"sharp_2d_scatter.png", bbox_inches="tight", pad_inches=0.0)
+
+    id_map = intrinsic_dimension_map(ssnp_model=inv_model, data=results_2d, k=120, theta=0.95, grid_res=grid_res)
 
     # print(np.mean(id_map))
 
-    fig_main, ax_main = plt.subplots(1,1,figsize=(200,200))
-    id_map = np.load(f'dbm_2d_{grid_res}.npy')
+    fig_main, ax_main = plt.subplots(1,1,figsize=(50,50))
+    np.save(f'sharp_2d_id_{grid_res}.npy', id_map)
     max_v = np.max(id_map)
     min_v = np.min(id_map)
     print(np.shape(id_map))
-    # for index, i in enumerate(di_list):
-    #     if i != 6.0 and i != 7.0 and i != 8.0:
-    #         print(f"{index}: {i}")
-    # di_list = (di_list - min_v)/(max_v-min_v)
+
+    cmap = plt.get_cmap('jet', int(5-2+1))
 
     ax_main.imshow(
         id_map.reshape((grid_res, grid_res,1)),
-        cmap="viridis",
+        cmap=cmap,
         interpolation="none",
         resample=False,
+        vmin=2,
+        vmax=5
     )
-    ax_main.scatter(500*(results_2d[:, 0]-np.min(results_2d[:, 0]))/(np.max(results_2d[:, 0])-np.min(results_2d[:, 0])), 
-                    500*(results_2d[:, 1]-np.min(results_2d[:, 1]))/(np.max(results_2d[:, 1])-np.min(results_2d[:, 1])), 
-                    c=y_values, cmap="tab10", s=216, edgecolor='k', linewidth=0.2, alpha=0.7)
+    ax_main.grid(False)
+    ax_main.axis("off") 
+    # ax_main.scatter(500*(results_2d[:, 0]-np.min(results_2d[:, 0]))/(np.max(results_2d[:, 0])-np.min(results_2d[:, 0])), 
+    #                 500*(results_2d[:, 1]-np.min(results_2d[:, 1]))/(np.max(results_2d[:, 1])-np.min(results_2d[:, 1])), 
+    #                 c=y_values, cmap="tab10", s=216, edgecolor='k', linewidth=0.2, alpha=0.7)
     print(max_v)
     print(min_v)
-    fig_main.savefig(f'dbm_2d_{grid_res}.png')
+    fig_main.savefig(f'sharp_2d_id_{grid_res}.png', bbox_inches="tight", pad_inches=0.0)
