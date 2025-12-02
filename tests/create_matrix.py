@@ -177,106 +177,102 @@ def plot_matrix(classifier, inverter, neighbor_finder, x_data, y_data, noise, nd
     cmapped_base = cmap(classes)
     invp_grid_neighbor_finder = [{}]*matrix_side_size*matrix_side_size
 
-    scatterplot.plot_decision_map_with_points(x_data, cmap(y_data), grid_res, matrix_side_size, fig=ax_scatter)
-    fig_scatter.savefig(f"sharp_scatterplot.png", bbox_inches="tight", pad_inches=0.0)
-    # for i in range(matrix_side_size):
-    #     for j in range(matrix_side_size):
-    #         fig_scatter3, ax_scatter3 = plt.subplots(1,1,figsize=(grid_res/10, grid_res/10))
-    #         grid = make_grid(*bounding_box, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], grid_res)
-    #         inverted_grid = inverter.inverse_transform(grid)
+    # scatterplot.plot_decision_map_with_points(x_data, cmap(y_data), grid_res, matrix_side_size, fig=ax_scatter)
+    # fig_scatter.savefig(f"sharp_scatterplot.png", bbox_inches="tight", pad_inches=0.0)
+    for i in range(matrix_side_size):
+        for j in range(matrix_side_size):
+            fig_scatter3, ax_scatter3 = plt.subplots(1,1,figsize=(grid_res/10, grid_res/10))
+            grid = make_grid(*bounding_box, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], grid_res)
+            inverted_grid = inverter.inverse_transform(grid)
 
-    #         invp_grid_neighbor_finder = NearestNeighbors(
-    #             n_neighbors=5
-    #         ) 
-    #         invp_grid_neighbor_finder.fit(inverted_grid)
+            invp_grid_neighbor_finder = NearestNeighbors(
+                n_neighbors=5
+            ) 
+            invp_grid_neighbor_finder.fit(inverted_grid)
 
-    #         classes = classifier.predict(inverted_grid).astype(np.uint8)
+            classes = classifier.predict(inverted_grid).astype(np.uint8)
 
-    #         # print(y_data)
+            # print(y_data)
             
-    #         n_classes = 10 # im lazy asf
-    #         metric_matrix[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
-    #         values = metrics.metric_distance_to_nearest_neighbor(nd_data, invp_grid_neighbor_finder)
-    #         print(np.max(values))
-    #         print(np.min(values))
-    #         print(np.median(values))
-    #         print(np.mean(values))
+            n_classes = 10 # im lazy asf
+            metric_matrix[matrix_side_size*i+j] = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
+            values = metrics.metric_distance_to_nearest_neighbor(nd_data, invp_grid_neighbor_finder)
             
-    #         scatterplot.plot_decision_map_with_points(classes.reshape((grid_res, grid_res, 1)), x_data, cmap(y_data), grid_res, matrix_side_size, fig=ax_scatter)
-    #         # scatterplot.plot_decision_map_with_points_relative(classes.reshape((grid_res, grid_res, 1)), x_data, cmap(y_data), values, grid_res, matrix_side_size, fig=ax_scatter3)
+            # scatterplot.plot_decision_map_with_points(classes.reshape((grid_res, grid_res, 1)), x_data, cmap(y_data), grid_res, matrix_side_size, fig=ax_scatter)
+            scatterplot.plot_decision_map_with_points_relative(classes.reshape((grid_res, grid_res, 1)), x_data, cmap(y_data), values, grid_res, matrix_side_size, fig=ax_scatter3)
 
-    #         # ntp_values = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
+            # ntp_values = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
 
-    #         cmapped[matrix_side_size*i+j] = cmap(classes)
+            cmapped[matrix_side_size*i+j] = cmap(classes)
 
-    #         # res = classifier.predict_proba(inverted_grid)
+            # res = classifier.predict_proba(inverted_grid)
      
-    #         # confidence = np.zeros(np.shape(res)[0])
+            # confidence = np.zeros(np.shape(res)[0])
 
-    #         # for k,lis in enumerate(res):
-    #         #     confidence[k] = np.max(lis)
+            # for k,lis in enumerate(res):
+            #     confidence[k] = np.max(lis)
 
-    #         coords = f"({np.round(matrix_origin[0]+i*step[0],np.uint8(format_step[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_step[1]))})"
+            coords = f"({np.round(matrix_origin[0]+i*step[0],np.uint8(format_step[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_step[1]))})"
            
-    #         # fig_scatter.savefig(f"sharp/dbm_scatter/{coords}.png", bbox_inches="tight", pad_inches=0.0)
-    #         fig_scatter3.savefig(f"sharp/dbm_scatter_local/{coords}.png", bbox_inches="tight", pad_inches=0.0)
+            # fig_scatter.savefig(f"sharp/dbm_scatter/{coords}.png", bbox_inches="tight", pad_inches=0.0)
+            fig_scatter3.savefig(f"sharp/dbm_scatter_local/{coords}.png", bbox_inches="tight", pad_inches=0.0)
 
-    #         # ax_main.imshow(
-    #         #     cmapped[matrix_side_size*i+j].reshape((grid_res, grid_res, 4)),
-    #         #     origin="lower",
-    #         #     interpolation="none",
-    #         #     resample=False,
-    #         # )
-    #         # ax_main.axis("off") 
-    #         # fig_main.savefig(f"nninv/dbm/{coords}.png", bbox_inches="tight", pad_inches=0.0)
+            # ax_main.imshow(
+            #     cmapped[matrix_side_size*i+j].reshape((grid_res, grid_res, 4)),
+            #     origin="lower",
+            #     interpolation="none",
+            #     resample=False,
+            # )
+            # ax_main.axis("off") 
+            # fig_main.savefig(f"nninv/dbm/{coords}.png", bbox_inches="tight", pad_inches=0.0)
             
-    #         # ax_conf.imshow(
-    #         #     cmap2(confidence).reshape((grid_res, grid_res, 4)),
-    #         #     origin="lower",
-    #         #     interpolation="none",
-    #         #     resample=False,
-    #         # )
-    #         # ax_conf.axis("off") 
-    #         # fig_conf.savefig(f"sharp/conf/{coords}.png", bbox_inches="tight", pad_inches=0.0)
+            # ax_conf.imshow(
+            #     cmap2(confidence).reshape((grid_res, grid_res, 4)),
+            #     origin="lower",
+            #     interpolation="none",
+            #     resample=False,
+            # )
+            # ax_conf.axis("off") 
+            # fig_conf.savefig(f"sharp/conf/{coords}.png", bbox_inches="tight", pad_inches=0.0)
             
-    #         # conf_dbm[:,0] = cmapped[matrix_side_size*i+j,:,0]*confidence
-    #         # conf_dbm[:,1] = cmapped[matrix_side_size*i+j,:,1]*confidence
-    #         # conf_dbm[:,2] = cmapped[matrix_side_size*i+j,:,2]*confidence
-    #         # conf_dbm[:,3] = cmapped[matrix_side_size*i+j,:,3]
+            # conf_dbm[:,0] = cmapped[matrix_side_size*i+j,:,0]*confidence
+            # conf_dbm[:,1] = cmapped[matrix_side_size*i+j,:,1]*confidence
+            # conf_dbm[:,2] = cmapped[matrix_side_size*i+j,:,2]*confidence
+            # conf_dbm[:,3] = cmapped[matrix_side_size*i+j,:,3]
 
-    #         # ax_mainconf.imshow(
-    #         #     conf_dbm.reshape((grid_res, grid_res, 4)),
-    #         #     origin="lower",
-    #         #     interpolation="none",
-    #         #     resample=False,
-    #         # )
-    #         # ax_mainconf.axis("off") 
-    #         # fig_mainconf.savefig(f"sharp/dbm_conf/{coords}.png", bbox_inches="tight", pad_inches=0.0)
+            # ax_mainconf.imshow(
+            #     conf_dbm.reshape((grid_res, grid_res, 4)),
+            #     origin="lower",
+            #     interpolation="none",
+            #     resample=False,
+            # )
+            # ax_mainconf.axis("off") 
+            # fig_mainconf.savefig(f"sharp/dbm_conf/{coords}.png", bbox_inches="tight", pad_inches=0.0)
 
-    #         # ax_metric.imshow(
-    #         #     cmap2(1.0-minmax_scale(metric_matrix[matrix_side_size*i+j])).reshape((grid_res, grid_res, 4)),
-    #         #     origin="lower",
-    #         #     interpolation="none",
-    #         #     resample=False,
-    #         # )
-    #         # ax_metric.axis("off") 
-    #         # fig_metric.savefig(f"sharp/ntp/{coords}.png", bbox_inches="tight", pad_inches=0.0)
+            # ax_metric.imshow(
+            #     cmap2(1.0-minmax_scale(metric_matrix[matrix_side_size*i+j])).reshape((grid_res, grid_res, 4)),
+            #     origin="lower",
+            #     interpolation="none",
+            #     resample=False,
+            # )
+            # ax_metric.axis("off") 
+            # fig_metric.savefig(f"sharp/ntp/{coords}.png", bbox_inches="tight", pad_inches=0.0)
 
-    #         # ntp_dbm[:,0] = cmapped[matrix_side_size*i+j,:,0]*(1.0-minmax_scale(metric_matrix[matrix_side_size*i+j]))
-    #         # ntp_dbm[:,1] = cmapped[matrix_side_size*i+j,:,1]*(1.0-minmax_scale(metric_matrix[matrix_side_size*i+j]))
-    #         # ntp_dbm[:,2] = cmapped[matrix_side_size*i+j,:,2]*(1.0-minmax_scale(metric_matrix[matrix_side_size*i+j]))
-    #         # ntp_dbm[:,3] = cmapped[matrix_side_size*i+j,:,3]
+            # ntp_dbm[:,0] = cmapped[matrix_side_size*i+j,:,0]*(1.0-minmax_scale(metric_matrix[matrix_side_size*i+j]))
+            # ntp_dbm[:,1] = cmapped[matrix_side_size*i+j,:,1]*(1.0-minmax_scale(metric_matrix[matrix_side_size*i+j]))
+            # ntp_dbm[:,2] = cmapped[matrix_side_size*i+j,:,2]*(1.0-minmax_scale(metric_matrix[matrix_side_size*i+j]))
+            # ntp_dbm[:,3] = cmapped[matrix_side_size*i+j,:,3]
 
-    #         # ax_mainmetric.imshow(
-    #         #     ntp_dbm.reshape((grid_res, grid_res, 4)),
-    #         #     origin="lower",
-    #         #     interpolation="none",
-    #         #     resample=False,
-    #         # )
-    #         # ax_mainmetric.axis("off") 
-    #         # fig_mainmetric.savefig(f"sharp/dbm_ntp/{coords}.png", bbox_inches="tight", pad_inches=0.0)
+            # ax_mainmetric.imshow(
+            #     ntp_dbm.reshape((grid_res, grid_res, 4)),
+            #     origin="lower",
+            #     interpolation="none",
+            #     resample=False,
+            # )
+            # ax_mainmetric.axis("off") 
+            # fig_mainmetric.savefig(f"sharp/dbm_ntp/{coords}.png", bbox_inches="tight", pad_inches=0.0)
 
-    #         print(f"finish {i} {j}")
+            print(f"finish {i} {j}")
 
     # metric_matrix_scaled  = 1.0-minmax_scale(metric_matrix)#-np.min(metric_matrix))/(np.max(metric_matrix)-np.min(metric_matrix))
     # cmapped2  = cmap2(1.0-minmax_scale(metric_matrix))
