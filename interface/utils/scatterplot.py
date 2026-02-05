@@ -189,12 +189,16 @@ def plot_decision_map_with_points_relative(decision_map, points, labels, values,
 
     # inv_sqrt_2pi = 1/np.sqrt(2*np.pi)
 
-    for i, value in enumerate(values):
-        # v = get_normal_dist(value[0],map_extra_coords[0],inv_sqrt_2pi)*get_normal_dist(value[1],map_extra_coords[1],inv_sqrt_2pi)
-        # # print(v)
-        # # labels[i,0:3] = v*labels[i,0:3]
-        # labels[i,3] = (np.exp(v-1)-1*np.exp(-1))*labels[i,3]
-        labels[i,3] = np.exp(-((value-1.1)**2)/12)
+    # for i, value in enumerate(values):
+    #     # v = get_normal_dist(value[0],map_extra_coords[0],inv_sqrt_2pi)*get_normal_dist(value[1],map_extra_coords[1],inv_sqrt_2pi)
+    #     # # print(v)
+    #     # # labels[i,0:3] = v*labels[i,0:3]
+    #     # labels[i,3] = (np.exp(v-1)-1*np.exp(-1))*labels[i,3]
+    #     labels[i,3] = (1/(1+np.exp(3*value-17)))**4#np.exp(-((value-1.1)**2)/12)
+
+    labels[:,3] = values
+
+    line_width = [(1.6*i if 1.6*i < 1.0 else 1.0) for i in values]
 
     # for i,j in zip(values,labels):
     #     print(i,j[3])
@@ -204,7 +208,7 @@ def plot_decision_map_with_points_relative(decision_map, points, labels, values,
     # print(points)
     scatter = fig.scatter((map_size-1)*(points[:, 0]-np.min(points[:, 0]))/(np.max(points[:, 0])-np.min(points[:, 0])), 
                           (map_size-1)*(points[:, 1]-np.min(points[:, 1]))/(np.max(points[:, 1])-np.min(points[:, 1])), 
-                          c=labels, s=1000, edgecolor='k', linewidth=1.3*labels[:,3])
+                          c=labels, s=1500, edgecolor='k', linewidth=line_width)
 
     # cbar = fig.colorbar(img, ticks=range(10))
     fig.grid(False)

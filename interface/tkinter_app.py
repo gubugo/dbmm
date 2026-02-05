@@ -93,6 +93,7 @@ class App(tk.Tk):
 
         self.generate_matrix = True
         self.data_loaded = False
+        self.matrix_dataset = ""
         self.right_fig = plt.figure()
         self.right_fig.set_size_inches(5,5)
         self.right_ax  = self.right_fig.add_subplot(111)
@@ -101,7 +102,7 @@ class App(tk.Tk):
         self.img_ax  = self.img_fig.add_subplot(111)
         self.img_ax.axis("off") 
         self.img_ax.margins(0) 
-        self.img_axis_fig, self.img_axis_ax = plt.subplots(2,11)
+        self.img_axis_fig, self.img_axis_ax = plt.subplots(2,9)
         self.img_axis_fig.set_size_inches(8,2)
         for ax_row in self.img_axis_ax:
             for ax in ax_row:
@@ -131,11 +132,11 @@ class App(tk.Tk):
         sb = ttk.Frame(self, padding=12)
         sb.grid(row=0, column=0, sticky="ns")
 
-        # ttk.Label(sb, text="Dataset").grid(row=0, column=0, sticky="w")
-        # self.dataset = tk.StringVar(value="mnist")
-        # combobox1 = ttk.Combobox(sb, textvariable=self.dataset, state="readonly", values=["mnist", "fashionmnist"])
-        # combobox1.grid(row=1, column=0, sticky="ew", pady=(0,8))
-        # combobox1.bind("<<ComboboxSelected>>", self._combobox_wrap)
+        ttk.Label(sb, text="Dataset").grid(row=0, column=0, sticky="w")
+        self.dataset = tk.StringVar(value="mnist")
+        combobox1 = ttk.Combobox(sb, textvariable=self.dataset, state="readonly", values=["mnist", "fashionmnist", "har", "reuters", "hate_speech"])
+        combobox1.grid(row=1, column=0, sticky="ew", pady=(0,8))
+        combobox1.bind("<<ComboboxSelected>>", self._combobox_wrap)
 
         ttk.Separator(sb).grid(row=2, column=0, sticky="ew", pady=8)
 
@@ -313,9 +314,11 @@ class App(tk.Tk):
         print(self.closest_tp.get())
         print(self.scatter.get())
         print(self.images.get())
-        # print(self.dataset.get())
+        print(self.dataset.get())
+        print(self.matrix_dataset)
 
-        if not self.data_loaded:
+        if (not self.data_loaded) or self.matrix_dataset != self.dataset.get():
+            print("Here")
             self.compute_projection()
         self.update_plots()
 
@@ -359,34 +362,36 @@ class App(tk.Tk):
             self.cc_class3.set(f"Class {top_cc_values[-3]}:{metric_cc[top_cc_values[-3]]:.5f}")
 
             # AXES
-            dbm_coords_collumn = np.column_stack([np.full(11, x), np.full(11, y)])
-            mdbm_x_coords_collumn = np.column_stack([np.full(11, self.x_v.get())])
-            mdbm_y_coords_collumn = np.column_stack([np.full(11, self.y_v.get())])
-            extra_coords_collumn = np.linspace(-1, 1, 11).reshape((11,1))
+            dbm_coords_collumn = np.column_stack([np.full(9, x), np.full(9, y)])
+            mdbm_x_coords_collumn = np.column_stack([np.full(9, self.x_v.get())])
+            mdbm_y_coords_collumn = np.column_stack([np.full(9, self.y_v.get())])
+            extra_coords_collumn = np.linspace(-1, 1, 9).reshape((9,1))
 
             grid_points_x = np.hstack([dbm_coords_collumn, extra_coords_collumn, mdbm_y_coords_collumn])
             grid_points_y = np.hstack([dbm_coords_collumn, mdbm_x_coords_collumn, extra_coords_collumn])
             both_axis = np.concatenate((grid_points_x,grid_points_y))
 
             imgs_axis = self.inv_model.inverse_transform(both_axis)
-            imgs = np.reshape(imgs_axis,(22, 28, 28))
+            imgs = np.reshape(imgs_axis,(18, 28, 28))
             imgs = np.stack([imgs, imgs, imgs, np.ones(np.shape(imgs))], axis=-1)
 
-            for i in range(11):
+            for i in range(9):
                 for j in range(2):
                     self.img_axis_ax[j,i].imshow(
-                        imgs[i+11*j],
+                        imgs[i+9*j],
                         interpolation="none",
                         resample=False,
                     )
                     self.img_axis_ax[j,i].margins(0)
-                    self.img_axis_ax[j,i].set_title(f"{(i-5)/5}", fontsize=10, x=0.5, y=1)
+                    self.img_axis_ax[j,i].set_title(f"{(i-4)/4}", fontsize=10, x=0.5, y=1)
             
             self.img_axis_ax[0,0].set_ylabel('X axis MDBM', fontsize=7)
             self.img_axis_ax[1,0].set_ylabel('Y axis MDBM', fontsize=7)
             # self.img_axis_ax[0,0].yaxis.label.set_rotation(30) 
             # self.img_axis_ax[1,0].yaxis.label.set_rotation(30) 
             # self.img_axis_fig.set_size_inches(1,1)
+
+            self.img_axis_fig.savefig("image_axis.png", bbox_inches="tight", pad_inches=0.0)
             self.img_axis_canvas.draw()
 
             # x_data = event.xdata  # Data coordinates
@@ -525,7 +530,9 @@ class App(tk.Tk):
         # Signature inferred from code slices:
         # get_inv_proj_data_ae(output_dir, _model, dataset_name, model_name, method, epochs, random_state)
         output_dir = "weights"
-        dataset_name = "mnist"#self.dataset.get()
+        dataset_name = self.dataset.get()
+        self.matrix_dataset = dataset_name
+        self.generate_matrix = True
         model_name = "sharp"
         method = "noise"
         epochs = 10
@@ -536,6 +543,8 @@ class App(tk.Tk):
         sharp_dims_classes["mnist"] = [784, 10]
         sharp_dims_classes["har"]  = [561, 6]
         sharp_dims_classes["reuters"] = [5000, 6]
+        sharp_dims_classes["hate_speech"] = [100, 3]
+        sharp_dims_classes["hate_speech"] = [100, 3]
 
         dims = sharp_dims_classes[dataset_name][0]
         classes = sharp_dims_classes[dataset_name][1]

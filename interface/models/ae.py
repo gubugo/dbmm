@@ -7,10 +7,11 @@ from tensorflow.keras import regularizers
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras.models import Model
+from keras.models import load_model
 
 
 class AutoencoderProjection(BaseEstimator, TransformerMixin):
-    def __init__(self, epochs=100, verbose=0):
+    def __init__(self, epochs=100, verbose=1):
         self.epochs = epochs
         self.autoencoder = None
         self.encoder = None
@@ -18,9 +19,12 @@ class AutoencoderProjection(BaseEstimator, TransformerMixin):
         self.verbose = verbose
         self.is_fitted = False
 
+        self.fwd = None
+        self.inv = None
+
         K.clear_session()
 
-    def fit(self, X):
+    def fit(self, X, y, epochs):
         ae_input = Input(shape=(X.shape[1],))
         encoded = Dense(512, activation="relu")(ae_input)
         encoded = Dense(128, activation="relu")(encoded)
@@ -49,6 +53,15 @@ class AutoencoderProjection(BaseEstimator, TransformerMixin):
         self.inv = Model(encoded_input, decoder_layer)
 
         self.is_fitted = True
+
+    def save_weights(self, export_path: str):
+        self.fwd.save(os.path.join(export_path, "fwd"))
+        self.inv.save(os.path.join(export_path, "inv"))
+
+    def load_weights(self, export_path: str):
+        self.is_fitted = True
+        self.fwd = load_model(os.path.join(export_path, "fwd"))
+        self.inv = load_model(os.path.join(export_path, "inv"))
 
     def transform(self, X):
         if self._is_fit():

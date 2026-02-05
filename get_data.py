@@ -132,6 +132,23 @@ def process_usps():
     X, y = sklearn.datasets.fetch_openml("usps", return_X_y=True, as_frame=False)
     save_dataset("usps", X, y)
 
+def process_hate_speech():
+    import sklearn.datasets
+
+    X, y = sklearn.datasets.fetch_openml(data_id=46685, return_X_y=True, as_frame=True)
+
+    df = pd.DataFrame(X)
+    df['label'] = y
+    corpus = df['tweet'].astype(str).tolist()
+
+    tfidf = TfidfVectorizer(max_features=100)
+    X_reuters = tfidf.fit_transform(corpus)
+    X_reuters = X_reuters.todense()
+    y_reuters = df["label"].to_numpy()
+
+    save_dataset("hate_speech", X_reuters, y_reuters)
+
+
 
 if __name__ == "__main__":
     base_dir = "./data/"
