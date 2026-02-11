@@ -197,6 +197,15 @@ def pct_bb(x_min, x_max, y_min, y_max, mult_x_min, mult_x_max, mult_y_min, mult_
 
     return n_x_min, n_x_max, n_y_min, n_y_max
 
+def numerical_id(inverter, nd_data, x_data, y_data, noise):
+    base_id = np.mean(get_intrinsic_dimension(nd_data, 120, 0.95))
+    print(f"nd id: {base_id}")
+    proj_id = np.mean(get_intrinsic_dimension(x_data, 2, 0.95))
+    print(f"proj id: {proj_id}")
+    print(np.shape(np.concatenate((x_data, noise), axis=-1)))
+    inv_proj_id = np.mean(get_intrinsic_dimension(inverter.inverse_transform(np.concatenate((x_data, noise), axis=-1)), 120, 0.95))
+    print(f"inv proj id: {inv_proj_id}")
+
 def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
 
     grid_res = 100
@@ -210,10 +219,11 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
     X_size = np.shape(x_data)[0]
 
     bb = get_bounding_box(x_data)
-    bb = pct_bb(*bb, 7/15, 8/15, 7/15, 8/15)
-    for x_c in range(2):
-        for y_c in range(2):
-            bounding_box = pct_bb(*bb, x_c/2, (x_c+1)/2, y_c/2, (y_c+1)/2)
+    # bb = pct_bb(*bb, 1/3, 2/3, 1/3, 2/3)
+    bb = pct_bb(*bb, 2/5, 3/5, 2/5, 3/5)
+    for x_c in range(5):
+        for y_c in range(5):
+            bounding_box = pct_bb(*bb, x_c/5, (x_c+1)/5, y_c/5, (y_c+1)/5)
 
             print("computing...")
 
@@ -224,9 +234,9 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
             di_list = np.ones(np.shape(normal_grid)[0])
             print(np.shape(normal_grid))
 
-            grid_base = make_grid_normal(-1.0,1.0,-1.0,1.0, pixel_width)/30#CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
+            grid_base = make_grid_normal(-1.0,1.0,-1.0,1.0, pixel_width)/25#CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
 
-            batch_size = 4
+            batch_size = 8
             for batch_index, start in enumerate(range(0, np.shape(normal_grid)[0], batch_size)):
                 start_time = time.perf_counter()
                 batch = normal_grid[start:start + batch_size]
@@ -263,7 +273,7 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
 
 
             fig_id, ax_id = plt.subplots(1,1,figsize=(50,50))
-            np.save(f'center_15x/dbm_4d_({pixel_width})_{k}_{index_coord}_{x_c}_{y_c}.npy', di_list)
+            np.save(f'center_25x/dbm_4d_({pixel_width})_{k}_{index_coord}_{x_c}_{y_c}.npy', di_list)
             max_v = np.max(di_list)
             min_v = np.min(di_list)
 
@@ -281,7 +291,7 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
             ax_id.axis("off")  
             print(max_v)
             print(min_v)
-            fig_id.savefig(f"center_15x/dbm_4d_({pixel_width})_{k}_{index_coord}_{x_c}_{y_c}.png", bbox_inches="tight", pad_inches=0.0)
+            fig_id.savefig(f"center_25x/dbm_4d_({pixel_width})_{k}_{index_coord}_{x_c}_{y_c}.png", bbox_inches="tight", pad_inches=0.0)
 
 def plot_matrix_pixel_plane(clf, inverter, nd_data, x_data, y_data, noise, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
 
@@ -449,6 +459,20 @@ def plot_matrix_dbm_plane(clf, inverter, nd_data, x_data, y_data, noise, grid_re
     fig_dbm.savefig(f"dbm({grid_res})_{k}_{matrix_side}_({min_v},{max_v}).png")
     fig_id.savefig(f"dbm_id({grid_res})_{k}_{matrix_side}_({min_v},{max_v}).png")
 
+def include_classes(X_data, y_data, classes):
+    if len(classes) == 0:
+        return X_data, y_data
+    
+    X_train2 = []
+    y_train2 = []
+    
+    for i in range(np.shape(X_data)[0]):
+        if y_data[i] in classes:
+            X_train2.append(X_data[i,:])
+            y_train2.append(y_data[i])
+
+    return np.array(X_train2), np.array(y_train2)
+
 def make_and_fit_mlp(X, y) -> MLPClassifier:
     return MLPClassifier(
         verbose=True,
@@ -578,8 +602,9 @@ def get_inv_proj_data_sharp(output_dir, _model, dataset_name, model_name, method
     X, y = Load_data(data_dir, d)
 
     X_train, _, y_train, _ = train_test_split(
-        X, y, train_size=10000, test_size=500, random_state=420, stratify=y
+        X, y, train_size=20000, test_size=500, random_state=420, stratify=y
     )
+    X_train, y_train = include_classes(X_train, y_train, [0,1])
     # print(np.shape(X))
     if method == "noise":
         # noise = tf.random.stateless_uniform(seed=(420,420), minval=-1, maxval=1, shape=(X_train.shape[0],2))
@@ -593,7 +618,7 @@ def get_inv_proj_data_sharp(output_dir, _model, dataset_name, model_name, method
     X_train= np.concatenate((X_train,noise), axis=1)
 
     _, X_test, _, y_test = train_test_split(
-        X_train, y_train, train_size=100, test_size=5000, random_state=420, stratify=y_train
+        X_train, y_train, train_size=100, test_size=4000, random_state=420, stratify=y_train
     )     
     noise = X_train[:,-2:]
     X_train = X_train[:,:-2]
@@ -642,23 +667,24 @@ if __name__ == "__main__":
     grid_res = 100
 
     epochs_dataset = {}
-    epochs_dataset["fashionmnist"] = 10
+    epochs_dataset["fashionmnist"] = 20
     epochs_dataset["mnist"] = 20
-    epochs_dataset["har"] = 10
-    epochs_dataset["hatespeech"] = 20
+    epochs_dataset["har"] = 20
+    epochs_dataset["hate_speech"] = 20
     epochs_dataset["reuters"] = 30
     
     epochs = epochs_dataset[dataset]
 
     sharp_dims_classes = {}
     sharp_dims_classes["fashionmnist"] = [784, 10]
-    sharp_dims_classes["mnist"] = [784, 10]
+    sharp_dims_classes["mnist"] = [784, 2]
     sharp_dims_classes["har"]  = [561, 6]
     sharp_dims_classes["reuters"] = [5000, 6]
-
+    sharp_dims_classes["hate_speech"] = [100, 3]
     dims = sharp_dims_classes[dataset][0]
     classes = sharp_dims_classes[dataset][1]
     noise = []
+
     if model_name == "sharp":
         results_nd, results_2d, y_values, noise, clf, inv_model = get_inv_proj_data_sharp(
             output_dir, 
@@ -704,8 +730,8 @@ if __name__ == "__main__":
     
     txt = f"({np.round(matrix_origin[0],np.uint8(format_step[0]))}_{np.round(matrix_origin[1],np.uint8(format_step[1]))})_({np.round(matrix_step[0],np.uint8(format_step[0]))}_{np.round(matrix_step[1],np.uint8(format_step[1]))})"
     
-    fig = plot_matrix(clf, inv_model, results_nd, results_2d, y_values, noise, grid_res, matrix_size, matrix_origin, matrix_step, format_step, figname=f"./matrices/matrices/{model_name}/{method}/{grid_res}_{matrix_size}_{txt}_ID_EXPERIMENT")
-  
+    # fig = plot_matrix(clf, inv_model, results_nd, results_2d, y_values, noise, grid_res, matrix_size, matrix_origin, matrix_step, format_step, figname=f"./matrices/matrices/{model_name}/{method}/{grid_res}_{matrix_size}_{txt}_ID_EXPERIMENT")
+    numerical_id(inv_model, results_nd, results_2d, y_values, noise)
 
 
 

@@ -1,23 +1,27 @@
 from matplotlib import pyplot as plt
 import numpy as np
 
-side = 2
+side = 5
 
 # Suppose your matrices are A1, A2, ..., A9
 di_list = np.zeros((side**2,100,100))
 
+print(np.shape(di_list))
+
 for x_c in range(side):
     for y_c in range(side):
-        a = np.load(f'center_15x/dbm_4d_(101)_120_5100_{x_c}_{y_c}.npy')
-        di_list[x_c*2+y_c] = a.reshape((100,100))
+        a = np.load(f'center_25x/dbm_4d_(101)_120_5100_{x_c}_{y_c}.npy')
+        di_list[x_c*side+y_c] = a.reshape((100,100))
 
 big = np.block([
-    di_list[0:2],
-    di_list[2:4],
-    # di_list[10:15],
-    # di_list[15:20],
-    # di_list[20:25],
+    di_list[0:5],
+    di_list[5:10],
+    di_list[10:15],
+    di_list[15:20],
+    di_list[20:25],
 ])
+
+print(np.shape(big))
 
 # big = np.block(blocks)
 
@@ -36,4 +40,4 @@ ax_id.imshow(
 
 ax_id.axis("off")  
 
-fig_id.savefig(f"fth.png", bbox_inches="tight", pad_inches=0.0)
+fig_id.savefig(f"image_composite.png", bbox_inches="tight", pad_inches=0.0)

@@ -1,15 +1,19 @@
 import os
-from joblib import Parallel, delayed
+from joblib import Parallel, delayed, dump, load
 from matplotlib import pyplot as plt
 import numpy as np
 from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import NearestNeighbors
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import minmax_scale
 import tensorflow as tf
+import umap
 
+from interface.models import ae, nninv, ssnp
 import interface.models.sharp_og as sharp
+from interface.utils import metrics
 
 def compute_knn_indices(X, k):
     n_samples = X.shape[0]
@@ -123,6 +127,11 @@ def get_inv_proj_data_sharp(output_dir, _model, dataset_name, model_name, method
         X_train, y_train, train_size=100, test_size=5000, random_state=420, stratify=y_train
     )     
 
+    neighbor_finder = NearestNeighbors(
+        n_neighbors=5
+    ) 
+    neighbor_finder.fit(X_train)
+
     if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
         _model.load_weights(export_path=os.path.join(output_dir, dataset_name, model_name, method))
     else:
@@ -131,28 +140,22 @@ def get_inv_proj_data_sharp(output_dir, _model, dataset_name, model_name, method
     X_model_res = _model.transform(X_test)
     X_model_2d = X_model_res
 
-    clf = make_and_fit_mlp(X_train, y_train)
+    if os.path.exists(f'{output_dir}/{dataset_name}/class.joblib'):
+        clf = load(f'{output_dir}/{dataset_name}/class.joblib')
+    else:
+        clf = make_and_fit_mlp(X_train, y_train)
+        dump(clf, f'{output_dir}/{dataset_name}/class.joblib')
 
-    return X_test, X_model_2d, y_test, _model, clf
+    return X_test, X_model_2d, y_test, _model, clf, neighbor_finder
 
 
 if __name__ == "__main__":
     output_dir = "weights"
-    model_name = "sharp"
-    dataset_ops = ["mnist", "fashionmnist"] 
-    dataset = dataset_ops[0]
     method = "none"
 
     grid_res = 500
 
-    epochs_dataset = {}
-    epochs_dataset["fashionmnist"] = 10
-    epochs_dataset["mnist"] = 20
-    epochs_dataset["har"] = 10
-    epochs_dataset["hatespeech"] = 20
-    epochs_dataset["reuters"] = 30
-
-    epochs = epochs_dataset[dataset]
+    epochs = 20
 
     sharp_dims_classes = {}
     sharp_dims_classes["fashionmnist"] = [784, 10]
@@ -160,15 +163,13 @@ if __name__ == "__main__":
     sharp_dims_classes["har"]  = [561, 6]
     sharp_dims_classes["reuters"] = [5000, 6]
 
-    dims = sharp_dims_classes[dataset][0]
-    classes = sharp_dims_classes[dataset][1]
     noise = []
 
-    results_nd, results_2d, y_values, inv_model, classifier = get_inv_proj_data_sharp(
+    results_nd, results_2d, y_values, inv_model, classifier, neighbor_finder = get_inv_proj_data_sharp(
         output_dir, 
         sharp.ShaRP(
-            dims,
-            classes,
+            784,
+            10,
             "diagonal_normal",
             latent_dim=2,
             variational_layer_kwargs=dict(kl_weight=0.05, kl_mu_weight=0),
@@ -177,14 +178,14 @@ if __name__ == "__main__":
             bottleneck_l1=0.0,
             bottleneck_l2=0.1,
         ),
-        dataset,
-        model_name,
-        method,
+        "mnist",
+        "sharp",
+        "none",
         epochs
     )
 
     fig_dbm, ax_dbm = plt.subplots(1,1,figsize=(50, 50))
-    fig_scatter, ax_scatter = plt.subplots(1,1,figsize=(50, 50))
+    fig_scatter, ax_scatter = plt.subplots(3,2,figsize=(50, 50))
 
     cmap_tab = plt.get_cmap('tab10')
     point_colors = cmap_tab(y_values)
@@ -195,53 +196,213 @@ if __name__ == "__main__":
 
     classes = classifier.predict(inverted_grid).astype(np.uint8)
 
-    ax_dbm.grid(False)
-    ax_dbm.axis("off") 
-    ax_scatter.grid(False)
-    ax_scatter.axis("off") 
+    res = classifier.predict_proba(inverted_grid)     
+    confidence = np.zeros(np.shape(res)[0])
+
+    for k,lis in enumerate(res):
+        confidence[k] = np.max(lis)
+
+    metric_matrix = metrics.metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
+
+    # ax_dbm.grid(False)
+    # ax_dbm.axis("off") 
+    ax_scatter[0,0].grid(False)
+    ax_scatter[0,0].axis("off") 
+    # ax_scatter[0,0].set_aspect(1)
+    ax_scatter[0,1].grid(False)
+    ax_scatter[0,1].axis("off") 
+    # ax_scatter[0,1].set_aspect(1)
+    ax_scatter[1,0].grid(False)
+    ax_scatter[1,0].axis("off") 
+    # ax_scatter[1,0].set_aspect(1)
+    ax_scatter[1,1].grid(False)
+    ax_scatter[1,1].axis("off") 
+    # ax_scatter[1,1].set_aspect(1)
+    ax_scatter[2,0].grid(False)
+    ax_scatter[2,0].axis("off") 
+    # ax_scatter[2,0].set_aspect(1)
+    ax_scatter[2,1].grid(False)
+    ax_scatter[2,1].axis("off") 
+    # ax_scatter[2,1].set_aspect(1)
+    
 
     # putting the dbm in the background
-    ax_dbm.imshow(cmap_tab(classes).reshape((grid_res,grid_res,4)), interpolation='none', cmap='tab10',  vmin=0, vmax=9, origin='lower')
+    ax_scatter[0,0].imshow(cmap_tab(classes).reshape((grid_res,grid_res,4)), interpolation='none', cmap='tab10',  vmin=0, vmax=9, origin='lower')
 
-    fig_dbm.savefig(f"sharp_2d_dbm.png", bbox_inches="tight", pad_inches=0.0)
+    # fig_dbm.savefig(f"sharp_2d_dbm.png", bbox_inches="tight", pad_inches=0.0)
 
-    ax_dbm.scatter((grid_res-1)*(results_2d[:, 0]-np.min(results_2d[:, 0]))/(np.max(results_2d[:, 0])-np.min(results_2d[:, 0])), 
-                   (grid_res-1)*(results_2d[:, 1]-np.min(results_2d[:, 1]))/(np.max(results_2d[:, 1])-np.min(results_2d[:, 1])), 
-                   c=point_colors, s=1000, edgecolor='k', linewidth=0.7*point_colors[:,3])
+    ax_scatter[0,1].imshow(cmap_tab(classes).reshape((grid_res,grid_res,4)), interpolation='none', cmap='tab10',  vmin=0, vmax=9, origin='lower')
+    ax_scatter[0,1].scatter((grid_res-1)*(results_2d[:, 0]-np.min(results_2d[:, 0]))/(np.max(results_2d[:, 0])-np.min(results_2d[:, 0])), 
+                      (grid_res-1)*(results_2d[:, 1]-np.min(results_2d[:, 1]))/(np.max(results_2d[:, 1])-np.min(results_2d[:, 1])), 
+                      c=point_colors, s=100, edgecolor='k', linewidth=0.7*point_colors[:,3])
     
-    fig_dbm.savefig(f"sharp_2d_dbm_scatter.png", bbox_inches="tight", pad_inches=0.0)
+    # fig_dbm.savefig(f"sharp_2d_dbm_scatter.png", bbox_inches="tight", pad_inches=0.0)
 
-    ax_scatter.scatter((grid_res-1)*(results_2d[:, 0]-np.min(results_2d[:, 0]))/(np.max(results_2d[:, 0])-np.min(results_2d[:, 0])), 
+    conf_dbm = np.zeros((grid_res*grid_res,4))
+    conf_dbm[:,0] = cmap_tab(classes)[:,0]*confidence
+    conf_dbm[:,1] = cmap_tab(classes)[:,1]*confidence
+    conf_dbm[:,2] = cmap_tab(classes)[:,2]*confidence
+    conf_dbm[:,3] = cmap_tab(classes)[:,3]
+
+    ax_scatter[1,0].imshow(conf_dbm.reshape((grid_res,grid_res,4)), interpolation='none', cmap='tab10',  vmin=0, vmax=9, origin='lower')
+
+    ax_scatter[1,1].imshow(conf_dbm.reshape((grid_res,grid_res,4)), interpolation='none', cmap='tab10',  vmin=0, vmax=9, origin='lower')
+    ax_scatter[1,1].scatter((grid_res-1)*(results_2d[:, 0]-np.min(results_2d[:, 0]))/(np.max(results_2d[:, 0])-np.min(results_2d[:, 0])), 
                        (grid_res-1)*(results_2d[:, 1]-np.min(results_2d[:, 1]))/(np.max(results_2d[:, 1])-np.min(results_2d[:, 1])), 
-                       c=point_colors, s=1000, edgecolor='k', linewidth=0.7*point_colors[:,3])
+                       c=point_colors, s=100, edgecolor='k', linewidth=0.7*point_colors[:,3])
     
-    fig_scatter.savefig(f"sharp_2d_scatter.png", bbox_inches="tight", pad_inches=0.0)
+    ntp_dbm = np.zeros((grid_res*grid_res,4))
+    ntp_dbm[:,0] = cmap_tab(classes)[:,0]*(minmax_scale(metric_matrix))
+    ntp_dbm[:,1] = cmap_tab(classes)[:,1]*(minmax_scale(metric_matrix))
+    ntp_dbm[:,2] = cmap_tab(classes)[:,2]*(minmax_scale(metric_matrix))
+    ntp_dbm[:,3] = cmap_tab(classes)[:,3]
 
-    id_map = intrinsic_dimension_map(ssnp_model=inv_model, data=results_2d, k=120, theta=0.95, grid_res=grid_res)
+    ax_scatter[2,0].imshow(ntp_dbm.reshape((grid_res,grid_res,4)), interpolation='none', cmap='tab10',  vmin=0, vmax=9, origin='lower')
+
+    ax_scatter[2,1].imshow(ntp_dbm.reshape((grid_res,grid_res,4)), interpolation='none', cmap='tab10',  vmin=0, vmax=9, origin='lower')
+    ax_scatter[2,1].scatter((grid_res-1)*(results_2d[:, 0]-np.min(results_2d[:, 0]))/(np.max(results_2d[:, 0])-np.min(results_2d[:, 0])), 
+                       (grid_res-1)*(results_2d[:, 1]-np.min(results_2d[:, 1]))/(np.max(results_2d[:, 1])-np.min(results_2d[:, 1])), 
+                       c=point_colors, s=100, edgecolor='k', linewidth=0.7*point_colors[:,3])
+    
+    # fig_scatter[0,0].savefig(f"sharp_2d_scatter.png", bbox_inches="tight", pad_inches=0.0)
+
+    # id_map = intrinsic_dimension_map(ssnp_model=inv_model, data=results_2d, k=120, theta=0.95, grid_res=grid_res)
 
     # print(np.mean(id_map))
 
-    fig_main, ax_main = plt.subplots(1,1,figsize=(50,50))
-    np.save(f'sharp_2d_id_{grid_res}.npy', id_map)
-    max_v = np.max(id_map)
-    min_v = np.min(id_map)
-    print(np.shape(id_map))
+    # fig_main, ax_main = plt.subplots(1,1,figsize=(50,50))
+    # np.save(f'sharp_2d_id_{grid_res}.npy', id_map)
+    # max_v = np.max(id_map)
+    # min_v = np.min(id_map)
+    # print(np.shape(id_map))
 
-    cmap = plt.get_cmap('jet', int(5-2+1))
+    # cmap = plt.get_cmap('jet', int(5-2+1))
 
-    ax_main.imshow(
-        id_map.reshape((grid_res, grid_res,1)),
-        cmap=cmap,
-        interpolation="none",
-        resample=False,
-        vmin=2,
-        vmax=5
-    )
-    ax_main.grid(False)
-    ax_main.axis("off") 
-    # ax_main.scatter(500*(results_2d[:, 0]-np.min(results_2d[:, 0]))/(np.max(results_2d[:, 0])-np.min(results_2d[:, 0])), 
-    #                 500*(results_2d[:, 1]-np.min(results_2d[:, 1]))/(np.max(results_2d[:, 1])-np.min(results_2d[:, 1])), 
-    #                 c=y_values, cmap="tab10", s=216, edgecolor='k', linewidth=0.2, alpha=0.7)
-    print(max_v)
-    print(min_v)
-    fig_main.savefig(f'sharp_2d_id_{grid_res}.png', bbox_inches="tight", pad_inches=0.0)
+    # ax_main.imshow(
+    #     id_map.reshape((grid_res, grid_res,1)),
+    #     cmap=cmap,
+    #     interpolation="none",
+    #     resample=False,
+    #     vmin=2,
+    #     vmax=5
+    # )
+    # ax_main.grid(False)
+    # ax_main.axis("off") 
+    # print(max_v)
+    # print(min_v)
+    # fig_main.savefig(f'sharp_2d_id_{grid_res}.png', bbox_inches="tight", pad_inches=0.0)
+
+##
+
+#     results_nd, results_2d, y_values, inv_model, classifier = get_inv_proj_data_sharp(
+#         output_dir, 
+#         ssnp.SSNP(
+#             verbose=True,
+#             latent_dims=2,
+#             patience=0,
+#             opt="adam",
+#             bottleneck_activation="linear",
+#         ),
+#         "mnist",
+#         "ssnp",
+#         "none",
+#         epochs
+#     )
+
+#     # fig_scatter, ax_scatter = plt.subplots(1,1,figsize=(50, 50))
+
+#     cmap_tab = plt.get_cmap('tab10')
+#     point_colors = cmap_tab(y_values)
+
+#     ax_scatter[0,1].grid(False)
+#     ax_scatter[0,1].axis("off") 
+#     ax_scatter[0,1].set_aspect(1)
+
+#     ax_scatter[0,1].scatter((grid_res-1)*(results_2d[:, 0]-np.min(results_2d[:, 0]))/(np.max(results_2d[:, 0])-np.min(results_2d[:, 0])), 
+#                        (grid_res-1)*(results_2d[:, 1]-np.min(results_2d[:, 1]))/(np.max(results_2d[:, 1])-np.min(results_2d[:, 1])), 
+#                        c=point_colors, s=300, edgecolor='k', linewidth=0.7*point_colors[:,3])
+    
+#     # fig_scatter.savefig(f"ssnp_2d_scatter.png", bbox_inches="tight", pad_inches=0.0)
+
+# ##
+
+
+#     results_nd, results_2d, y_values, inv_model, classifier = get_inv_proj_data_sharp(
+#         output_dir, 
+#         ae.AutoencoderProjection(epochs),
+#         "mnist",
+#         "ae",
+#         "none",
+#         epochs
+#     )
+
+#     # fig_scatter, ax_scatter = plt.subplots(1,1,figsize=(50, 50))
+
+#     cmap_tab = plt.get_cmap('tab10')
+#     point_colors = cmap_tab(y_values)
+
+#     ax_scatter[0,0].grid(False)
+#     ax_scatter[0,0].axis("off") 
+#     ax_scatter[0,0].set_aspect(1)
+
+#     ax_scatter[0,0].scatter((grid_res-1)*(results_2d[:, 0]-np.min(results_2d[:, 0]))/(np.max(results_2d[:, 0])-np.min(results_2d[:, 0])), 
+#                        (grid_res-1)*(results_2d[:, 1]-np.min(results_2d[:, 1]))/(np.max(results_2d[:, 1])-np.min(results_2d[:, 1])), 
+#                        c=point_colors, s=300, edgecolor='k', linewidth=0.7*point_colors[:,3])
+    
+#     # fig_scatter.savefig(f"ae_2d_scatter.png", bbox_inches="tight", pad_inches=0.0)
+
+# ##
+
+#     tsne = TSNE(
+#         n_jobs=4, 
+#         random_state=420, 
+#         n_components=2
+#     )
+
+#     results_2d = tsne.fit_transform(results_nd)
+
+#     # fig_scatter, ax_scatter = plt.subplots(1,1,figsize=(50, 50))
+
+#     ax_scatter[1,1].grid(False)
+#     ax_scatter[1,1].axis("off") 
+#     ax_scatter[1,1].set_aspect(1)
+
+#     ax_scatter[1,1].scatter((grid_res-1)*(results_2d[:, 0]-np.min(results_2d[:, 0]))/(np.max(results_2d[:, 0])-np.min(results_2d[:, 0])), 
+#                        (grid_res-1)*(results_2d[:, 1]-np.min(results_2d[:, 1]))/(np.max(results_2d[:, 1])-np.min(results_2d[:, 1])), 
+#                        c=point_colors, s=300, edgecolor='k', linewidth=0.7*point_colors[:,3])
+    
+#     # fig_scatter.savefig(f"tsne_2d_scatter.png", bbox_inches="tight", pad_inches=0.0)
+
+# ##
+#     ump = umap.UMAP(n_components=2)
+
+#     results_2d = ump.fit_transform(results_nd)
+
+#     # fig_scatter, ax_scatter = plt.subplots(1,1,figsize=(50, 50))
+
+#     ax_scatter[1,2].grid(False)
+#     ax_scatter[1,2].axis("off") 
+#     ax_scatter[1,2].set_aspect(1)
+
+#     ax_scatter[1,2].scatter((grid_res-1)*(results_2d[:, 0]-np.min(results_2d[:, 0]))/(np.max(results_2d[:, 0])-np.min(results_2d[:, 0])), 
+#                        (grid_res-1)*(results_2d[:, 1]-np.min(results_2d[:, 1]))/(np.max(results_2d[:, 1])-np.min(results_2d[:, 1])), 
+#                        c=point_colors, s=300, edgecolor='k', linewidth=0.7*point_colors[:,3])
+    
+#     fig_scatter.savefig(f"umap_2d_scatter.png", bbox_inches="tight", pad_inches=0.0)
+
+# ##
+#     pca = PCA(n_components=2)
+
+#     results_2d = pca.fit_transform(results_nd)
+
+#     # fig_scatter, ax_scatter = plt.subplots(1,1,figsize=(50, 50))
+
+#     ax_scatter[1,0].grid(False)
+#     ax_scatter[1,0].axis("off")
+#     ax_scatter[1,0].set_aspect(1) 
+
+#     ax_scatter[1,0].scatter((grid_res-1)*(results_2d[:, 0]-np.min(results_2d[:, 0]))/(np.max(results_2d[:, 0])-np.min(results_2d[:, 0])), 
+#                        (grid_res-1)*(results_2d[:, 1]-np.min(results_2d[:, 1]))/(np.max(results_2d[:, 1])-np.min(results_2d[:, 1])), 
+#                        c=point_colors, s=300, edgecolor='k', linewidth=0.7*point_colors[:,3])
+    plt.subplots_adjust(wspace=0, hspace=0) 
+    fig_scatter.savefig(f"dbms_3x22.png", bbox_inches="tight", pad_inches=0.0)
