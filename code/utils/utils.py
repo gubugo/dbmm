@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from sklearn.preprocessing import minmax_scale
 from PIL import Image, ImageTk
 
-from interface.utils.scatterplot import apply_local_points_to_alpha
+from code.utils.scatterplot import apply_local_points_to_alpha
 
 def plot(X, y, figname=None):
     if len(np.unique(y)) <= 10:

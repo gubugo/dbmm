@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pylab
 import tensorflow as tf
-from interface.models.sampling_layers import get_layer_builder, SphericalSampling
+from code.models.sampling_layers import get_layer_builder, SphericalSampling
 from sklearn.preprocessing import LabelBinarizer
 
 # from tensorflow import keras as tfk

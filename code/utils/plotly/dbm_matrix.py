@@ -7,13 +7,14 @@ import numpy as np
 from sklearn.base import ClassifierMixin
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import minmax_scale
+import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 
-from interface.utils.utils import make_grid, get_bounding_box
-import interface.models.sharp as sharp
-import interface.models.ssnp as ssnp
-import interface.models.nninv as nninv
+from code.utils.utils import make_grid, get_bounding_box
+import code.models.sharp as sharp
+import code.models.ssnp as ssnp
+import code.models.nninv as nninv
 
 cmap = plt.get_cmap("tab10")
 

@@ -214,18 +214,6 @@ def plot_decision_map_with_points_relative(decision_map, points, labels, values,
     fig.grid(False)
     fig.axis("off") 
 
-#(-1,-1)
-# 13.573357
-# 3.0015278
-# 8.741683
-# 8.737072
-
-#(1,1)
-# 13.2894535
-# 5.1125216
-# 10.875324
-# 10.692657
-
 
 def apply_local_points_to_alpha(colors, extra_dims, map_extra_coords):
     inv_sqrt_2pi = 1/np.sqrt(2*np.pi)

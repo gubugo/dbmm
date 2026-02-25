@@ -9,23 +9,21 @@ matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
                                                NavigationToolbar2Tk)
 from matplotlib.figure import Figure
-import plotly.graph_objects as go
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import minmax_scale
 
-from interface.models import sharp
-from interface.training.auto_encoders import load_or_fit_model_ae
-from interface.training.classifier import load_or_fit_mlp_classifier
-from interface.training.inv_proj import load_or_fit_model_inv_proj
-from interface.utils.augmentations import get_augmentation_pca
-from interface.utils.mpl_dbm import gen_and_save_dbm, plot_generated_images_grid_with_dbm
-from interface.utils.dbm import gen_images_grid_plotly
-from interface.utils.mpl_dbm_matrix import gen_and_save_dbm_matrix
-from interface.utils.mpl_maps import gen_and_save_ccm, gen_and_save_nnm
-from interface.utils.metrics import metric_distance_to_nearest_neighbor
-from interface.utils.utils import get_bounding_box, make_grid, make_titles, plotly_to_image_tk
+from code.models import sharp
+from code.training.auto_encoders import load_or_fit_model_ae
+from code.training.classifier import load_or_fit_mlp_classifier
+from code.training.inv_proj import load_or_fit_model_inv_proj
+from code.utils.augmentations import get_augmentation_pca
+from code.utils.matplotlib.dbm import gen_and_save_dbm, plot_generated_images_grid_with_dbm
+from code.utils.matplotlib.dbm_matrix import gen_and_save_dbm_matrix
+from code.utils.matplotlib.maps import gen_and_save_ccm, gen_and_save_nnm
+from code.utils.metrics import metric_distance_to_nearest_neighbor
+from code.utils.utils import get_bounding_box, make_grid, make_titles, plotly_to_image_tk
 
 from plotly.subplots import make_subplots
 
@@ -120,9 +118,9 @@ class App(tk.Tk):
         self.cmap_nn   = plt.get_cmap("viridis")
 
         # UI Layout
-        self._build_layout()
+        self._build_app_layout()
 
-    def _build_layout(self):
+    def _build_app_layout(self):
         # Main grid: sidebar (0) and content (1)
         self.columnconfigure(0, weight=0)  # sidebar
         self.columnconfigure(1, weight=1)  # content
@@ -188,9 +186,6 @@ class App(tk.Tk):
         combobox2 = ttk.Combobox(sb, textvariable=self.resolution, state="readonly", values=[50, 100, 150, 200, 300])
         combobox2.grid(row=25, column=0, sticky="ew", pady=(0,8))
         combobox2.bind("<<ComboboxSelected>>", self._combobox_wrap)
-        
-        # ttk.Button(sb, text="Compute Projection", command=self.compute_projection).grid(row=13, column=0, sticky="ew", pady=(10,4))
-        # ttk.Button(sb, text="Update Plots", command=self.update_plots).grid(row=14, column=0, sticky="ew")
 
         ## Content area
         # Column 0 (Matrix)
@@ -269,12 +264,12 @@ class App(tk.Tk):
         ttk.Label(cc_place, textvariable=self.cc_class3, style="Normal.TLabel").grid(row=3, column=0, sticky="WS")
 
         # Column 1, bottom Row (image lines)
-        bottom_images = ttk.Frame(self.img_label_right, padding=12)
-        bottom_images.grid(row=3, column=0, sticky="nsew")
+        # bottom_images = ttk.Frame(self.img_label_right, padding=12)
+        # bottom_images.grid(row=3, column=0, sticky="nsew")
 
-        self.img_axis_canvas = FigureCanvasTkAgg(self.img_axis_fig, master=bottom_images)
-        self.img_axis_canvas.get_tk_widget().grid(column=0, row=0, sticky="WNES")
-        self.img_axis_canvas.draw()
+        # self.img_axis_canvas = FigureCanvasTkAgg(self.img_axis_fig, master=bottom_images)
+        # self.img_axis_canvas.get_tk_widget().grid(column=0, row=0, sticky="WNES")
+        # self.img_axis_canvas.draw()
 
         self.gen_dbm()
 
@@ -362,38 +357,36 @@ class App(tk.Tk):
             self.cc_class3.set(f"Class {top_cc_values[-3]}:{metric_cc[top_cc_values[-3]]:.5f}")
 
             # AXES
-            dbm_coords_collumn = np.column_stack([np.full(9, x), np.full(9, y)])
-            mdbm_x_coords_collumn = np.column_stack([np.full(9, self.x_v.get())])
-            mdbm_y_coords_collumn = np.column_stack([np.full(9, self.y_v.get())])
-            extra_coords_collumn = np.linspace(-1, 1, 9).reshape((9,1))
+            # dbm_coords_collumn = np.column_stack([np.full(9, x), np.full(9, y)])
+            # mdbm_x_coords_collumn = np.column_stack([np.full(9, self.x_v.get())])
+            # mdbm_y_coords_collumn = np.column_stack([np.full(9, self.y_v.get())])
+            # extra_coords_collumn = np.linspace(-1, 1, 9).reshape((9,1))
 
-            grid_points_x = np.hstack([dbm_coords_collumn, extra_coords_collumn, mdbm_y_coords_collumn])
-            grid_points_y = np.hstack([dbm_coords_collumn, mdbm_x_coords_collumn, extra_coords_collumn])
-            both_axis = np.concatenate((grid_points_x,grid_points_y))
+            # grid_points_x = np.hstack([dbm_coords_collumn, extra_coords_collumn, mdbm_y_coords_collumn])
+            # grid_points_y = np.hstack([dbm_coords_collumn, mdbm_x_coords_collumn, extra_coords_collumn])
+            # both_axis = np.concatenate((grid_points_x,grid_points_y))
 
-            imgs_axis = self.inv_model.inverse_transform(both_axis)
-            imgs = np.reshape(imgs_axis,(18, 28, 28))
-            imgs = np.stack([imgs, imgs, imgs, np.ones(np.shape(imgs))], axis=-1)
+            # imgs_axis = self.inv_model.inverse_transform(both_axis)
+            # imgs = np.reshape(imgs_axis,(18, 28, 28))
+            # imgs = np.stack([imgs, imgs, imgs, np.ones(np.shape(imgs))], axis=-1)
 
-            for i in range(9):
-                for j in range(2):
-                    self.img_axis_ax[j,i].imshow(
-                        imgs[i+9*j],
-                        interpolation="none",
-                        resample=False,
-                    )
-                    self.img_axis_ax[j,i].margins(0)
-                    self.img_axis_ax[j,i].set_title(f"{(i-4)/4}", fontsize=10, x=0.5, y=1)
+            # for i in range(9):
+            #     for j in range(2):
+            #         self.img_axis_ax[j,i].imshow(
+            #             imgs[i+9*j],
+            #             interpolation="none",
+            #             resample=False,
+            #         )
+            #         self.img_axis_ax[j,i].margins(0)
+            #         self.img_axis_ax[j,i].set_title(f"{(i-4)/4}", fontsize=10, x=0.5, y=1)
             
-            self.img_axis_ax[0,0].set_ylabel('X axis MDBM', fontsize=7)
-            self.img_axis_ax[1,0].set_ylabel('Y axis MDBM', fontsize=7)
-            # self.img_axis_ax[0,0].yaxis.label.set_rotation(30) 
-            # self.img_axis_ax[1,0].yaxis.label.set_rotation(30) 
-            # self.img_axis_fig.set_size_inches(1,1)
+            # self.img_axis_ax[0,0].set_ylabel('X axis MDBM', fontsize=7)
+            # self.img_axis_ax[1,0].set_ylabel('Y axis MDBM', fontsize=7)
 
-            self.img_axis_fig.savefig("image_axis.png", bbox_inches="tight", pad_inches=0.0)
-            self.img_axis_canvas.draw()
+            # self.img_axis_fig.savefig("image_axis.png", bbox_inches="tight", pad_inches=0.0)
+            # self.img_axis_canvas.draw()
 
+            # DEBUG
             # x_data = event.xdata  # Data coordinates
             # y_data = event.ydata
             # x_pixel = event.x     # Pixel coordinates relative to the canvas
@@ -437,43 +430,6 @@ class App(tk.Tk):
         neighbor_finder_model.fit(X)
 
         return X_proj, y_test, augmentation_test, _model, classifier, neighbor_finder_model
-
-    def get_inv_proj_data_mlp(self, output_dir, _model, _inv_model, dataset_name, model_name, method, epochs, random_state):
-        data_dir = "./data/"
-        X, y = self.Load_data(data_dir, dataset_name)
-
-        n_samples = X.shape[0]
-        train_size = min(int(n_samples * 0.9), 30000)
-
-        X, _, y, _ = train_test_split(
-            X, y, train_size=train_size, random_state=random_state, stratify=y
-        )
-
-        _, X_test, _, y_test = train_test_split(
-            X, y, train_size=int(train_size*0.9), random_state=random_state, stratify=y
-        )
-
-        augmentation = get_augmentation_pca(X)
-
-        X_proj, _inv_model, limits = load_or_fit_model_inv_proj(X, y, augmentation, X_test, output_dir, _model, _inv_model, dataset_name, model_name, method, epochs, random_state)
-        classifier = load_or_fit_mlp_classifier(X, y, f'{output_dir}/{dataset_name}')
-        return X_proj, _inv_model, classifier, limits
-
-    def get_nn_matrix(self, results_2d, _nn_model, _inv_model, grid_res, start, step, size):
-        metric_matrix = np.zeros((size*size,grid_res*grid_res))
-        bounding_box = get_bounding_box(results_2d)
-
-        for i in range(size):
-            for j in range(size):
-                grid = make_grid(*bounding_box, start[0]+i*step[0], start[1]+j*step[1], grid_res)
-                inverted_grid = _inv_model.inverse_transform(grid)
-
-                metric_matrix[size*i+j] = metric_distance_to_nearest_neighbor(inverted_grid, _nn_model)
-        
-        max_v = np.max(metric_matrix)
-        min_v = np.min(metric_matrix)
-
-        return minmax_scale(metric_matrix), max_v, min_v
 
     def get_matrix_fig(self, results_2d, _clf, _inv_model, grid_res, start, step, size, ax):
         bounding_box = get_bounding_box(results_2d)
@@ -544,7 +500,6 @@ class App(tk.Tk):
         sharp_dims_classes["har"]  = [561, 6]
         sharp_dims_classes["reuters"] = [5000, 6]
         sharp_dims_classes["hate_speech"] = [100, 3]
-        sharp_dims_classes["hate_speech"] = [100, 3]
 
         dims = sharp_dims_classes[dataset_name][0]
         classes = sharp_dims_classes[dataset_name][1]
@@ -575,31 +530,9 @@ class App(tk.Tk):
         self.data_loaded = True
 
 
-        # Pre-compute neighbor matrix used in left plot
-        # start = (-1.0, -1.0)
-        # step = (0.25, 0.25)
-        # size = 9
-        # grid_res = int(self.grid_res.get())
-        # res2, err2 = safe_call(
-        #     dbm_backend.get_nn_matrix,
-        #     self.results_2d, self.nn_model, self.inv_model,
-        #     grid_res, start, step, size
-        # )
-        # if err2:
-        #     raise RuntimeError(err2)
-
-        # self.nn_matrix, self.nn_max_distance, self.nn_min_distance = res2
 
     def update_plots(self):
         """Update both left (matrix) and right (neighbors/confidence) images."""
-        # if self.results_2d is None:
-        #     self.status.set("Please run 'Compute Projection' first.")
-        #     return
-
-        # self.status.set("Rendering plots…")
-        # self.update()
-
-        # Left figure (matrix)
         start = (-1.0, -1.0)
         step = (0.25, 0.25)
         size = 9

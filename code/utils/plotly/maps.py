@@ -11,11 +11,11 @@ from sklearn.preprocessing import minmax_scale
 
 import plotly.graph_objects as go
 
-from utils.metrics import metric_distance_to_nearest_neighbor
-from utils.utils import generate_map_w_scatterplots, make_grid, get_bounding_box
-import models.sharp as sharp
-import models.ssnp as ssnp
-import models.nninv as nninv
+from code.utils.metrics import metric_distance_to_nearest_neighbor
+from code.utils.utils import generate_map_w_scatterplots, make_grid, get_bounding_box
+import code.models.sharp as sharp
+import code.models.ssnp as ssnp
+import code.models.nninv as nninv
 
 def generate_ccm(
     model: MLPClassifier,
