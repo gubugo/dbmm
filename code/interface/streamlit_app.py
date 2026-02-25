@@ -41,7 +41,7 @@ import models.sharp as sharp
 import models.ssnp as ssnp
 import models.nninv as nninv
 
-from training.classifier import load_or_fit_mlp_classifier
+from code.training.classifiers.MLP import load_or_fit_mlp_classifier
 from training.auto_encoders import load_or_fit_model_ae
 from training.inv_proj import load_or_fit_model_inv_proj
 

@@ -8,7 +8,7 @@ import numpy as np
 import pylab
 #import radial
 import tensorflow as tf
-from code.models.sampling_layers import get_layer_builder, SphericalSampling
+from code.models.tensorflow.sampling_layers import get_layer_builder, SphericalSampling
 from sklearn.preprocessing import LabelBinarizer, minmax_scale
 
 # from tensorflow import keras as tfk

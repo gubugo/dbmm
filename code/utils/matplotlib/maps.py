@@ -14,9 +14,9 @@ import plotly.graph_objects as go
 from code.utils.scatterplot import plot_points_on_decision_map
 from code.utils.metrics import metric_distance_to_nearest_neighbor
 from code.utils.utils import generate_map_w_scatterplots, make_grid, get_bounding_box
-import code.models.sharp as sharp
-import code.models.ssnp as ssnp
-import code.models.nninv as nninv
+import code.models.tensorflow.sharp as sharp
+import code.models.tensorflow.ssnp as ssnp
+import code.models.tensorflow.nninv as nninv
 
 def generate_ccm(
     model: MLPClassifier,

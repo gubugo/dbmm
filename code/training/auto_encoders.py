@@ -1,7 +1,4 @@
 import os
-import numpy as np
-from sklearn.model_selection import train_test_split
-import tensorflow as tf
 
 
 def load_or_fit_model_ae(X, y, aug, X_test, output_dir, _model, dataset_name, model_name, method, epochs):

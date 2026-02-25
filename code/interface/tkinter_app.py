@@ -5,6 +5,7 @@ from tkinter import ttk
 
 import matplotlib
 from matplotlib import pyplot as plt
+
 matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
                                                NavigationToolbar2Tk)
@@ -14,11 +15,12 @@ from sklearn.model_selection import train_test_split
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import minmax_scale
 
-from code.models import sharp
+from code.models.tensorflow import sharp
+from code.models.classifiers.MLP import load_or_fit_mlp_classifier
 from code.training.auto_encoders import load_or_fit_model_ae
-from code.training.classifier import load_or_fit_mlp_classifier
 from code.training.inv_proj import load_or_fit_model_inv_proj
 from code.utils.augmentations import get_augmentation_pca
+from code.utils.data import get_inv_proj_data_ae
 from code.utils.matplotlib.dbm import gen_and_save_dbm, plot_generated_images_grid_with_dbm
 from code.utils.matplotlib.dbm_matrix import gen_and_save_dbm_matrix
 from code.utils.matplotlib.maps import gen_and_save_ccm, gen_and_save_nnm
@@ -72,7 +74,7 @@ class LabeledScale(ttk.Frame):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("MDBM")
+        self.title("DBMM Interface")
         self.geometry("1600x900")
         self.minsize(1600, 900)
 
@@ -380,8 +382,8 @@ class App(tk.Tk):
             #         self.img_axis_ax[j,i].margins(0)
             #         self.img_axis_ax[j,i].set_title(f"{(i-4)/4}", fontsize=10, x=0.5, y=1)
             
-            # self.img_axis_ax[0,0].set_ylabel('X axis MDBM', fontsize=7)
-            # self.img_axis_ax[1,0].set_ylabel('Y axis MDBM', fontsize=7)
+            # self.img_axis_ax[0,0].set_ylabel('X axis DBMM', fontsize=7)
+            # self.img_axis_ax[1,0].set_ylabel('Y axis DBMM', fontsize=7)
 
             # self.img_axis_fig.savefig("image_axis.png", bbox_inches="tight", pad_inches=0.0)
             # self.img_axis_canvas.draw()
@@ -392,44 +394,6 @@ class App(tk.Tk):
             # x_pixel = event.x     # Pixel coordinates relative to the canvas
             # y_pixel = event.y
             # print(f"Data Coords: ({x_data:.2f}, {y_data:.2f}), Pixel Coords: ({x_pixel}, {y_pixel})")
-
-
-    def Load_data(self, path, dataset):
-        X = np.load(os.path.join(path, dataset, "X.npy"))
-        y = np.load(os.path.join(path, dataset, "y.npy"))
-        return X, y
-
-    def get_inv_proj_data_ae(self, output_dir, _model, dataset_name, model_name, method, epochs, random_state):
-        data_dir = "./data/"
-        X, y = self.Load_data(data_dir, dataset_name)
-
-        n_samples = X.shape[0]
-        train_size = min(int(n_samples * 0.9), 5000)
-
-        X, _, y, _ = train_test_split(
-            X, y, train_size=train_size, random_state=random_state, stratify=y
-        )
-
-        augmentation = get_augmentation_pca(X)
-
-        X = np.concatenate((X,augmentation), axis=1)
-
-        _, X_test, _, y_test = train_test_split(
-            X, y, train_size=int(train_size*0.9), random_state=random_state, stratify=y
-        )
-
-        augmentation = X[:,-2:]
-        X = X[:,:-2]
-        augmentation_test = X_test[:,-2:]
-        X_test = X_test[:,:-2]
-
-        X_proj, _model = load_or_fit_model_ae(X, y, augmentation, X_test, output_dir, _model, dataset_name, model_name, method, epochs)
-        classifier = load_or_fit_mlp_classifier(X, y, f'{output_dir}/{dataset_name}')
-
-        neighbor_finder_model = NearestNeighbors(n_neighbors=5) 
-        neighbor_finder_model.fit(X)
-
-        return X_proj, y_test, augmentation_test, _model, classifier, neighbor_finder_model
 
     def get_matrix_fig(self, results_2d, _clf, _inv_model, grid_res, start, step, size, ax):
         bounding_box = get_bounding_box(results_2d)
@@ -517,14 +481,13 @@ class App(tk.Tk):
             bottleneck_l2=0.1,
         )
 
-        self.results_2d, self.labels, self.augmentation_values, self.inv_model, self.clf, self.nn_model = self.get_inv_proj_data_ae(
+        _, self.labels, self.augmentation_values, self.results_2d, self.clf, self.inv_model, self.nn_model = get_inv_proj_data_ae(
             output_dir,
             sharp_model,
             dataset_name,
             model_name,
             method,
-            epochs,
-            random_state
+            epochs
         )
 
         self.data_loaded = True

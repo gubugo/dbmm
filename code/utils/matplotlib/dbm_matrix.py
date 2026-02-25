@@ -11,9 +11,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 from code.utils.utils import make_grid, get_bounding_box
-import code.models.sharp as sharp
-import code.models.ssnp as ssnp
-import code.models.nninv as nninv
+import code.models.tensorflow.sharp as sharp
+import code.models.tensorflow.ssnp as ssnp
+import code.models.tensorflow.nninv as nninv
 
 cmap = plt.get_cmap("tab10")
 
