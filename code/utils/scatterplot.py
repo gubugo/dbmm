@@ -78,29 +78,29 @@ def plot_decision_map_with_accuracy(decision_map, coordinates, true_labels, pred
     # return np.mean(correct_mask)
 
 
-def plot_decision_map_with_points(points, labels, map_size, matrix_side, fig=None):
+def plot_decision_map_with_points(points, labels, map_size, matrix_side, ax=None):
     # putting the dbm in the background
     # fig.imshow(decision_map, interpolation='none', cmap='tab10',  vmin=0, vmax=9, origin='lower')
 
     # scatter points above the dbm
     # print(labels)
     # print(points)
-    scatter = fig.scatter((map_size-1)*(points[:, 0]-np.min(points[:, 0]))/(np.max(points[:, 0])-np.min(points[:, 0])), 
+    scatter = ax.scatter((map_size-1)*(points[:, 0]-np.min(points[:, 0]))/(np.max(points[:, 0])-np.min(points[:, 0])), 
                           (map_size-1)*(points[:, 1]-np.min(points[:, 1]))/(np.max(points[:, 1])-np.min(points[:, 1])), 
                           c=labels, s=1000, edgecolor='k', linewidth=0.5, alpha=1.0)
 
     # cbar = fig.colorbar(img, ticks=range(10))
-    fig.grid(False)
-    fig.axis("off") 
+    ax.grid(False)
+    ax.axis("off") 
 
-def plot_points_on_decision_map(points, labels, grid_res, locally, map_extra_coords, augmentation, fig=None):
+def plot_points_on_decision_map(points, labels, grid_res, locally, map_extra_coords, augmentation, ax=None):
 
     if locally:
         labels = apply_local_points_to_alpha(labels, augmentation, map_extra_coords)
     # else:
     #     cmap_colors = np.ones((np.shape(points)[0],4))
     map_size = grid_res-1
-    scatter = fig.scatter((map_size-1)*(points[:, 0]-np.min(points[:, 0]))/(np.max(points[:, 0])-np.min(points[:, 0])), 
+    scatter = ax.scatter((map_size-1)*(points[:, 0]-np.min(points[:, 0]))/(np.max(points[:, 0])-np.min(points[:, 0])), 
                           (map_size-1)*(points[:, 1]-np.min(points[:, 1]))/(np.max(points[:, 1])-np.min(points[:, 1])), 
                           c=labels, s=36, edgecolor='k', linewidth=0.2*labels[:,3])
     #/(matrix_side)
