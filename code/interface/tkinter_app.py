@@ -120,15 +120,9 @@ class App(tk.Tk):
         self.cmap_nn   = plt.get_cmap("viridis")
 
         # UI Layout
-        self._build_app_layout()
+        self.build_app_layout()
 
-    def _build_app_layout(self):
-        # Main grid: sidebar (0) and content (1)
-        self.columnconfigure(0, weight=0)  # sidebar
-        self.columnconfigure(1, weight=1)  # content
-        self.rowconfigure(0, weight=1)
-
-        # Sidebar
+    def _side_bar_interface_construct(self):
         sb = ttk.Frame(self, padding=12)
         sb.grid(row=0, column=0, sticky="ns")
 
@@ -189,35 +183,27 @@ class App(tk.Tk):
         combobox2.grid(row=25, column=0, sticky="ew", pady=(0,8))
         combobox2.bind("<<ComboboxSelected>>", self._combobox_wrap)
 
-        ## Content area
-        # Column 0 (Matrix)
-        content = ttk.Frame(self, padding=12)
-        content.grid(row=0, column=1, sticky="nsew")
-        content.rowconfigure(1, weight=1)
-        content.rowconfigure(3, weight=1)
-        content.columnconfigure(0, weight=1)
-        content.columnconfigure(1, weight=1)
+    def _matrix_interface_construct(self):
+        self.content_area.grid(row=0, column=1, sticky="nsew")
+        self.content_area.rowconfigure(1, weight=1)
+        self.content_area.rowconfigure(3, weight=1)
+        self.content_area.columnconfigure(0, weight=1)
+        self.content_area.columnconfigure(1, weight=1)
 
         self.status = tk.StringVar(value="Ready.")
-        ttk.Label(content, textvariable=self.status).grid(row=0, column=0, sticky="w")
+        ttk.Label(self.content_area, textvariable=self.status).grid(row=0, column=0, sticky="w")
 
-        # self.img_label_matrix = ttk.Label(content)
-        # self.img_label_matrix.grid(row=1, column=0, sticky="nsew")
-
-        self.matrix_canvas = FigureCanvasTkAgg(self.matrix_fig, master=content)
-        # canvas_widget_M = self.matrix_canvas.get_tk_widget()
-        # canvas_widget_M.pack(fill=tk.BOTH, expand=True)
+        self.matrix_canvas = FigureCanvasTkAgg(self.matrix_fig, master=self.content_area)
         self.matrix_canvas.get_tk_widget().grid(column=0, row=1, sticky="WNES")
         self.matrix_canvas.draw()
 
-        # Column 1 (DBM and stuff)
-        self.img_label_right = ttk.Frame(content, padding=12)
+    def _dbm_interface_construct(self):
+        self.img_label_right = ttk.Frame(self.content_area, padding=12)
         self.img_label_right.grid(row=1, column=1, sticky="nsew")
 
         self.img_label_right2 = ttk.Label(self.img_label_right)
         self.img_label_right2.grid(row=1, column=0, sticky="nsew")
 
-        # self.right_canvas.get_tk_widget().grid(row=1, column=1, sticky="ns")
         self.right_canvas = FigureCanvasTkAgg(self.right_fig, master=self.img_label_right)
         self.right_canvas.get_tk_widget().grid(column=0, row=0, sticky="WNES")
         self.right_canvas.draw()
@@ -226,7 +212,7 @@ class App(tk.Tk):
         self.right_toolbar = NavigationToolbar2Tk(self.right_canvas, self.img_label_right2)
         self.right_toolbar.update()
 
-        # Column 1, bottom Row (img + info)
+    def _image_reconstruct_info_interface_construct(self):
         image_place = ttk.Frame(self.img_label_right, padding=12)
         image_place.grid(row=2, column=0, sticky="nsew")
 
@@ -272,6 +258,26 @@ class App(tk.Tk):
         # self.img_axis_canvas = FigureCanvasTkAgg(self.img_axis_fig, master=bottom_images)
         # self.img_axis_canvas.get_tk_widget().grid(column=0, row=0, sticky="WNES")
         # self.img_axis_canvas.draw()
+
+    def build_app_layout(self):
+        # Main grid: sidebar (0) and content (1)
+        self.columnconfigure(0, weight=0)  # sidebar
+        self.columnconfigure(1, weight=1)  # content
+        self.rowconfigure(0, weight=1)
+
+        self._side_bar_interface_construct()
+
+        ## Content area
+        self.content_area = ttk.Frame(self, padding=12)
+
+        # Column 0 (Matrix)
+        self._matrix_interface_construct()
+
+        # Column 1 (DBM and stuff)
+        self._dbm_interface_construct()
+
+        # Column 1, bottom Row (img + info)
+        self._image_reconstruct_info_interface_construct()
 
         self.gen_dbm()
 
