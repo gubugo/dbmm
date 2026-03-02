@@ -30,6 +30,19 @@ def Load_data(path, dataset):
     y = np.load(os.path.join(path, dataset, "y.npy"))
     return X, y
 
+def get_dimensions_and_class(dataset_name):
+    dims_classes = {}
+    dims_classes["fashionmnist"] = [784, 10]
+    dims_classes["mnist"] = [784, 10]
+    dims_classes["har"]  = [561, 6]
+    dims_classes["reuters"] = [5000, 6]
+    dims_classes["hate_speech"] = [100, 3]
+
+    dims = dims_classes[dataset_name][0]
+    classes = dims_classes[dataset_name][1]
+
+    return dims, classes
+
 def train_test_split_augmented(X, y, method, train_size=6500, test_size=2000, random_state=420):
     X_train, _, y_train, _ = train_test_split(
         X, y, train_size=train_size, test_size=500, random_state=random_state, stratify=y

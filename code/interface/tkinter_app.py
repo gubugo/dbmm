@@ -20,7 +20,7 @@ from code.models.classifiers.MLP import load_or_fit_mlp_classifier
 from code.training.auto_encoders import load_or_fit_model_ae
 from code.training.inv_proj import load_or_fit_model_inv_proj
 from code.utils.augmentations import get_augmentation_pca
-from code.utils.data import get_inv_proj_data_ae
+from code.utils.data import get_dimensions_and_class, get_inv_proj_data_ae
 from code.utils.matplotlib.dbm import gen_and_save_dbm, plot_generated_images_grid_with_dbm
 from code.utils.matplotlib.dbm_matrix import gen_and_save_dbm_matrix
 from code.utils.matplotlib.maps import gen_and_save_ccm, gen_and_save_nnm
@@ -418,37 +418,10 @@ class App(tk.Tk):
                 ax[i,j].set_title(coords, fontsize=grid_res/(size), x=0.5, y=1-5/grid_res) 
                 
         return ax
-        # PLOTLY
-        # titles = make_titles(start,step,size)
-        
-        # fig = make_subplots(rows=size, cols=size, horizontal_spacing=0.01, vertical_spacing=0.025, subplot_titles=titles)
-        # for i in range(size):
-        #     for j in range(size):
-        #         fig = gen_and_save_dbm_matrix(results_2d, labels, _clf, _inv_model, grid_res, i, j, fig, start, step)
-        
-        # fig.update_layout(
-        #     hovermode='closest',
-        #     width=800,  # Set the width in pixels
-        #     height=800,  # Set the height in pixels
-        #     xaxis=dict(visible=False),  # Hide x-axis
-        #     yaxis=dict(visible=False),  # Hide y-axis
-        #     margin=dict(l=1, r=1, t=17, b=12), # Remove margins
-        # )
-        
-        # fig.update_annotations(font_size=11, yshift=0, font_color="black") # New coordinates
-        # fig.update_xaxes(visible=False, showticklabels=False)
-        # fig.update_yaxes(visible=False, showticklabels=False)
-        
-        # return fig
+
     
     def compute_projection(self):
-        """Run backend to obtain projection, models, etc."""
-        # self.status.set("Computing projection…")
-        # self.update_idletasks()
 
-        # Attempt to call the AE path seen in the Streamlit version
-        # Signature inferred from code slices:
-        # get_inv_proj_data_ae(output_dir, _model, dataset_name, model_name, method, epochs, random_state)
         output_dir = "weights"
         dataset_name = self.dataset.get()
         self.matrix_dataset = dataset_name
@@ -458,15 +431,7 @@ class App(tk.Tk):
         epochs = 10
         random_state = 420
 
-        sharp_dims_classes = {}
-        sharp_dims_classes["fashionmnist"] = [784, 10]
-        sharp_dims_classes["mnist"] = [784, 10]
-        sharp_dims_classes["har"]  = [561, 6]
-        sharp_dims_classes["reuters"] = [5000, 6]
-        sharp_dims_classes["hate_speech"] = [100, 3]
-
-        dims = sharp_dims_classes[dataset_name][0]
-        classes = sharp_dims_classes[dataset_name][1]
+        dims, classes = get_dimensions_and_class(dataset_name)
 
         # Build a default ShaRP model as in the code (with latent_dim=2 etc.)
         sharp_model = sharp.ShaRP(
@@ -503,17 +468,7 @@ class App(tk.Tk):
         if self.generate_matrix:
             self.matrix_ax = self.get_matrix_fig(self.results_2d, self.clf, self.inv_model, grid_res, start, step, size, self.matrix_ax)
             self.generate_matrix = False
-                        
-            # PLOTLY
-            # fig = self.get_matrix_fig(
-            #     self.results_2d, self.labels, self.clf, self.inv_model,
-            #     int(self.resolution.get()), start, step, size
-            # )
-            # img = plotly_to_image_tk(fig)
-            # self.image_matrix = img 
-            # self.img_label_matrix.configure(image=self.image_matrix, text="", compound=None)
 
-        # self.update()
         # Right figure (neighbors/confidence)
         x = float(self.x_v.get())
         y = float(self.y_v.get())
@@ -537,30 +492,6 @@ class App(tk.Tk):
 
         self.np_dist_ctp.set(f"Nearest Point Distance: {ret_values[1]:.5f}")
         self.fp_dist_ctp.set(f"Farthest Point Distance:{ret_values[0]:.5f}")
-        # self.update()
-        # fig2.update_layout(
-        #     title={
-        #     'text': f"({x},{y})",
-        #     'y':0.0,
-        #     'x':0.575,
-        #     'xanchor': 'center',
-        #     'yanchor': 'top'},
-        #     hovermode='closest',
-        #     width=1000,  # Set the width in pixels
-        #     height=650,  # Set the height in pixels
-        #     xaxis=dict(visible=False),  # Hide x-axis
-        #     yaxis=dict(visible=False),  # Hide y-axis
-        #     margin=dict(l=100, r=0, t=15, b=0), # Remove margins
-        # )
-
-        # img2 = plotly_to_image_tk(fig2)
-        # # self.update()
-        # # if isinstance(img2, str):
-        # #     self.img_label_right.configure(text=img2, image="", compound=None)
-        # # else:
-        # self.image_matrix2 = img2 
-        # self.img_label_right.configure(image=self.image_matrix2, text="", compound=None)
-        #     self.img_label_right.image = img2  # keep reference
 
         self.status.set("Plots updated.")
 
