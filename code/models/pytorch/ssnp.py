@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 
-class SSNPTorch(nn.Module):
+class SSNP(nn.Module):
     def __init__(
         self,
         input_dim,
@@ -73,6 +73,9 @@ class SSNPTorch(nn.Module):
             # nn.Softmax(),
         )
 
+        # initializers
+        self._init_weights()
+
         # optimizer
         self.optimizer = optim.Adam(self.parameters(), lr=lr)
 
@@ -84,9 +87,15 @@ class SSNPTorch(nn.Module):
         self.is_fitted = False
 
     # ==========================================================
-    # forward
+    # internal
     # ==========================================================
-    def forward(self, x):
+    def _init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight, nonlinearity="relu")
+                nn.init.constant_(m.bias, 0.0001)
+    
+    def _forward(self, x):
         z = self.encoder(x)
         h = self.decoder_hidden(z)
         x_hat = self.decoder_out(h)
@@ -115,7 +124,7 @@ class SSNPTorch(nn.Module):
             total_loss = 0.0
 
             for xb, yb in loader:
-                _, x_hat, logits = self.forward(xb)
+                _, x_hat, logits = self._forward(xb)
                 loss_cls = self.class_loss(logits, yb)
                 loss_rec = self.recon_loss(x_hat, xb)
                 loss = loss_cls + loss_rec
@@ -155,7 +164,7 @@ class SSNPTorch(nn.Module):
         self._check_fit()
         X = torch.tensor(X, dtype=torch.float32).to(self.device)
         with torch.no_grad():
-            _, _, logits = self.forward(X)
+            _, _, logits = self._forward(X)
             preds = torch.argmax(logits, dim=1)
         return preds.cpu().numpy()
 

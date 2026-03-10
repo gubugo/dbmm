@@ -10,7 +10,7 @@ import torch.optim as optim
 import copy
 
 
-class NNInvTorch(nn.Module):
+class NNInv(nn.Module):
     def __init__(
         self,
         latent_dims=2,
