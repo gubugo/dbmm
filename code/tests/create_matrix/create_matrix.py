@@ -1,36 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import math
 import os
-from time import sleep
-from typing import Union
 import warnings
 
-from sklearn.neighbors import NearestNeighbors
 import tensorflow as tf
-from sklearn.decomposition import PCA 
-from sklearn.base import ClassifierMixin
-from sklearn.neural_network import MLPClassifier
-from sklearn.preprocessing import minmax_scale
 
 from code.tests.create_matrix import save_dbm_matrix
-from code.training.auto_encoders import load_or_fit_model_ae
-from code.training.inv_proj import load_or_fit_model_inv_proj
-from code.models.neighborhood.nn import get_nn_model
-from code.models.classifiers.MLP import load_or_fit_mlp_classifier
-from code.utils.data import get_inv_proj_data_ae, get_inv_proj_data_nninv, train_test_split_augmented
+from code.utils.data import get_inv_proj_data_ae, get_inv_proj_data_nninv
 
 warnings.filterwarnings("ignore")
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import matplotlib.pyplot as plt
-from matplotlib.axes import Axes
 import numpy as np
-from sklearn.model_selection import train_test_split
-from joblib import dump, load
-# from MulticoreTSNE import MulticoreTSNE as TSNE
-from sklearn.manifold import TSNE
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
@@ -39,17 +22,11 @@ from sklearn.manifold import TSNE
 import code.models.tensorflow.sharp as sharp
 import code.models.tensorflow.ssnp as ssnp
 import code.models.tensorflow.nninv as nninv
-import code.utils.metrics as metrics
-import code.utils.scatterplot as scatterplot
-from code.utils.expand_augmentations import expand_projection, repel_particles_all1, repel_particles_all2
-
 
 tf.random.set_seed(420)
 
-
 cmap = plt.get_cmap("tab10")
 cmap2 = plt.get_cmap("viridis")
-
 
 def make_grid(
     x_min: float, x_max: float, y_min: float, y_max: float, v1: float, v2: float, side_length: int
@@ -129,6 +106,8 @@ def plot_matrix_separated(classifier, inverter, neighbor_finder, x_data, y_data,
 
     for i in range(matrix_side_size):
         for j in range(matrix_side_size):
+            coords = f"{np.round(matrix_origin[0]+i*step[0],np.uint8(format_step[0]))},{np.round(matrix_origin[1]+j*step[1],np.uint8(format_step[1]))}"
+            
             # GLOBAL DNTP
             dbm_saver.show_global_distance_to_nearest_training_point_map(dntp_matrix, matrix_side_size, grid_res, ax)
             fig.savefig(f"results/g_dntp/({coords}).png", bbox_inches="tight", pad_inches=0.0)
