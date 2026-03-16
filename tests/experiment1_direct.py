@@ -9,7 +9,7 @@ from glob import glob
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from MulticoreTSNE import MulticoreTSNE as TSNE
+from sklearn.manifold import TSNE
 from PIL import Image, ImageFont
 from skimage import io
 from sklearn.cluster import AgglomerativeClustering, KMeans
@@ -18,12 +18,8 @@ from sklearn.preprocessing import LabelBinarizer
 from umap import UMAP
 from sklearn.manifold import Isomap
 
-import ae
-import colors
-import interface.utils.metrics as metrics
-import nnproj
-import ssnp
-import sharp
+from code.models.pytorch import sharp
+from code.utils import metrics
 
 warnings.filterwarnings("ignore")
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
@@ -103,7 +99,7 @@ if __name__ == "__main__":
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    data_dir = "../data"
+    data_dir = "./data"
     data_dirs = args.datasets  # ["mnist", "fashionmnist", "har", "reuters", "usps"]
 
     epochs_dataset = {}
@@ -150,23 +146,20 @@ if __name__ == "__main__":
 
         sharp_gt = sharp.ShaRP(
             X.shape[1],
+            2,
             len(np.unique(y_train)),
             "diagonal_normal",
-            variational_layer_kwargs=dict(kl_weight=0.1),
-            bottleneck_activation="linear",
-            bottleneck_l1=0.0,
-            bottleneck_l2=0.5,
         )
         sharp_gt.fit(
             X_train,
             y_train,
             epochs=epochs,
-            verbose=verbose,
             batch_size=64,
         )
         X_sharp_gt = sharp_gt.transform(X_train)
         X_inv_sharp_gt = sharp_gt.inverse_transform(X_sharp_gt)
         X_inv_sharp_gt_test = sharp_gt.inverse_transform(sharp_gt.transform(X_test))
+        print("CORRECT")
 
         sharp_km = sharp.ShaRP(
             X.shape[1],
@@ -179,10 +172,11 @@ if __name__ == "__main__":
         )
         C = KMeans(n_clusters=n_clusters)
         y_km = C.fit_predict(X_train)
-        sharp_km.fit(X_train, y_km, epochs=epochs, verbose=verbose, batch_size=64)
+        sharp_km.fit(X_train, y_km, epochs=epochs, batch_size=64)
         X_sharp_km = sharp_km.transform(X_train)
         X_inv_sharp_km = sharp_km.inverse_transform(X_sharp_km)
         X_inv_sharp_km_test = sharp_km.inverse_transform(sharp_km.transform(X_test))
+        
 
         sharp_ag = sharp.ShaRP(
             X.shape[1],
@@ -200,75 +194,9 @@ if __name__ == "__main__":
         X_inv_sharp_ag = sharp_ag.inverse_transform(X_sharp_ag)
         X_inv_sharp_ag_test = sharp_ag.inverse_transform(sharp_ag.transform(X_test))
 
-        ssnpgt = ssnp.SSNP(
-            epochs=epochs,
-            verbose=verbose,
-            patience=0,
-            opt="adam",
-            bottleneck_activation="linear",
-        )
-        ssnpgt.fit(X_train, y_train)
-        X_ssnpgt = ssnpgt.transform(X_train)
-        X_inv_ssnpgt = ssnpgt.inverse_transform(X_ssnpgt)
-        X_inv_ssnpgt_test = ssnpgt.inverse_transform(ssnpgt.transform(X_test))
-
-        ssnpkm = ssnp.SSNP(
-            epochs=epochs,
-            verbose=verbose,
-            patience=0,
-            opt="adam",
-            bottleneck_activation="linear",
-        )
-        C = KMeans(n_clusters=n_clusters)
-        y_km = C.fit_predict(X_train)
-        ssnpkm.fit(X_train, y_km)
-        X_ssnpkm = ssnpkm.transform(X_train)
-        X_inv_ssnpkm = ssnpkm.inverse_transform(X_ssnpkm)
-        X_inv_ssnpkm_test = ssnpkm.inverse_transform(ssnpkm.transform(X_test))
-
-        ssnpag = ssnp.SSNP(
-            epochs=epochs,
-            verbose=verbose,
-            patience=0,
-            opt="adam",
-            bottleneck_activation="linear",
-        )
-        C = AgglomerativeClustering(n_clusters=n_clusters)
-        y_ag = C.fit_predict(X_train)
-        ssnpag.fit(X_train, y_ag)
-        X_ssnpag = ssnpag.transform(X_train)
-        X_inv_ssnpag = ssnpag.inverse_transform(X_ssnpag)
-        X_inv_ssnpag_test = ssnpag.inverse_transform(ssnpag.transform(X_test))
-
-        tsne = TSNE(n_jobs=4, random_state=420)
-        X_tsne = tsne.fit_transform(X_train)
-
-        ump = UMAP(random_state=420)
-        X_umap = ump.fit_transform(X_train)
-
-        X_isomap = Isomap().fit_transform(X_train)
-
-        aep = ae.AutoencoderProjection(epochs=epochs, verbose=0)
-        aep.fit(X_train)
-        X_aep = aep.transform(X_train)
-        X_inv_aep = aep.inverse_transform(X_aep)
-        X_inv_aep_test = aep.inverse_transform(aep.transform(X_test))
-
-        nnp = nnproj.NNProj(init=TSNE(n_jobs=4, random_state=420))
-        nnp.fit(X_train)
-        X_nnp = nnp.transform(X_train)
-
         D_sharp_gt = metrics.compute_distance_list(X_sharp_gt)
         D_sharp_km = metrics.compute_distance_list(X_sharp_km)
         D_sharp_ag = metrics.compute_distance_list(X_sharp_ag)
-        D_ssnpgt = metrics.compute_distance_list(X_ssnpgt)
-        D_ssnpkm = metrics.compute_distance_list(X_ssnpkm)
-        D_ssnpag = metrics.compute_distance_list(X_ssnpag)
-        D_tsne = metrics.compute_distance_list(X_tsne)
-        D_umap = metrics.compute_distance_list(X_umap)
-        D_isomap = metrics.compute_distance_list(X_isomap)
-        D_aep = metrics.compute_distance_list(X_aep)
-        D_nnp = metrics.compute_distance_list(X_nnp)
 
         results.append(
             (dataset_name, "ShaRP-GT")
@@ -309,91 +237,18 @@ if __name__ == "__main__":
                 X_inv_sharp_ag_test,
             )
         )
-        results.append(
-            (dataset_name, "SSNP-GT")
-            + compute_all_metrics(
-                X_train,
-                X_ssnpgt,
-                D_high,
-                D_ssnpgt,
-                y_train,
-                X_inv_ssnpgt,
-                X_test,
-                X_inv_ssnpgt_test,
-            )
-        )
-        results.append(
-            (dataset_name, "SSNP-KMeans")
-            + compute_all_metrics(
-                X_train,
-                X_ssnpkm,
-                D_high,
-                D_ssnpkm,
-                y_train,
-                X_inv_ssnpkm,
-                X_test,
-                X_inv_ssnpkm_test,
-            )
-        )
-        results.append(
-            (dataset_name, "SSNP-AG")
-            + compute_all_metrics(
-                X_train,
-                X_ssnpag,
-                D_high,
-                D_ssnpag,
-                y_train,
-                X_inv_ssnpag,
-                X_test,
-                X_inv_ssnpag_test,
-            )
-        )
-        results.append(
-            (dataset_name, "AE")
-            + compute_all_metrics(
-                X_train, X_aep, D_high, D_aep, y_train, X_inv_aep, X_test, X_inv_aep_test
-            )
-        )
-        results.append(
-            (dataset_name, "TSNE") + compute_all_metrics(X_train, X_tsne, D_high, D_tsne, y_train)
-        )
-        results.append(
-            (dataset_name, "UMAP") + compute_all_metrics(X_train, X_umap, D_high, D_umap, y_train)
-        )
-        results.append(
-            (dataset_name, "ISOMAP")
-            + compute_all_metrics(X_train, X_isomap, D_high, D_isomap, y_train)
-        )
-        results.append(
-            (dataset_name, "NNP") + compute_all_metrics(X_train, X_nnp, D_high, D_nnp, y_train)
-        )
+
 
         for X_, label in zip(
             [
                 X_sharp_gt,
                 X_sharp_km,
                 X_sharp_ag,
-                X_ssnpgt,
-                X_ssnpkm,
-                X_ssnpag,
-                X_umap,
-                X_tsne,
-                X_isomap,
-                X_aep,
-                X_nnp,
             ],
             [
                 "ShaRP-GT",
                 "ShaRP-KMeans",
                 "ShaRP-AG",
-                "SSNP-GT",
-                "SSNP-KMeans",
-                "SSNP-AG",
-                "UMAP",
-                "TSNE",
-                "ISOMAP",
-                "AE",
-                "NNP",
             ],
         ):
             fname = os.path.join(output_dir, "{0}_{1}.png".format(dataset_name, label))
@@ -425,13 +280,6 @@ if __name__ == "__main__":
         "ShaRP-GT",
         "ShaRP-KMeans",
         "ShaRP-AG",
-        "SSNP-KMeans",
-        "SSNP-AG",
-        "AE",
-        "TSNE",
-        "ISOMAP",
-        "UMAP",
-        "SSNP-GT",
     ]
 
     images = glob(output_dir + "/*.png")
@@ -464,33 +312,33 @@ if __name__ == "__main__":
             )
 
     font = ImageFont.truetype("/usr/share/fonts/dejavu/DejaVuSans.ttf", 50)
-    pri_images = ["SSNP-KMeans", "SSNP-AG", "AE"]
+    # pri_images = ["SSNP-KMeans", "SSNP-AG", "AE"]
 
-    images = glob(output_dir + "/*.png")
-    base = 2000
+    # images = glob(output_dir + "/*.png")
+    # base = 2000
 
-    for d in data_dirs:
-        dataset_name = d
-        to_paste = []
+    # for d in data_dirs:
+    #     dataset_name = d
+    #     to_paste = []
 
-        for i, label in enumerate(pri_images):
-            to_paste += [
-                f
-                for f in images
-                if os.path.basename(f) == "{0}_{1}.png".format(dataset_name, label)
-            ]
+    #     for i, label in enumerate(pri_images):
+    #         to_paste += [
+    #             f
+    #             for f in images
+    #             if os.path.basename(f) == "{0}_{1}.png".format(dataset_name, label)
+    #         ]
 
-        img = np.zeros((base, base * 3, 3)).astype("uint8")
+    #     img = np.zeros((base, base * 3, 3)).astype("uint8")
 
-        for i, im in enumerate(to_paste):
-            tmp = io.imread(im)
-            img[:, i * base : (i + 1) * base, :] = tmp[:, :, :3]
+    #     for i, im in enumerate(to_paste):
+    #         tmp = io.imread(im)
+    #         img[:, i * base : (i + 1) * base, :] = tmp[:, :, :3]
 
-        pimg = Image.fromarray(img)
-        pimg.save(output_dir + "/composite_{0}.png".format(dataset_name))
+    #     pimg = Image.fromarray(img)
+    #     pimg.save(output_dir + "/composite_{0}.png".format(dataset_name))
 
-        for i, label in enumerate(pri_images):
-            print(
-                "/composite_{0}.png".format(dataset_name),
-                "{0} {1}".format(dataset_name, label),
-            )
+    #     for i, label in enumerate(pri_images):
+    #         print(
+    #             "/composite_{0}.png".format(dataset_name),
+    #             "{0} {1}".format(dataset_name, label),
+    #         )

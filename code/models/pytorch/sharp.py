@@ -9,16 +9,17 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+from code.models.pytorch.sampling_layers import SamplingLayer, get_layer_builder
+
 class Encoder(nn.Module):
     def __init__(
         self,
+        input_dims,
+        bias=1e-4,
         act="relu",
-        l1=0.0,
-        l2=1e-4,
     ):
         super().__init__()
-        self.l1 = l1
-        self.l2 = l2
+        self.bias = bias
 
         # activations
         act_fn = nn.ReLU if act == "relu" else nn.Tanh
@@ -28,22 +29,74 @@ class Encoder(nn.Module):
             act_fn(),
             nn.Linear(512, 128),
             act_fn(),
-            nn.Linear(128, 32)
+            nn.Linear(128, 32),
+            act_fn(),
         )
+
+        # initializers
+        self._init_weights()
+
+    # ==========================================================
+    # internal
+    # ==========================================================
+    def _init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                gain = nn.init.calculate_gain('relu')
+                nn.init.xavier_uniform_(m.weight, gain=gain)
+                nn.init.constant_(m.bias, self.bias)
+    
+    def forward(self, x):
+        return self.encoder(x)
 
 class Decoder(nn.Module):
     def __init__(
         self,
-
+        input_dims,
+        bias=1e-4,
+        act="relu",
     ):
         super().__init__()
+        self.bias = bias
+
+        # activations
+        act_fn = nn.ReLU if act == "relu" else nn.Tanh
+
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dims, 32),
+            nn.BatchNorm1d(32),
+            act_fn(),
+            nn.Linear(32, 128),
+            nn.BatchNorm1d(128),
+            act_fn(),
+            nn.Linear(128, 512),
+            nn.BatchNorm1d(512),
+            act_fn(),
+        )
+
+        # initializers
+        self._init_weights()
+
+    # ==========================================================
+    # internal
+    # ==========================================================
+    def _init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                gain = nn.init.calculate_gain('relu')
+                nn.init.xavier_uniform_(m.weight, gain=gain)
+                nn.init.constant_(m.bias, self.bias)
+    
+    def forward(self, x):
+        return self.encoder(x)
 
 class ShaRP(nn.Module):
     def __init__(
         self,
         input_dim,
-        latent_dims=2,
+        latent_dim=2,
         n_classes=2,
+        variational_layer=None,
         act="relu",
         bottleneck_activation="tanh",
         l1=0.0,
@@ -54,8 +107,9 @@ class ShaRP(nn.Module):
     ):
         super().__init__()
 
+        self.variational_layer = variational_layer
         self.input_dim = input_dim
-        self.latent_dims = latent_dims
+        self.latent_dim = latent_dim
         self.n_classes = n_classes
         self.verbose = verbose
 
@@ -70,26 +124,13 @@ class ShaRP(nn.Module):
         bottleneck_fn = nn.Identity if bottleneck_activation == "linear" else nn.Tanh
 
         # ===== encoder =====
-        self.encoder = nn.Sequential(
-            nn.Linear(input_dim, 512),
-            act_fn(),
-            nn.Linear(512, 128),
-            act_fn(),
-            nn.Linear(128, 32),
-            act_fn(),
-            nn.Linear(32, latent_dims),
-            bottleneck_fn(),
-        )
+        self.encoder = Encoder(input_dims=input_dim)
 
-        # ===== decoder shared trunk =====
-        self.decoder_hidden = nn.Sequential(
-            nn.Linear(latent_dims, 32),
-            act_fn(),
-            nn.Linear(32, 128),
-            act_fn(),
-            nn.Linear(128, 512),
-            act_fn(),
-        )
+        # ===== sampling layer =====
+        self.variational = self._build_variational_layer()
+
+        # ===== decoder shared trunk ===== 
+        self.decoder_hidden = Encoder(input_dims=2)
 
         # reconstruction head
         self.decoder_out = nn.Sequential(
@@ -106,8 +147,14 @@ class ShaRP(nn.Module):
         # initializers
         self._init_weights()
 
-        # optimizer
-        self.optimizer = optim.Adam(self.parameters(), lr=lr)
+        # optimizer 
+        self.optimizer = optim.Adam([
+            {'params': self.decoder_hidden.parameters(), 'weight_decay': 0.0},  # No L2 for these
+            {'params': self.decoder_out.parameters(), 'weight_decay': 0.0},  # No L2 for these
+            {'params': self.classifier.parameters(), 'weight_decay': 0.0},  # No L2 for these
+            {'params': self.encoder.parameters(), 'weight_decay': 1e-4}, # L2 applied here
+            {'params': self.variational.parameters(), 'weight_decay': 1e-4} # L2 applied here
+        ], lr=lr)
 
         # losses
         self.class_loss = nn.CrossEntropyLoss()
@@ -122,11 +169,21 @@ class ShaRP(nn.Module):
     def _init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight, nonlinearity="relu")
+                gain = nn.init.calculate_gain('relu')
+                nn.init.xavier_uniform_(m.weight, gain=gain)
                 nn.init.constant_(m.bias, 0.0001)
+
+    def _build_variational_layer(self):
+        if isinstance(self.variational_layer, str):
+            return get_layer_builder(self.variational_layer)(
+                self.latent_dim
+            )
+        else:
+            return self.variational_layer(self.latent_dim)
     
-    def _forward(self, x):
-        z = self.encoder(x)
+    def forward(self, x):
+        encoded = self.encoder(x)
+        z_mean, z_log_var, z = self.variational(encoded)
         h = self.decoder_hidden(z)
         x_hat = self.decoder_out(h)
         logits = self.classifier(h)
@@ -142,6 +199,8 @@ class ShaRP(nn.Module):
         epochs=10, 
         batch_size=256
     ):
+        self.train()
+
         X = torch.tensor(X, dtype=torch.float32).to(self.device)
         y = torch.tensor(y, dtype=torch.long).to(self.device)
 
@@ -154,13 +213,22 @@ class ShaRP(nn.Module):
             total_loss = 0.0
 
             for xb, yb in loader:
-                _, x_hat, logits = self._forward(xb)
+                _, x_hat, logits = self.forward(xb)
                 loss_cls = self.class_loss(logits, yb)
                 loss_rec = self.recon_loss(x_hat, xb)
-                loss = loss_cls + loss_rec
+                loss = loss_cls + 3.0*loss_rec
+
+                # ## for VERBOSE metrics
+                # # Acc
+                # pred = loss_cls.argmax(dim=1)
+                # acc = (pred == yb).float().mean()
+                # # mean absolute error
+                # mae = torch.mean(torch.abs(loss_rec - xb))
+
 
                 self.optimizer.zero_grad()
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.parameters(), 1.0)
                 self.optimizer.step()
 
                 total_loss += loss.item()
@@ -169,7 +237,7 @@ class ShaRP(nn.Module):
                 print(
                     f"epoch {epoch+1:03d} | loss = {total_loss/len(loader):.6f}"
                 )
-
+        self.eval()
         self.is_fitted = True
 
     # ==========================================================
@@ -179,7 +247,8 @@ class ShaRP(nn.Module):
         self._check_fit()
         X = torch.tensor(X, dtype=torch.float32).to(self.device)
         with torch.no_grad():
-            z = self.encoder(X)
+            encoded = self.encoder(X)
+            _, _, z = self.variational(encoded)
         return z.cpu().numpy()
 
     def inverse_transform(self, Z):
@@ -194,7 +263,7 @@ class ShaRP(nn.Module):
         self._check_fit()
         X = torch.tensor(X, dtype=torch.float32).to(self.device)
         with torch.no_grad():
-            _, _, logits = self._forward(X)
+            _, _, logits = self.forward(X)
             preds = torch.argmax(logits, dim=1)
         return preds.cpu().numpy()
 

@@ -95,7 +95,7 @@ class SSNP(nn.Module):
                 nn.init.xavier_uniform_(m.weight, nonlinearity="relu")
                 nn.init.constant_(m.bias, 0.0001)
     
-    def _forward(self, x):
+    def forward(self, x):
         z = self.encoder(x)
         h = self.decoder_hidden(z)
         x_hat = self.decoder_out(h)
@@ -124,7 +124,7 @@ class SSNP(nn.Module):
             total_loss = 0.0
 
             for xb, yb in loader:
-                _, x_hat, logits = self._forward(xb)
+                _, x_hat, logits = self.forward(xb)
                 loss_cls = self.class_loss(logits, yb)
                 loss_rec = self.recon_loss(x_hat, xb)
                 loss = loss_cls + loss_rec
@@ -164,7 +164,7 @@ class SSNP(nn.Module):
         self._check_fit()
         X = torch.tensor(X, dtype=torch.float32).to(self.device)
         with torch.no_grad():
-            _, _, logits = self._forward(X)
+            _, _, logits = self.forward(X)
             preds = torch.argmax(logits, dim=1)
         return preds.cpu().numpy()
 
