@@ -64,11 +64,12 @@ class SamplingLayer(nn.Module):
         raise NotImplementedError()
 
     def forward(self, inputs, training=None):
-        z = self.sample(inputs, training=training)
-        self.add_kl_loss(z)
-        print(T.mean(z, dim=0))
-        print(T.mean(z, dim=-1))
-        return T.mean(z), T.log(T.var(z)), z
+        zdist, kl_loss = self.sample(inputs, training=self.training)
+        # self.add_kl_loss(z)
+        z = zdist.rsample()
+        # print(T.mean(z, dim=0))
+        # print(T.mean(z, dim=-1))
+        return T.mean(z), T.log(T.var(z)), z, kl_loss
 
     def _layer_kwargs(self):
         return {
@@ -86,7 +87,7 @@ class SamplingLayer(nn.Module):
 
     # the **kwargs argument allows calls to this method to replace one of the default values.
     def make_dense_param_layer(self, n_params: int) -> nn.Sequential:
-        act_fn = nn.Tanh if self.act == "tanh" else nn.ReLU
+        act_fn = nn.Tanh if self.act == "tanh" else nn.Identity
 
         self.layer = nn.Sequential(
             nn.Linear(32, n_params),
@@ -115,7 +116,7 @@ class DiagonalNormalSampling(SamplingLayer):
         latent_dim: int,
         prior_loc: float = 0.0,
         prior_scale: float = 1.0,
-        kl_weight: float = 0.5,
+        kl_weight: float = 0.1,
         kl_mu_weight: float = 0.01,
         use_exact_kl: bool = True,
         act="tanh",
@@ -158,6 +159,8 @@ class DiagonalNormalSampling(SamplingLayer):
         params = self.layer(x)  # shape: [batch, 2*latent_dim]
 
         # Split into mean and scale
+        import numpy as np
+        print(np.shape(params))
         mu = params[..., :self.latent_dim]
         scale_raw = params[..., self.latent_dim:]
 
@@ -166,20 +169,20 @@ class DiagonalNormalSampling(SamplingLayer):
         sigma = scale_raw ** 2  # for distribution
 
         res = dist.Independent(dist.Normal(mu, sigma), 1)
-
+        kl_loss = 0
         # Compute KL loss if training and using exact KL
-        if training and self.use_exact_kl:
+        if self.training and self.use_exact_kl:
             # Compute elementwise KL-like term
-            kl_term = (
-                T.log(scale_raw ** 4)  # log(s^4)
-                - self.kl_mu_weight * mu ** 2
-                - scale_raw ** 4
+            kl_term = \
+                T.log(scale_raw ** 4) \
+                - self.kl_mu_weight * mu ** 2 \
+                - scale_raw ** 4 \
                 + 1
-            )
+            
 
-            self.kl_loss = -self.kl_weight * T.mean(T.sum(kl_term, dim=-1))
+            kl_loss = -self.kl_weight * T.mean(T.sum(kl_term, dim=-1))
 
-        return res
+        return res, kl_loss
 
     def add_kl_loss(self, samples):
         pass

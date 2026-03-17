@@ -121,16 +121,16 @@ class ShaRP(nn.Module):
 
         # activations
         act_fn = nn.ReLU if act == "relu" else nn.Tanh
-        bottleneck_fn = nn.Identity if bottleneck_activation == "linear" else nn.Tanh
+        # bottleneck_fn = nn.Identity if bottleneck_activation == "linear" else nn.Tanh
 
         # ===== encoder =====
         self.encoder = Encoder(input_dims=input_dim)
 
         # ===== sampling layer =====
-        self.variational = self._build_variational_layer()
+        self.variational = self._build_variational_layer(bottleneck_activation)
 
         # ===== decoder shared trunk ===== 
-        self.decoder_hidden = Encoder(input_dims=2)
+        self.decoder_hidden = Decoder(input_dims=2)
 
         # reconstruction head
         self.decoder_out = nn.Sequential(
@@ -153,7 +153,7 @@ class ShaRP(nn.Module):
             {'params': self.decoder_out.parameters(), 'weight_decay': 0.0},  # No L2 for these
             {'params': self.classifier.parameters(), 'weight_decay': 0.0},  # No L2 for these
             {'params': self.encoder.parameters(), 'weight_decay': 1e-4}, # L2 applied here
-            {'params': self.variational.parameters(), 'weight_decay': 1e-4} # L2 applied here
+            {'params': self.variational.parameters(), 'weight_decay': 0.5} # L2 applied here
         ], lr=lr)
 
         # losses
@@ -173,17 +173,18 @@ class ShaRP(nn.Module):
                 nn.init.xavier_uniform_(m.weight, gain=gain)
                 nn.init.constant_(m.bias, 0.0001)
 
-    def _build_variational_layer(self):
+    def _build_variational_layer(self, act):
         if isinstance(self.variational_layer, str):
             return get_layer_builder(self.variational_layer)(
-                self.latent_dim
+                self.latent_dim, act=act
             )
         else:
             return self.variational_layer(self.latent_dim)
     
     def forward(self, x):
         encoded = self.encoder(x)
-        z_mean, z_log_var, z = self.variational(encoded)
+        z_mean, z_log_var, z, kl_loss = self.variational(encoded)
+        self.kl_loss = kl_loss
         h = self.decoder_hidden(z)
         x_hat = self.decoder_out(h)
         logits = self.classifier(h)
@@ -216,7 +217,10 @@ class ShaRP(nn.Module):
                 _, x_hat, logits = self.forward(xb)
                 loss_cls = self.class_loss(logits, yb)
                 loss_rec = self.recon_loss(x_hat, xb)
-                loss = loss_cls + 3.0*loss_rec
+                # print(loss_cls)
+                # print(loss_rec)
+                # print(self.kl_loss)
+                loss = loss_cls + 3.0*loss_rec + self.kl_loss
 
                 # ## for VERBOSE metrics
                 # # Acc
@@ -248,7 +252,7 @@ class ShaRP(nn.Module):
         X = torch.tensor(X, dtype=torch.float32).to(self.device)
         with torch.no_grad():
             encoded = self.encoder(X)
-            _, _, z = self.variational(encoded)
+            _, _, z, _ = self.variational(encoded)
         return z.cpu().numpy()
 
     def inverse_transform(self, Z):
