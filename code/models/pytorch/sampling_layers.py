@@ -20,8 +20,6 @@ class SamplingLayer(nn.Module):
         act="tanh",
         init="glorot_uniform",
         bias=1e-4,
-        l1_reg=0.0,
-        l2_reg=0.5,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -29,8 +27,6 @@ class SamplingLayer(nn.Module):
         self.act = act
         self.init = init
         self.bias = bias
-        self.l1_reg = l1_reg
-        self.l2_reg = l2_reg
 
     @staticmethod
     def builder_for(layer_name: str):
@@ -64,9 +60,8 @@ class SamplingLayer(nn.Module):
         raise NotImplementedError()
 
     def forward(self, inputs, training=None):
-        zdist, kl_loss = self.sample(inputs, training=self.training)
-        # self.add_kl_loss(z)
-        z = zdist.rsample()
+        z, kl_loss = self.sample(inputs, training=self.training)
+        self.add_kl_loss(z)
         # print(T.mean(z, dim=0))
         # print(T.mean(z, dim=-1))
         return T.mean(z), T.log(T.var(z)), z, kl_loss
@@ -104,8 +99,6 @@ class SamplingLayer(nn.Module):
                 "act": self.act,
                 "init": self.init,
                 "bias": self.bias,
-                "l1_reg": self.l1_reg,
-                "l2_reg": self.l2_reg,
             }
         )
         return config
@@ -117,23 +110,15 @@ class DiagonalNormalSampling(SamplingLayer):
         prior_loc: float = 0.0,
         prior_scale: float = 1.0,
         kl_weight: float = 0.1,
-        kl_mu_weight: float = 0.01,
+        kl_mu_weight: float = 2.0,
         use_exact_kl: bool = True,
         act="tanh",
-        init="glorot_uniform",
-        bias=0.0001,
-        l1_reg=0,
-        l2_reg=0.5,
         name="diag_normal_sampling",
         **kwargs,
     ):
         super().__init__(
             latent_dim=latent_dim,
             act=act,
-            init=init,
-            bias=bias,
-            l1_reg=l1_reg,
-            l2_reg=l2_reg,
             **kwargs,
         )
         self.prior_loc = prior_loc
@@ -159,8 +144,6 @@ class DiagonalNormalSampling(SamplingLayer):
         params = self.layer(x)  # shape: [batch, 2*latent_dim]
 
         # Split into mean and scale
-        import numpy as np
-        print(np.shape(params))
         mu = params[..., :self.latent_dim]
         scale_raw = params[..., self.latent_dim:]
 
@@ -169,20 +152,23 @@ class DiagonalNormalSampling(SamplingLayer):
         sigma = scale_raw ** 2  # for distribution
 
         res = dist.Independent(dist.Normal(mu, sigma), 1)
-        kl_loss = 0
+
         # Compute KL loss if training and using exact KL
         if self.training and self.use_exact_kl:
             # Compute elementwise KL-like term
             kl_term = \
-                T.log(scale_raw ** 4) \
+                T.log(sigma ** 2) \
                 - self.kl_mu_weight * mu ** 2 \
-                - scale_raw ** 4 \
+                - sigma ** 2 \
                 + 1
-            
 
             kl_loss = -self.kl_weight * T.mean(T.sum(kl_term, dim=-1))
+            z = res.rsample()
+        else:
+            kl_loss = 0
+            z = res.sample()
 
-        return res, kl_loss
+        return z, kl_loss
 
     def add_kl_loss(self, samples):
         pass

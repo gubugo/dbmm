@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from code.models.pytorch.sampling_layers import SamplingLayer, get_layer_builder
+from code.models.pytorch.sampling_layers import get_layer_builder
 
 class Encoder(nn.Module):
     def __init__(
@@ -184,11 +184,10 @@ class ShaRP(nn.Module):
     def forward(self, x):
         encoded = self.encoder(x)
         z_mean, z_log_var, z, kl_loss = self.variational(encoded)
-        self.kl_loss = kl_loss
         h = self.decoder_hidden(z)
         x_hat = self.decoder_out(h)
         logits = self.classifier(h)
-        return z, x_hat, logits
+        return z, x_hat, logits, kl_loss
 
     # ==========================================================
     # training
@@ -214,13 +213,14 @@ class ShaRP(nn.Module):
             total_loss = 0.0
 
             for xb, yb in loader:
-                _, x_hat, logits = self.forward(xb)
+                _, x_hat, logits, loss_kl = self.forward(xb)
+
                 loss_cls = self.class_loss(logits, yb)
                 loss_rec = self.recon_loss(x_hat, xb)
                 # print(loss_cls)
                 # print(loss_rec)
-                # print(self.kl_loss)
-                loss = loss_cls + 3.0*loss_rec + self.kl_loss
+                # print(loss_kl)
+                loss = loss_cls + 3.0*loss_rec + loss_kl
 
                 # ## for VERBOSE metrics
                 # # Acc
@@ -267,7 +267,7 @@ class ShaRP(nn.Module):
         self._check_fit()
         X = torch.tensor(X, dtype=torch.float32).to(self.device)
         with torch.no_grad():
-            _, _, logits = self.forward(X)
+            _, _, logits, _ = self.forward(X)
             preds = torch.argmax(logits, dim=1)
         return preds.cpu().numpy()
 
