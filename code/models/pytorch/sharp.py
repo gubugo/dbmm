@@ -153,7 +153,7 @@ class ShaRP(nn.Module):
             {'params': self.decoder_out.parameters(), 'weight_decay': 0.0},  # No L2 for these
             {'params': self.classifier.parameters(), 'weight_decay': 0.0},  # No L2 for these
             {'params': self.encoder.parameters(), 'weight_decay': 1e-4}, # L2 applied here
-            {'params': self.variational.parameters(), 'weight_decay': 0.5} # L2 applied here
+            {'params': self.variational.parameters(), 'weight_decay': 0.1} # L2 applied here
         ], lr=lr)
 
         # losses
@@ -199,8 +199,6 @@ class ShaRP(nn.Module):
         epochs=10, 
         batch_size=256
     ):
-        self.train()
-
         X = torch.tensor(X, dtype=torch.float32).to(self.device)
         y = torch.tensor(y, dtype=torch.long).to(self.device)
 
@@ -210,9 +208,12 @@ class ShaRP(nn.Module):
         )
 
         for epoch in range(epochs):
+            self.train()
             total_loss = 0.0
 
             for xb, yb in loader:
+                self.optimizer.zero_grad()
+
                 _, x_hat, logits, loss_kl = self.forward(xb)
 
                 loss_cls = self.class_loss(logits, yb)
@@ -230,7 +231,6 @@ class ShaRP(nn.Module):
                 # mae = torch.mean(torch.abs(loss_rec - xb))
 
 
-                self.optimizer.zero_grad()
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.parameters(), 1.0)
                 self.optimizer.step()

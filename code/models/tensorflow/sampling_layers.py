@@ -287,7 +287,6 @@ class DiagonalNormalSampling(SamplingLayer):
             tfpl.IndependentNormal.params_size(self.latent_dim),
             name="dense_param_layer",
         )
-        print(self.use_exact_kl)
 
         # Using TFPL's IndependentNormal layer apparently performs worse because the scaling
         # is forced to be positive through a softplus. Using square() solves the issue.

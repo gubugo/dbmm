@@ -109,8 +109,8 @@ class DiagonalNormalSampling(SamplingLayer):
         latent_dim: int,
         prior_loc: float = 0.0,
         prior_scale: float = 1.0,
-        kl_weight: float = 0.1,
-        kl_mu_weight: float = 2.0,
+        kl_weight: float = 0.05,
+        kl_mu_weight: float = 0,
         use_exact_kl: bool = True,
         act="tanh",
         name="diag_normal_sampling",
@@ -126,6 +126,7 @@ class DiagonalNormalSampling(SamplingLayer):
         self.kl_weight = kl_weight
         self.kl_mu_weight = kl_mu_weight
         self.use_exact_kl = use_exact_kl
+        # self.sampler = dist.Independent(dist.Normal(mu, sigma), 1)
 
         self.prior = dist.Independent(
             dist.Normal(loc=self.prior_loc, scale=self.prior_scale * T.ones(self.latent_dim)),

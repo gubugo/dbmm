@@ -266,10 +266,6 @@ class ShaRP(tfk.Model):
                 y_train_bin[range(y_train.shape[0]), y_train] = 1
             else:
                 y_train_bin = self.label_bin.fit_transform(y_train)
-                print(np.unique(y_train))
-                print(np.unique(y_train_bin))
-                print(y_train)
-                print(y_train_bin)
             return super().fit(X_train, [y_train_bin, X_train], *args, **kwargs)
 
     def call(self, inputs, training):
