@@ -74,7 +74,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--output-dir", type=str, default="results_direct")
     parser.add_argument(
-        "--datasets", nargs="*", default=["mnist", "fashionmnist", "har", "reuters", "usps"]
+        "--datasets", nargs="*", default=["mnist", "fashionmnist"]#, "har", "reuters", "usps"]
     )
     parser.add_argument("--append-metrics", action="store_true", default=False)
     args = parser.parse_args()
@@ -156,7 +156,7 @@ if __name__ == "__main__":
         #     n_clusters,
         #     "diagonal_normal",
         #     variational_layer_kwargs=dict(kl_weight=0.1),
-        #     bottleneck_activation="linear",
+        #     bottleneck_activation="tanh",
         #     bottleneck_l1=0.0,
         #     bottleneck_l2=0.5,
         # )
@@ -172,39 +172,8 @@ if __name__ == "__main__":
         X_inv_sharp_gt_test = sharp_gt.inverse_transform(sharp_gt.transform(X_test))
         print("CORRECT")
 
-        # sharp_km = sharp.ShaRP(
-        #     X.shape[1],
-        #     2,
-        #     len(np.unique(y_train)),
-        #     "diagonal_normal",
-        # )
-        # C = KMeans(n_clusters=n_clusters)
-        # y_km = C.fit_predict(X_train)
-        # print(np.unique(y_train))
-        # print(np.unique(y_km))
-        # sharp_km.fit(X_train, y_km, epochs=epochs, batch_size=64)
-        # X_sharp_km = sharp_km.transform(X_train)
-        # X_inv_sharp_km = sharp_km.inverse_transform(X_sharp_km)
-        # X_inv_sharp_km_test = sharp_km.inverse_transform(sharp_km.transform(X_test))
-        
-
-        # sharp_ag = sharp.ShaRP(
-        #     X.shape[1],
-        #     2,
-        #     len(np.unique(y_train)),
-        #     "diagonal_normal",
-        # )
-        # C = AgglomerativeClustering(n_clusters=n_clusters)
-        # y_ag = C.fit_predict(X_train)
-        # print(np.unique(y_ag))
-        # sharp_ag.fit(X_train, y_ag, epochs=epochs, batch_size=64)
-        # X_sharp_ag = sharp_ag.transform(X_train)
-        # X_inv_sharp_ag = sharp_ag.inverse_transform(X_sharp_ag)
-        # X_inv_sharp_ag_test = sharp_ag.inverse_transform(sharp_ag.transform(X_test))
 
         D_sharp_gt = metrics.compute_distance_list(X_sharp_gt)
-        # D_sharp_km = metrics.compute_distance_list(X_sharp_km)
-        # D_sharp_ag = metrics.compute_distance_list(X_sharp_ag)
 
         results.append(
             (dataset_name, "ShaRP-GT")
@@ -219,68 +188,38 @@ if __name__ == "__main__":
                 X_inv_sharp_gt_test,
             )
         )
-        # results.append(
-        #     (dataset_name, "ShaRP-KMeans")
-        #     + compute_all_metrics(
-        #         X_train,
-        #         X_sharp_km,
-        #         D_high,
-        #         D_sharp_km,
-        #         y_train,
-        #         X_inv_sharp_km,
-        #         X_test,
-        #         X_inv_sharp_km_test,
-        #     )
-        # )
-        # results.append(
-        #     (dataset_name, "ShaRP-AG")
-        #     + compute_all_metrics(
-        #         X_train,
-        #         X_sharp_ag,
-        #         D_high,
-        #         D_sharp_ag,
-        #         y_train,
-        #         X_inv_sharp_ag,
-        #         X_test,
-        #         X_inv_sharp_ag_test,
-        #     )
-        # )
 
 
         for X_, label in zip(
             [
                 X_sharp_gt,
-                # X_sharp_km,
-                # X_sharp_ag,
             ],
             [
                 "ShaRP-GT",
-                # "ShaRP-KMeans",
-                # "ShaRP-AG",
             ],
         ):
             fname = os.path.join(output_dir, "{0}_{1}.png".format(dataset_name, label))
             print(fname)
             plot(X_, y_train, fname)
 
-    df = pd.DataFrame(
-        results,
-        columns=[
-            "dataset_name",
-            "test_name",
-            "T_train",
-            "C_train",
-            "R_train",
-            "S_train",
-            "N_train",
-            "DSC_train",
-            "CC_train",
-            "MSE_train",
-            "MSE_test",
-        ],
-    )
+        df = pd.DataFrame(
+            results,
+            columns=[
+                "dataset_name",
+                "test_name",
+                "T_train",
+                "C_train",
+                "R_train",
+                "S_train",
+                "N_train",
+                "DSC_train",
+                "CC_train",
+                "MSE_train",
+                "MSE_test",
+            ],
+        )
 
-    df.to_csv(os.path.join(output_dir, "metrics.csv"), header=True, index=None)
+        df.to_csv(os.path.join(output_dir, "metrics.csv"), header=True, index=None)
 
     # don't plot NNP
     font = ImageFont.truetype("/usr/share/fonts/dejavu/DejaVuSans.ttf", 50)
