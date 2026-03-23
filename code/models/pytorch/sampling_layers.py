@@ -128,12 +128,12 @@ class DiagonalNormalSampling(SamplingLayer):
         self.use_exact_kl = use_exact_kl
         # self.sampler = dist.Independent(dist.Normal(mu, sigma), 1)
 
-        self.prior = dist.Independent(
-            dist.Normal(loc=self.prior_loc, scale=self.prior_scale * T.ones(self.latent_dim)),
-            1
-        )
-        # dist = MultivariateNormal(
-        #     loc=elf.prior_loc,
+        # self.prior = dist.Independent(
+        #     dist.Normal(loc=self.prior_loc, scale=self.prior_scale * T.ones(self.latent_dim)),
+        #     1
+        # )
+        # self.prior = MultivariateNormal(
+        #     loc=self.prior_loc,
         #     covariance_matrix=T.diag_embed(self.prior_scale**2)
         # )
 

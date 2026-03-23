@@ -99,9 +99,11 @@ class ShaRP(nn.Module):
         variational_layer=None,
         act="relu",
         bottleneck_activation="tanh",
-        l1=0.0,
-        l2=0.5,
         lr=1e-3,
+        bias=1e-4,
+        variational_layer_kwargs=dict(),
+        l2=1e-4,
+        bottleneck_l2=0.1,
         device=None,
         verbose=1,
     ):
@@ -111,6 +113,14 @@ class ShaRP(nn.Module):
         self.input_dim = input_dim
         self.latent_dim = latent_dim
         self.n_classes = n_classes
+        self.lr = lr
+        self.bias = bias
+        self.l2=l2 
+        self.bottleneck_l2 = bottleneck_l2
+        self.variational_layer_kwargs = variational_layer_kwargs | {
+            "act": bottleneck_activation,
+            "bias": self.bias,
+        }
         self.verbose = verbose
 
         # device
@@ -124,13 +134,13 @@ class ShaRP(nn.Module):
         # bottleneck_fn = nn.Identity if bottleneck_activation == "linear" else nn.Tanh
 
         # ===== encoder =====
-        self.encoder = Encoder(input_dims=input_dim)
+        self.encoder = Encoder(input_dims=input_dim, act=act, bias=bias)
 
         # ===== sampling layer =====
-        self.variational = self._build_variational_layer(bottleneck_activation)
+        self.variational = self._build_variational_layer(self.variational_layer_kwargs)
 
         # ===== decoder shared trunk ===== 
-        self.decoder_hidden = Decoder(input_dims=2)
+        self.decoder_hidden = Decoder(input_dims=2, act=act, bias=bias)
 
         # reconstruction head
         self.decoder_out = nn.Sequential(
@@ -152,9 +162,9 @@ class ShaRP(nn.Module):
             {'params': self.decoder_hidden.parameters(), 'weight_decay': 0.0},  # No L2 for these
             {'params': self.decoder_out.parameters(), 'weight_decay': 0.0},  # No L2 for these
             {'params': self.classifier.parameters(), 'weight_decay': 0.0},  # No L2 for these
-            {'params': self.encoder.parameters(), 'weight_decay': 1e-4}, # L2 applied here
-            {'params': self.variational.parameters(), 'weight_decay': 0.1} # L2 applied here
-        ], lr=lr)
+            {'params': self.encoder.parameters(), 'weight_decay': self.l2}, # L2 applied here
+            {'params': self.variational.parameters(), 'weight_decay': self.bottleneck_l2} # L2 applied here
+        ], lr=self.lr)
 
         # losses
         self.class_loss = nn.CrossEntropyLoss()
@@ -171,12 +181,12 @@ class ShaRP(nn.Module):
             if isinstance(m, nn.Linear):
                 gain = nn.init.calculate_gain('relu')
                 nn.init.xavier_uniform_(m.weight, gain=gain)
-                nn.init.constant_(m.bias, 0.0001)
+                nn.init.constant_(m.bias, self.bias)
 
-    def _build_variational_layer(self, act):
+    def _build_variational_layer(self, variational_kwargs):
         if isinstance(self.variational_layer, str):
             return get_layer_builder(self.variational_layer)(
-                self.latent_dim, act=act
+                self.latent_dim, **variational_kwargs
             )
         else:
             return self.variational_layer(self.latent_dim)
@@ -218,9 +228,6 @@ class ShaRP(nn.Module):
 
                 loss_cls = self.class_loss(logits, yb)
                 loss_rec = self.recon_loss(x_hat, xb)
-                # print(loss_cls)
-                # print(loss_rec)
-                # print(loss_kl)
                 loss = loss_cls + 3.0*loss_rec + loss_kl
 
                 # ## for VERBOSE metrics
