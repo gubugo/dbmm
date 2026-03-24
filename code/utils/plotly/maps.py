@@ -2,10 +2,7 @@
 
 import string
 from typing import Union, Any
-from matplotlib import colors, pyplot as plt
 import numpy as np
-from sklearn.base import ClassifierMixin
-from sklearn.neural_network import MLPClassifier
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import minmax_scale
 
@@ -18,7 +15,7 @@ import code.models.tensorflow.ssnp as ssnp
 import code.models.tensorflow.nninv as nninv
 
 def generate_ccm(
-    model: MLPClassifier,
+    model,
     nn_model: NearestNeighbors,
     inverter: Union[sharp.ShaRP, ssnp.SSNP, nninv.NNInv],
     data: np.ndarray,
@@ -78,7 +75,7 @@ def gen_and_save_ccm(
     X_2d: np.ndarray,
     y: np.ndarray,
     aug: np.ndarray,
-    clf: MLPClassifier,
+    clf,
     nn_model: NearestNeighbors,
     inverter: Union[sharp.ShaRP, ssnp.SSNP, nninv.NNInv],
     grid_res: int,
@@ -129,7 +126,7 @@ def gen_and_save_ccm(
     return fig, ret_values
 
 def generate_nnm(
-    clf: MLPClassifier,
+    clf,
     nn_model: NearestNeighbors,
     inverter: Union[sharp.ShaRP, ssnp.SSNP, nninv.NNInv],
     data: np.ndarray,
@@ -188,7 +185,7 @@ def gen_and_save_nnm(
     X_2d: np.ndarray,
     y: np.ndarray,
     aug: np.ndarray,
-    clf: MLPClassifier,
+    clf,
     nn_model: NearestNeighbors,
     inverter: Union[sharp.ShaRP, ssnp.SSNP, nninv.NNInv],
     grid_res: int,

@@ -117,7 +117,7 @@ class NNInv(nn.Module):
             if verbose:
                 print(f"epoch {epoch+1:03d} | val_loss = {val_loss:.6f}")
 
-            if val_loss < best_loss - 1e-5:
+            if val_loss < best_loss - 1e-4:
                 best_loss = val_loss
                 best_state = copy.deepcopy(self.state_dict())
                 wait = 0

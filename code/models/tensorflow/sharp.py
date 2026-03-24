@@ -305,8 +305,8 @@ class ShaRP(tfk.Model):
     def fit(
         self,
         X_train: Union[tf.data.Dataset, np.ndarray],
-        y_train: Optional[np.ndarray] = None,
         X_rnd: Union[tf.data.Dataset, np.ndarray] = None,
+        y_train: Optional[np.ndarray] = None,
         *args,
         **kwargs,
     ) -> tfk.callbacks.History:

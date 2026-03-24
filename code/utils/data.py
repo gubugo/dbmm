@@ -7,7 +7,7 @@ from sklearn.preprocessing import minmax_scale
 import tensorflow as tf
 
 from code.models.neighborhood.nn import get_nn_model
-from code.models.classifiers.MLP import load_or_fit_mlp_classifier
+from code.models.classifiers.classifiers import load_or_fit_classifier
 from code.training.auto_encoders import load_or_fit_model_ae
 from code.training.inv_proj import load_or_fit_model_inv_proj
 
@@ -80,7 +80,7 @@ def get_inv_proj_data_nninv(output_dir, _inv_model, dataset_name, model_name, me
     neighbor_finder = get_nn_model(X, 5)
 
     X_proj, _inv_model = load_or_fit_model_inv_proj(X_train, y_train, noise_train, X_test, _inv_model, output_dir, dataset_name, model_name, method, epochs)
-    clf = load_or_fit_mlp_classifier(X_train, y_train, f'{output_dir}/{dataset_name}')
+    clf = load_or_fit_classifier(X_train, y_train, "mlp", f'{output_dir}/{dataset_name}')
 
     return X_test, y_test, noise_test, X_proj, clf, _inv_model, neighbor_finder
 
@@ -95,7 +95,7 @@ def get_inv_proj_data_ae(output_dir, _model, dataset_name, model_name, method, e
     neighbor_finder = get_nn_model(X, 5)
 
     X_proj, _model = load_or_fit_model_ae(X_train, y_train, noise_train, X_test, output_dir, _model, dataset_name, model_name, method, epochs)
-    clf = load_or_fit_mlp_classifier(X_train, y_train, f'{output_dir}/{dataset_name}')
+    clf = load_or_fit_classifier(X_train, y_train, "mlp", f'{output_dir}/{dataset_name}')
 
     # plot(_model.transform(X_train), y_train, f"sharp_{dataset_name}.png") # DEBUG
 

@@ -1,14 +1,7 @@
-
-
 from typing import Union, Any
 from matplotlib import pyplot as plt
-from matplotlib import colors
 import numpy as np
 from sklearn.base import ClassifierMixin
-from sklearn.neural_network import MLPClassifier
-from sklearn.preprocessing import minmax_scale
-import streamlit as st
-import plotly.express as px
 import plotly.graph_objects as go
 
 from code.utils.utils import make_grid, get_bounding_box
@@ -19,12 +12,11 @@ import code.models.tensorflow.nninv as nninv
 cmap = plt.get_cmap("tab10")
 
 def generate_dbm(
-    model: MLPClassifier,
+    model,
     inverter: Union[sharp.ShaRP, ssnp.SSNP, nninv.NNInv],
     data: np.ndarray,
     labels: np.ndarray,
     grid_res: int,
-    # ax: Axes,
     v1: float,
     v2: float, 
     start_step: tuple,
@@ -75,6 +67,4 @@ def gen_and_save_dbm_matrix(
         cmap=cmap if len(classifier.classes_) <= 10 else plt.get_cmap("tab20"),  
     )
 
-              
-    # print(fig)
     return fig

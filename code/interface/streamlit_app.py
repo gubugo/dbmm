@@ -31,17 +31,17 @@ pio.templates.default = 'plotly'
 # from MulticoreTSNE import MulticoreTSNE as TSNE
 # from umap import UMAP
 from utils.augmentations import get_augmentation_pca
-from utils.dbm import gen_and_save_dbm, gen_images_grid_plotly
-from utils.dbm_matrix import gen_and_save_dbm_matrix
+from utils.matplotlib.dbm import gen_and_save_dbm, gen_images_grid_plotly
+from utils.matplotlib.dbm_matrix import gen_and_save_dbm_matrix
 from utils.metrics import metric_distance_to_nearest_neighbor
-from utils.maps import gen_and_save_ccm, gen_and_save_nnm
+from utils.matplotlib.maps import gen_and_save_ccm, gen_and_save_nnm
 from utils.utils import get_bounding_box, make_grid, make_titles
 
-import models.sharp as sharp
-import models.ssnp as ssnp
-import models.nninv as nninv
+import code.models.tensorflow.sharp as sharp
+import code.models.tensorflow.ssnp as ssnp
+import code.models.tensorflow.nninv as nninv
 
-from code.training.classifiers.MLP import load_or_fit_mlp_classifier
+from code.models.classifiers.classifiers import load_or_fit_mlp_classifier
 from training.auto_encoders import load_or_fit_model_ae
 from training.inv_proj import load_or_fit_model_inv_proj
 

@@ -113,7 +113,7 @@ class SSNP:
 
     
 
-    def fit(self, X, y=None, X_rand=tf.zeros((1,1)), epochs=0):
+    def fit(self, X, X_rand=tf.zeros((1,1)), y=None, epochs=0):
         # pca = PCA(n_components=2)
         # X_rand = pca.fit_transform(X)
         # X_rand = minmax_scale(X_rand, feature_range=(-1,1))

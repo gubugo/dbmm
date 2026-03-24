@@ -104,6 +104,7 @@ class ShaRP(nn.Module):
         variational_layer_kwargs=dict(),
         l2=1e-4,
         bottleneck_l2=0.1,
+        k_dims=2,
         device=None,
         verbose=1,
     ):
@@ -136,7 +137,7 @@ class ShaRP(nn.Module):
         self.variational = self._build_variational_layer(self.variational_layer_kwargs)
 
         # ===== decoder shared trunk ===== 
-        self.decoder_hidden = Decoder(input_dims=2, act=act, bias=bias)
+        self.decoder_hidden = Decoder(input_dims=2+k_dims, act=act, bias=bias)
 
         # reconstruction head
         self.decoder_out = nn.Sequential(
@@ -164,7 +165,7 @@ class ShaRP(nn.Module):
 
         # losses
         self.class_loss = nn.CrossEntropyLoss()
-        self.recon_loss = nn.BCELoss()#nn.BCEWithLogitsLoss()
+        self.recon_loss = nn.MSELoss() #nn.BCELoss()#nn.BCEWithLogitsLoss()
 
         self.to(self.device)
         self.is_fitted = False
@@ -187,10 +188,11 @@ class ShaRP(nn.Module):
         else:
             return self.variational_layer(self.latent_dim)
     
-    def forward(self, x):
-        encoded = self.encoder(x)
+    def forward(self, x1, x2):
+        encoded = self.encoder(x1)
         z_mean, z_log_var, z, kl_loss = self.variational(encoded)
-        h = self.decoder_hidden(z)
+        z_ = torch.cat((z,x2), dim=-1)
+        h = self.decoder_hidden(z_)
         x_hat = self.decoder_out(h)
         logits = self.classifier(h)
         return z, x_hat, logits, kl_loss
@@ -200,15 +202,17 @@ class ShaRP(nn.Module):
     # ==========================================================
     def fit(
         self, 
-        X, 
+        X1,
+        X2, 
         y, 
         epochs=10, 
         batch_size=256
     ):
-        X = torch.tensor(X, dtype=torch.float32).to(self.device)
+        X1 = torch.tensor(X1, dtype=torch.float32).to(self.device)
+        X2 = torch.tensor(X2, dtype=torch.float32).to(self.device)
         y = torch.tensor(y, dtype=torch.long).to(self.device)
 
-        dataset = torch.utils.data.TensorDataset(X, y)
+        dataset = torch.utils.data.TensorDataset(X1, X2, y)
         loader = torch.utils.data.DataLoader(
             dataset, batch_size=batch_size, shuffle=True
         )
@@ -217,13 +221,12 @@ class ShaRP(nn.Module):
             self.train()
             total_loss = 0.0
 
-            for xb, yb in loader:
+            for x1b, x2b, yb in loader:
                 self.optimizer.zero_grad()
 
-                _, x_hat, logits, loss_kl = self.forward(xb)
-
+                _, x_hat, logits, loss_kl = self.forward(x1b, x2b)
                 loss_cls = self.class_loss(logits, yb)
-                loss_rec = self.recon_loss(x_hat, xb)
+                loss_rec = self.recon_loss(x_hat, x1b)
                 loss = loss_cls + 3.0*loss_rec + loss_kl
 
                 # ## for VERBOSE metrics

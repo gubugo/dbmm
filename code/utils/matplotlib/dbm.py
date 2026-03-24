@@ -1,18 +1,11 @@
-
-
-import math
 import string
 from typing import Union, Any
-from matplotlib import colors, pyplot as plt
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import numpy as np
 
 from sklearn.base import ClassifierMixin
-from sklearn.neural_network import MLPClassifier
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import minmax_scale
-
-import plotly.graph_objects as go
 
 from code.utils.scatterplot import plot_points_on_decision_map
 from code.utils.metrics import metric_distance_to_nearest_neighbor
@@ -23,7 +16,7 @@ import code.models.tensorflow.ssnp as ssnp
 import code.models.tensorflow.nninv as nninv
 
 def generate_dbm(
-    model: MLPClassifier,
+    model,
     nn_model: NearestNeighbors,
     inverter: Union[sharp.ShaRP, ssnp.SSNP, nninv.NNInv],
     data: np.ndarray,

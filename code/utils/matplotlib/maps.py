@@ -2,29 +2,24 @@
 
 import string
 from typing import Union, Any
-from matplotlib import colors, pyplot as plt
+from matplotlib import pyplot as plt
 import numpy as np
-from sklearn.base import ClassifierMixin
-from sklearn.neural_network import MLPClassifier
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import minmax_scale
 
-import plotly.graph_objects as go
-
 from code.utils.scatterplot import plot_points_on_decision_map
 from code.utils.metrics import metric_distance_to_nearest_neighbor
-from code.utils.utils import generate_map_w_scatterplots, make_grid, get_bounding_box
+from code.utils.utils import make_grid, get_bounding_box
 import code.models.tensorflow.sharp as sharp
 import code.models.tensorflow.ssnp as ssnp
 import code.models.tensorflow.nninv as nninv
 
 def generate_ccm(
-    model: MLPClassifier,
+    model,
     nn_model: NearestNeighbors,
     inverter: Union[sharp.ShaRP, ssnp.SSNP, nninv.NNInv],
     data: np.ndarray,
     grid_res: int,
-    # ax: Axes,
     pos1: float,
     pos2: float, 
     closest_tp: string,
@@ -70,7 +65,7 @@ def gen_and_save_ccm(
     X_2d: np.ndarray,
     y: np.ndarray,
     aug: np.ndarray,
-    clf: MLPClassifier,
+    clf,
     nn_model: NearestNeighbors,
     inverter: Union[sharp.ShaRP, ssnp.SSNP, nninv.NNInv],
     grid_res: int,
@@ -124,7 +119,7 @@ def gen_and_save_ccm(
     return fig, ret_values
 
 def generate_nnm(
-    clf: MLPClassifier,
+    clf,
     nn_model: NearestNeighbors,
     inverter: Union[sharp.ShaRP, ssnp.SSNP, nninv.NNInv],
     data: np.ndarray,
@@ -174,7 +169,7 @@ def gen_and_save_nnm(
     X_2d: np.ndarray,
     y: np.ndarray,
     aug: np.ndarray,
-    clf: MLPClassifier,
+    clf,
     nn_model: NearestNeighbors,
     inverter: Union[sharp.ShaRP, ssnp.SSNP, nninv.NNInv],
     grid_res: int,

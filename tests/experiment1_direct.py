@@ -18,8 +18,8 @@ from sklearn.preprocessing import LabelBinarizer
 from umap import UMAP
 from sklearn.manifold import Isomap
 
-# from code.models.tensorflow import sharp_og as sharp
-from code.models.pytorch import sharp
+from code.models.tensorflow import sharp_og as sharp
+# from code.models.pytorch import sharp
 from code.utils import metrics
 
 warnings.filterwarnings("ignore")
@@ -105,7 +105,7 @@ if __name__ == "__main__":
 
     epochs_dataset = {}
     epochs_dataset["fashionmnist"] = 10 * 2
-    epochs_dataset["mnist"] = 10 * 2
+    epochs_dataset["mnist"] = 10 * 5
     epochs_dataset["har"] = 10 * 2
     epochs_dataset["reuters"] = 10 * 2
     epochs_dataset["usps"] = 10 * 2
@@ -145,21 +145,23 @@ if __name__ == "__main__":
 
         epochs = epochs_dataset.get(dataset_name, 50)
 
-        sharp_gt = sharp.ShaRP(
-            X.shape[1],
-            2,
-            len(np.unique(y_train)),
-            "diagonal_normal",
-        )
         # sharp_gt = sharp.ShaRP(
         #     X.shape[1],
-        #     n_clusters,
+        #     2,
+        #     len(np.unique(y_train)),
         #     "diagonal_normal",
-        #     variational_layer_kwargs=dict(kl_weight=0.1),
-        #     bottleneck_activation="tanh",
-        #     bottleneck_l1=0.0,
-        #     bottleneck_l2=0.5,
         # )
+        sharp_gt = sharp.ShaRP(
+            X.shape[1],
+            n_clusters,
+            "diagonal_normal",
+            latent_dim=2,
+            variational_layer_kwargs=dict(kl_weight=0.05, kl_mu_weight=0),
+            var_leaky_relu_alpha=-0.0001,
+            bottleneck_activation="linear",
+            bottleneck_l1=0.0,
+            bottleneck_l2=0.1,
+        )
 
         sharp_gt.fit(
             X_train,
@@ -175,19 +177,19 @@ if __name__ == "__main__":
 
         D_sharp_gt = metrics.compute_distance_list(X_sharp_gt)
 
-        results.append(
-            (dataset_name, "ShaRP-GT")
-            + compute_all_metrics(
-                X_train,
-                X_sharp_gt,
-                D_high,
-                D_sharp_gt,
-                y_train,
-                X_inv_sharp_gt,
-                X_test,
-                X_inv_sharp_gt_test,
-            )
-        )
+        # results.append(
+        #     (dataset_name, "ShaRP-GT")
+        #     + compute_all_metrics(
+        #         X_train,
+        #         X_sharp_gt,
+        #         D_high,
+        #         D_sharp_gt,
+        #         y_train,
+        #         X_inv_sharp_gt,
+        #         X_test,
+        #         X_inv_sharp_gt_test,
+        #     )
+        # )
 
 
         for X_, label in zip(
@@ -202,24 +204,24 @@ if __name__ == "__main__":
             print(fname)
             plot(X_, y_train, fname)
 
-        df = pd.DataFrame(
-            results,
-            columns=[
-                "dataset_name",
-                "test_name",
-                "T_train",
-                "C_train",
-                "R_train",
-                "S_train",
-                "N_train",
-                "DSC_train",
-                "CC_train",
-                "MSE_train",
-                "MSE_test",
-            ],
-        )
+        # df = pd.DataFrame(
+        #     results,
+        #     columns=[
+        #         "dataset_name",
+        #         "test_name",
+        #         "T_train",
+        #         "C_train",
+        #         "R_train",
+        #         "S_train",
+        #         "N_train",
+        #         "DSC_train",
+        #         "CC_train",
+        #         "MSE_train",
+        #         "MSE_test",
+        #     ],
+        # )
 
-        df.to_csv(os.path.join(output_dir, "metrics.csv"), header=True, index=None)
+        # df.to_csv(os.path.join(output_dir, "metrics.csv"), header=True, index=None)
 
     # don't plot NNP
     font = ImageFont.truetype("/usr/share/fonts/dejavu/DejaVuSans.ttf", 50)

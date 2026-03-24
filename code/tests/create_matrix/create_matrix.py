@@ -19,9 +19,10 @@ import numpy as np
 
 # from MulticoreTSNE import MulticoreTSNE as TSNE
 # from umap import UMAP
-import code.models.tensorflow.sharp as sharp
-import code.models.tensorflow.ssnp as ssnp
-import code.models.tensorflow.nninv as nninv
+# import code.models.tensorflow.sharp as sharp
+import code.models.pytorch.sharp_4d as sharp
+import code.models.pytorch.ssnp as ssnp
+import code.models.pytorch.nninv as nninv
 
 tf.random.set_seed(420)
 
@@ -153,7 +154,7 @@ def plot_matrix_whole(classifier, inverter, neighbor_finder, x_data, y_data, noi
             dbm_saver.show_dbm(dbm, ax_main[j,i])
 
             # SCATTERPLOTS
-            # dbm_saver.show_dbm_scatterplot(dbm, x_data, cmap(y_data), grid_res, ax_scatter[j,i])
+            dbm_saver.show_dbm_scatterplot(dbm, x_data, cmap(y_data), grid_res, ax_scatter[j,i])
 
             # SCATTERPLOTS ALPHA
             # dbm_saver.show_dbm_local_scatterplot(dbm, inverted_grid, nd_data, x_data, cmap(y_data), grid_res, ax_scatteralpha[j,i])
@@ -189,7 +190,7 @@ def plot_matrix_whole(classifier, inverter, neighbor_finder, x_data, y_data, noi
     # fig_confdbm.savefig(f"results/cc_dbm/matrix.png", bbox_inches="tight", pad_inches=0.0)
     # fig_dntp.savefig(f"results/dntp/matrix.png", bbox_inches="tight", pad_inches=0.0)
     # fig_dntpdbm.savefig(f"results/dntp_dbm/matrix.png", bbox_inches="tight", pad_inches=0.0)
-    # fig_scatter.savefig(f"results/scatter/matrix.png", bbox_inches="tight", pad_inches=0.0)
+    fig_scatter.savefig(f"results/scatter/matrix.png", bbox_inches="tight", pad_inches=0.0)
     # fig_scatteraplha.savefig(f"results/scatterlocal/matrix.png", bbox_inches="tight", pad_inches=0.0)
     # fig_glob_dntpdbm.savefig(f"results/g_dntp_dbm/matrix.png", bbox_inches="tight", pad_inches=0.0)
     # fig_glob_dntp.savefig(f"results/g_dntp/matrix.png", bbox_inches="tight", pad_inches=0.0)
@@ -198,21 +199,21 @@ def plot_matrix_whole(classifier, inverter, neighbor_finder, x_data, y_data, noi
 
 if __name__ == "__main__":
 
-    gpus = tf.config.list_physical_devices('GPU')
-    print(gpus)
-    if gpus:
-    # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
-        try:
-            tf.config.set_logical_device_configuration(
-                gpus[0],
-                [tf.config.LogicalDeviceConfiguration(memory_limit=3072)])
-            logical_gpus = tf.config.list_logical_devices('GPU')
-            print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-        except RuntimeError as e:
-            # Virtual devices must be set before GPUs have been initialized
-            print(e)
+    # gpus = tf.config.list_physical_devices('GPU')
+    # print(gpus)
+    # if gpus:
+    # # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
+    #     try:
+    #         tf.config.set_logical_device_configuration(
+    #             gpus[0],
+    #             [tf.config.LogicalDeviceConfiguration(memory_limit=3072)])
+    #         logical_gpus = tf.config.list_logical_devices('GPU')
+    #         print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+    #     except RuntimeError as e:
+    #         # Virtual devices must be set before GPUs have been initialized
+    #         print(e)
 
-    output_dir = "weights"
+    output_dir = "weights/pytorch"
     model_name_ops = ["ssnp", "sharp", "nninv"]
     model_name = model_name_ops[1]
     
@@ -247,16 +248,24 @@ if __name__ == "__main__":
 
         results_nd, y_values, noise, results_2d, clf, inv_model, neighbor_finder = get_inv_proj_data_ae( #get_inv_proj_data_sharp(output_dir)
             output_dir, 
+            # sharp.ShaRP(
+            #     dims,
+            #     classes,
+            #     "diagonal_normal",
+            #     latent_dim= 2,
+            #     variational_layer_kwargs=dict(kl_weight=0.05, kl_mu_weight=0),
+            #     var_leaky_relu_alpha=-0.0001,
+            #     bottleneck_activation="linear",
+            #     bottleneck_l1=0.0,
+            #     bottleneck_l2=0.1,
+            # ),
             sharp.ShaRP(
                 dims,
+                2,
                 classes,
                 "diagonal_normal",
-                latent_dim= 2,
-                variational_layer_kwargs=dict(kl_weight=0.05, kl_mu_weight=0),
-                var_leaky_relu_alpha=-0.0001,
                 bottleneck_activation="linear",
-                bottleneck_l1=0.0,
-                bottleneck_l2=0.1,
+                variational_layer_kwargs=dict(kl_weight=0.05, kl_mu_weight=0),
             ),
             dataset,
             model_name,
@@ -305,5 +314,5 @@ if __name__ == "__main__":
 
     txt = f"({np.round(matrix_origin[0],np.uint8(format_step[0]))}_{np.round(matrix_origin[1],np.uint8(format_step[1]))})_({np.round(matrix_step[0],np.uint8(format_step[0]))}_{np.round(matrix_step[1],np.uint8(format_step[1]))})"
     
-    fig = plot_matrix_separated(clf, inv_model, neighbor_finder, results_2d, y_values, noise, results_nd, grid_res, matrix_size, matrix_origin, matrix_step, format_step, figname=f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}")
+    fig = plot_matrix_whole(clf, inv_model, neighbor_finder, results_2d, y_values, noise, results_nd, grid_res, matrix_size, matrix_origin, matrix_step, format_step, figname=f"./matrices/matrices_{model_name}_{method}_{grid_res}_{matrix_size}_{txt}")
   

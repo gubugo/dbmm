@@ -1,14 +1,9 @@
-
-
-import math
 import string
 from typing import Union, Any
-from matplotlib import colors, pyplot as plt
 import numpy as np
 from PIL import Image
 
 from sklearn.base import ClassifierMixin
-from sklearn.neural_network import MLPClassifier
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import minmax_scale
 
@@ -22,7 +17,7 @@ import code.models.tensorflow.ssnp as ssnp
 import code.models.tensorflow.nninv as nninv
 
 def generate_dbm(
-    model: MLPClassifier,
+    model,
     nn_model: NearestNeighbors,
     inverter: Union[sharp.ShaRP, ssnp.SSNP, nninv.NNInv],
     data: np.ndarray,

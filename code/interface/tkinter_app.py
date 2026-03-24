@@ -1,5 +1,3 @@
-import os
-import threading
 import tkinter as tk
 from tkinter import ttk
 
@@ -9,23 +7,14 @@ from matplotlib import pyplot as plt
 matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
                                                NavigationToolbar2Tk)
-from matplotlib.figure import Figure
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.neighbors import NearestNeighbors
-from sklearn.preprocessing import minmax_scale
 
 from code.models.tensorflow import sharp
-from code.models.classifiers.MLP import load_or_fit_mlp_classifier
-from code.training.auto_encoders import load_or_fit_model_ae
-from code.training.inv_proj import load_or_fit_model_inv_proj
-from code.utils.augmentations import get_augmentation_pca
 from code.utils.data import get_dimensions_and_class, get_inv_proj_data_ae
-from code.utils.matplotlib.dbm import gen_and_save_dbm, plot_generated_images_grid_with_dbm
-from code.utils.matplotlib.dbm_matrix import gen_and_save_dbm_matrix
+from code.utils.matplotlib.dbm import gen_and_save_dbm
 from code.utils.matplotlib.maps import gen_and_save_ccm, gen_and_save_nnm
 from code.utils.metrics import metric_distance_to_nearest_neighbor
-from code.utils.utils import get_bounding_box, make_grid, make_titles, plotly_to_image_tk
+from code.utils.utils import get_bounding_box, make_grid
 
 from plotly.subplots import make_subplots
 
