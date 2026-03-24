@@ -101,6 +101,14 @@ class SSNP(nn.Module):
         x_hat = self.decoder_out(h)
         logits = self.classifier(h)
         return z, x_hat, logits
+    
+    def forward_4d(self, x1, x2):
+        z = self.encoder(x1)
+        z_ = torch.cat((z,x2), dim=0)
+        h = self.decoder_hidden(z_)
+        x_hat = self.decoder_out(h)
+        logits = self.classifier(h)
+        return z, x_hat, logits
 
     # ==========================================================
     # training
@@ -127,6 +135,45 @@ class SSNP(nn.Module):
                 _, x_hat, logits = self.forward(xb)
                 loss_cls = self.class_loss(logits, yb)
                 loss_rec = self.recon_loss(x_hat, xb)
+                loss = loss_cls + loss_rec
+
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+
+                total_loss += loss.item()
+
+            if self.verbose:
+                print(
+                    f"epoch {epoch+1:03d} | loss = {total_loss/len(loader):.6f}"
+                )
+
+        self.is_fitted = True
+
+    def fit_4d(
+        self, 
+        X1, 
+        X2,
+        y, 
+        epochs=10, 
+        batch_size=256
+    ):
+        X1 = torch.tensor(X1, dtype=torch.float32).to(self.device)
+        X2 = torch.tensor(X2, dtype=torch.float32).to(self.device)
+        y = torch.tensor(y, dtype=torch.long).to(self.device)
+
+        dataset = torch.utils.data.TensorDataset(X1, X2, y)
+        loader = torch.utils.data.DataLoader(
+            dataset, batch_size=batch_size, shuffle=True
+        )
+
+        for epoch in range(epochs):
+            total_loss = 0.0
+
+            for x1b, x2b, yb in loader:
+                _, x_hat, logits = self.forward_4d(x1b, x2b)
+                loss_cls = self.class_loss(logits, yb)
+                loss_rec = self.recon_loss(x_hat, x1b)
                 loss = loss_cls + loss_rec
 
                 self.optimizer.zero_grad()
