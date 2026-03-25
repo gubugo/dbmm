@@ -134,7 +134,7 @@ def plot_matrix_whole(classifier, inverter, neighbor_finder, x_data, y_data, noi
     fig_scatter, ax_scatter = plt.subplots(matrix_side_size, matrix_side_size,gridspec_kw={'wspace': 0.0, 'hspace': 0.0},figsize=(10, 10))
     fig_scatteraplha, ax_scatteralpha = plt.subplots(matrix_side_size, matrix_side_size,gridspec_kw={'wspace': 0.0, 'hspace': 0.0},figsize=(10, 10))
 
-    fig, ax = plt.subplots(1, 1,gridspec_kw={'wspace': 0.0, 'hspace': 0.0},figsize=(10, 10))
+    # fig, ax = plt.subplots(1, 1,gridspec_kw={'wspace': 0.0, 'hspace': 0.0},figsize=(10, 10))
 
     # center_coord = matrix_origin + step*np.array(matrix_side_size//2)
     bounding_box = get_bounding_box(x_data)
@@ -149,8 +149,8 @@ def plot_matrix_whole(classifier, inverter, neighbor_finder, x_data, y_data, noi
             grid = make_grid(*bounding_box, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], grid_res)
             inverted_grid = inverter.inverse_transform(grid)
 
-            ax.imshow(inverted_grid[0].reshape((28,28)), cmap="gray")
-            fig.savefig(f"Test{i}{j}.png")
+            # ax.imshow(inverted_grid[0].reshape((28,28)), cmap="gray")
+            # fig.savefig(f"Test{i}{j}.png")
             classes = classifier.predict(inverted_grid).astype(np.uint8)
 
             cmapped[matrix_side_size*i+j] = cmap(classes)
@@ -228,6 +228,9 @@ if __name__ == "__main__":
 
     method_ops = ["latent_space", "noise"]
     method = method_ops[1] 
+
+    classifier_names = ["mlp", "svc, random_forest", "nb_gaussian"]
+    classifier_name = "mlp"
     
     grid_res_ops = [100, 150, 200, 300, 500]
     grid_res = 100#grid_res_ops[3]
@@ -275,6 +278,7 @@ if __name__ == "__main__":
             ),
             dataset,
             model_name,
+            classifier_name,
             "noise",
             epochs
         )

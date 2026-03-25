@@ -9,7 +9,9 @@ from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
                                                NavigationToolbar2Tk)
 import numpy as np
 
-from code.models.tensorflow import sharp
+# from code.models.tensorflow import sharp
+from code.models.pytorch import sharp_4d as sharp
+
 from code.utils.data import get_dimensions_and_class, get_inv_proj_data_ae
 from code.utils.matplotlib.dbm import gen_and_save_dbm
 from code.utils.matplotlib.maps import gen_and_save_ccm, gen_and_save_nnm
@@ -121,14 +123,20 @@ class App(tk.Tk):
         combobox1.grid(row=1, column=0, sticky="ew", pady=(0,8))
         combobox1.bind("<<ComboboxSelected>>", self._combobox_wrap)
 
-        ttk.Separator(sb).grid(row=2, column=0, sticky="ew", pady=8)
+        ttk.Label(sb, text="Classifier").grid(row=2, column=0, sticky="w")
+        self.clf_name = tk.StringVar(value="mlp")
+        combobox2 = ttk.Combobox(sb, textvariable=self.clf_name, state="readonly", values=["mlp", "svc", "random_forest", "nb_gaussian"])
+        combobox2.grid(row=3, column=0, sticky="ew", pady=(0,8))
+        combobox2.bind("<<ComboboxSelected>>", self._combobox_wrap)
+
+        ttk.Separator(sb).grid(row=4, column=0, sticky="ew", pady=8)
 
         self.x_v = LabeledScale(sb, label_text="x", from_value=-1.0, to_value=1.0, orient="horizontal", value=0.0, command=self.gen_dbm)
-        self.x_v.grid(row=3, column=0, sticky="ew")
+        self.x_v.grid(row=5, column=0, sticky="ew")
         self.y_v = LabeledScale(sb, label_text="y", from_value=-1.0, to_value=1.0, orient="horizontal", value=0.0, command=self.gen_dbm)
-        self.y_v.grid(row=4, column=0, sticky="ew")
+        self.y_v.grid(row=6, column=0, sticky="ew")
 
-        ttk.Separator(sb).grid(row=5, column=0, sticky="ew", pady=8)
+        ttk.Separator(sb).grid(row=7, column=0, sticky="ew", pady=8)
 
         style = ttk.Style()
         style.map("Toggle.TCheckbutton",
@@ -138,38 +146,38 @@ class App(tk.Tk):
         self.toggle_button = ttk.Checkbutton(sb,text="Images Ontop",
                                 variable=self.images,
                                 command=self.gen_dbm,
-                                style="Toggle.TCheckbutton").grid(row=7, column=0, sticky="w")
+                                style="Toggle.TCheckbutton").grid(row=8, column=0, sticky="w")
 
-        ttk.Separator(sb).grid(row=8, column=0, sticky="ew", pady=8)
+        ttk.Separator(sb).grid(row=9, column=0, sticky="ew", pady=8)
 
-        ttk.Label(sb, text="Scatterplots").grid(row=9, column=0, sticky="w")
+        ttk.Label(sb, text="Scatterplots").grid(row=10, column=0, sticky="w")
         self.scatter = tk.StringVar(value="Off")
         for i, lab in enumerate(["Off", "On", "Locally"]):
             ttk.Radiobutton(sb, text=lab, value=lab, variable=self.scatter, command=self.gen_dbm
-                            ).grid(row=10+i, column=0, sticky="w")
+                            ).grid(row=11+i, column=0, sticky="w")
 
-        ttk.Separator(sb).grid(row=13, column=0, sticky="ew", pady=8)
+        ttk.Separator(sb).grid(row=14, column=0, sticky="ew", pady=8)
 
-        ttk.Label(sb, text="Nearest Training Point").grid(row=14, column=0, sticky="w")
+        ttk.Label(sb, text="Nearest Training Point").grid(row=15, column=0, sticky="w")
         self.closest_tp = tk.StringVar(value="Off")
         for i, lab in enumerate(["Off", "On", "Exclusive"]):
             ttk.Radiobutton(sb, text=lab, value=lab, variable=self.closest_tp, command=self._closest_training_point_wrap
-                            ).grid(row=15+i, column=0, sticky="w")
+                            ).grid(row=16+i, column=0, sticky="w")
 
-        ttk.Separator(sb).grid(row=18, column=0, sticky="ew", pady=8)
+        ttk.Separator(sb).grid(row=19, column=0, sticky="ew", pady=8)
 
-        ttk.Label(sb, text="Classifier Confidence").grid(row=19, column=0, sticky="w")
+        ttk.Label(sb, text="Classifier Confidence").grid(row=20, column=0, sticky="w")
         self.class_conf = tk.StringVar(value="Off")
         for i, lab in enumerate(["Off", "On", "Exclusive"]):
             ttk.Radiobutton(sb, text=lab, value=lab, variable=self.class_conf, command=self._classifier_confidence_wrap
-                            ).grid(row=20+i, column=0, sticky="w")
+                            ).grid(row=21+i, column=0, sticky="w")
 
-        ttk.Separator(sb).grid(row=23, column=0, sticky="ew", pady=8)
+        ttk.Separator(sb).grid(row=24, column=0, sticky="ew", pady=8)
 
-        ttk.Label(sb, text="DBM Grid Resolution").grid(row=24, column=0, sticky="w")
+        ttk.Label(sb, text="DBM Grid Resolution").grid(row=25, column=0, sticky="w")
         self.resolution = tk.StringVar(value=50)
         combobox2 = ttk.Combobox(sb, textvariable=self.resolution, state="readonly", values=[50, 100, 150, 200, 300])
-        combobox2.grid(row=25, column=0, sticky="ew", pady=(0,8))
+        combobox2.grid(row=26, column=0, sticky="ew", pady=(0,8))
         combobox2.bind("<<ComboboxSelected>>", self._combobox_wrap)
 
     def _matrix_interface_construct(self):
@@ -309,7 +317,7 @@ class App(tk.Tk):
         print(self.dataset.get())
         print(self.matrix_dataset)
 
-        if (not self.data_loaded) or self.matrix_dataset != self.dataset.get():
+        if (not self.data_loaded) or self.matrix_dataset != self.dataset.get() or self.matrix_clf != self.clf_name.get():
             print("Here")
             self.compute_projection()
         self.update_plots()
@@ -417,9 +425,11 @@ class App(tk.Tk):
     
     def compute_projection(self):
 
-        output_dir = "weights"
+        output_dir = "weights/pytorch"
         dataset_name = self.dataset.get()
+        clf_name = self.clf_name.get()
         self.matrix_dataset = dataset_name
+        self.matrix_clf = clf_name
         self.generate_matrix = True
         model_name = "sharp"
         method = "noise"
@@ -429,16 +439,24 @@ class App(tk.Tk):
         dims, classes = get_dimensions_and_class(dataset_name)
 
         # Build a default ShaRP model as in the code (with latent_dim=2 etc.)
+        # sharp_model = sharp.ShaRP(
+        #     dims,
+        #     classes,
+        #     "diagonal_normal",
+        #     latent_dim=2,
+        #     variational_layer_kwargs=dict(kl_weight=0.05, kl_mu_weight=0),
+        #     var_leaky_relu_alpha=-0.0001,
+        #     bottleneck_activation="linear",
+        #     bottleneck_l1=0.0,
+        #     bottleneck_l2=0.1,
+        # )
         sharp_model = sharp.ShaRP(
             dims,
+            2,
             classes,
             "diagonal_normal",
-            latent_dim=2,
-            variational_layer_kwargs=dict(kl_weight=0.05, kl_mu_weight=0),
-            var_leaky_relu_alpha=-0.0001,
             bottleneck_activation="linear",
-            bottleneck_l1=0.0,
-            bottleneck_l2=0.1,
+            variational_layer_kwargs=dict(kl_weight=0.05, kl_mu_weight=0),
         )
 
         _, self.labels, self.augmentation_values, self.results_2d, self.clf, self.inv_model, self.nn_model = get_inv_proj_data_ae(
@@ -446,6 +464,7 @@ class App(tk.Tk):
             sharp_model,
             dataset_name,
             model_name,
+            clf_name,
             method,
             epochs
         )

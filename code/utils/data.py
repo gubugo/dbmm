@@ -85,7 +85,7 @@ def get_inv_proj_data_nninv(output_dir, _inv_model, dataset_name, model_name, me
     return X_test, y_test, noise_test, X_proj, clf, _inv_model, neighbor_finder
 
 
-def get_inv_proj_data_ae(output_dir, _model, dataset_name, model_name, method, epochs):
+def get_inv_proj_data_ae(output_dir, _model, dataset_name, model_name, clf_name, method, epochs):
     data_dir = "./data/"
 
     X, y = Load_data(data_dir, dataset_name)
@@ -95,7 +95,7 @@ def get_inv_proj_data_ae(output_dir, _model, dataset_name, model_name, method, e
     neighbor_finder = get_nn_model(X, 5)
 
     X_proj, _model = load_or_fit_model_ae(X_train, y_train, noise_train, X_test, output_dir, _model, dataset_name, model_name, method, epochs)
-    clf = load_or_fit_classifier(X_train, y_train, "random_forest", f'{output_dir}/{dataset_name}')
+    clf = load_or_fit_classifier(X_train, y_train, clf_name, f'{output_dir}/{dataset_name}')
 
     # plot(_model.transform(X_train), y_train, f"sharp_{dataset_name}.png") # DEBUG
 
