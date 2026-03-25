@@ -95,7 +95,7 @@ def get_inv_proj_data_ae(output_dir, _model, dataset_name, model_name, method, e
     neighbor_finder = get_nn_model(X, 5)
 
     X_proj, _model = load_or_fit_model_ae(X_train, y_train, noise_train, X_test, output_dir, _model, dataset_name, model_name, method, epochs)
-    clf = load_or_fit_classifier(X_train, y_train, "mlp", f'{output_dir}/{dataset_name}')
+    clf = load_or_fit_classifier(X_train, y_train, "random_forest", f'{output_dir}/{dataset_name}')
 
     # plot(_model.transform(X_train), y_train, f"sharp_{dataset_name}.png") # DEBUG
 

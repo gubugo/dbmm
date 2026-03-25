@@ -290,3 +290,4 @@ class ShaRP(nn.Module):
     def load_weights(self, path):
         self.load_state_dict(torch.load(path, map_location=self.device))
         self.is_fitted = True
+        self.eval()

@@ -8,6 +8,7 @@ import tensorflow as tf
 
 from code.tests.create_matrix import save_dbm_matrix
 from code.utils.data import get_inv_proj_data_ae, get_inv_proj_data_nninv
+from code.utils.utils import plot
 
 warnings.filterwarnings("ignore")
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
@@ -133,6 +134,8 @@ def plot_matrix_whole(classifier, inverter, neighbor_finder, x_data, y_data, noi
     fig_scatter, ax_scatter = plt.subplots(matrix_side_size, matrix_side_size,gridspec_kw={'wspace': 0.0, 'hspace': 0.0},figsize=(10, 10))
     fig_scatteraplha, ax_scatteralpha = plt.subplots(matrix_side_size, matrix_side_size,gridspec_kw={'wspace': 0.0, 'hspace': 0.0},figsize=(10, 10))
 
+    fig, ax = plt.subplots(1, 1,gridspec_kw={'wspace': 0.0, 'hspace': 0.0},figsize=(10, 10))
+
     # center_coord = matrix_origin + step*np.array(matrix_side_size//2)
     bounding_box = get_bounding_box(x_data)
 
@@ -145,6 +148,9 @@ def plot_matrix_whole(classifier, inverter, neighbor_finder, x_data, y_data, noi
         for j in range(matrix_side_size):
             grid = make_grid(*bounding_box, matrix_origin[0]+i*step[0], matrix_origin[1]+j*step[1], grid_res)
             inverted_grid = inverter.inverse_transform(grid)
+
+            ax.imshow(inverted_grid[0].reshape((28,28)), cmap="gray")
+            fig.savefig(f"Test{i}{j}.png")
             classes = classifier.predict(inverted_grid).astype(np.uint8)
 
             cmapped[matrix_side_size*i+j] = cmap(classes)
