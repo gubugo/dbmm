@@ -131,10 +131,10 @@ class App(tk.Tk):
 
         ttk.Separator(sb).grid(row=4, column=0, sticky="ew", pady=8)
 
-        self.x_v = LabeledScale(sb, label_text="x", from_value=-1.0, to_value=1.0, orient="horizontal", value=0.0, command=self.gen_dbm)
-        self.x_v.grid(row=5, column=0, sticky="ew")
-        self.y_v = LabeledScale(sb, label_text="y", from_value=-1.0, to_value=1.0, orient="horizontal", value=0.0, command=self.gen_dbm)
-        self.y_v.grid(row=6, column=0, sticky="ew")
+        self.i_v = LabeledScale(sb, label_text="i", from_value=-1.0, to_value=1.0, orient="horizontal", value=0.0, command=self.gen_dbm)
+        self.i_v.grid(row=5, column=0, sticky="ew")
+        self.j_v = LabeledScale(sb, label_text="j", from_value=-1.0, to_value=1.0, orient="horizontal", value=0.0, command=self.gen_dbm)
+        self.j_v.grid(row=6, column=0, sticky="ew")
 
         ttk.Separator(sb).grid(row=7, column=0, sticky="ew", pady=8)
 
@@ -307,8 +307,8 @@ class App(tk.Tk):
         print(" ")
         print("test")
         # print(v)
-        print(self.x_v.get())
-        print(self.y_v.get())
+        print(self.i_v.get())
+        print(self.j_v.get())
         print(self.resolution.get())
         print(self.class_conf.get())
         print(self.closest_tp.get())
@@ -319,6 +319,7 @@ class App(tk.Tk):
 
         if (not self.data_loaded) or self.matrix_dataset != self.dataset.get() or self.matrix_clf != self.clf_name.get():
             print("Here")
+            self.generate_matrix = True
             self.compute_projection()
         self.update_plots()
 
@@ -335,7 +336,7 @@ class App(tk.Tk):
             
             x = bounding_box[0]+(bounding_box[1]-bounding_box[0])*(int(event.xdata+0.5))/grid_res
             y = bounding_box[2]+(bounding_box[3]-bounding_box[2])*(int(event.ydata+0.5))/grid_res
-            point_4d = np.reshape(np.array([x,y,float(self.x_v.get()),float(self.y_v.get())]),(1,4))
+            point_4d = np.reshape(np.array([x,y,float(self.i_v.get()),float(self.j_v.get())]),(1,4))
             img_1d = self.inv_model.inverse_transform(point_4d)
             img = np.reshape(img_1d,(28, 28))
             img = np.stack([img, img, img, np.ones(np.shape(img))], axis=-1)
@@ -363,8 +364,8 @@ class App(tk.Tk):
 
             # AXES
             # dbm_coords_collumn = np.column_stack([np.full(9, x), np.full(9, y)])
-            # mdbm_x_coords_collumn = np.column_stack([np.full(9, self.x_v.get())])
-            # mdbm_y_coords_collumn = np.column_stack([np.full(9, self.y_v.get())])
+            # mdbm_x_coords_collumn = np.column_stack([np.full(9, self.i_v.get())])
+            # mdbm_y_coords_collumn = np.column_stack([np.full(9, self.j_v.get())])
             # extra_coords_collumn = np.linspace(-1, 1, 9).reshape((9,1))
 
             # grid_points_x = np.hstack([dbm_coords_collumn, extra_coords_collumn, mdbm_y_coords_collumn])
@@ -430,7 +431,6 @@ class App(tk.Tk):
         clf_name = self.clf_name.get()
         self.matrix_dataset = dataset_name
         self.matrix_clf = clf_name
-        self.generate_matrix = True
         model_name = "sharp"
         method = "noise"
         epochs = 10
@@ -481,11 +481,12 @@ class App(tk.Tk):
         grid_res = int(self.resolution.get())
         if self.generate_matrix:
             self.matrix_ax = self.get_matrix_fig(self.results_2d, self.clf, self.inv_model, grid_res, start, step, size, self.matrix_ax)
+            self.matrix_canvas.draw()
             self.generate_matrix = False
 
         # Right figure (neighbors/confidence)
-        x = float(self.x_v.get())
-        y = float(self.y_v.get())
+        x = float(self.i_v.get())
+        y = float(self.j_v.get())
         scatter = self.scatter.get()
         class_conf = self.class_conf.get()
         closest_tp = self.closest_tp.get()
