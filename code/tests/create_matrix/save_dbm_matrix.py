@@ -13,7 +13,8 @@ def alpha_function(x):
     return (1/(1+np.exp(3*x-17)))**4
 
 class dbm_saver():
-    def __init__(self):
+    def __init__(self, dbm_size):
+        self.dbm_size = dbm_size
         self.confidence = []
         self.dntp_map = []
         self.dntp_matrix = []
@@ -23,26 +24,25 @@ class dbm_saver():
         self.dntp_map = []
         self.dntp_matrix = []
 
-    def show_single_dbm(self, dbm, ax):
+    def show_single_dbm(self, dbm, ax, i, j):
         ax.imshow(
             dbm,
             origin="lower",
             interpolation="none",
             resample=False,
+            extent=[i*self.dbm_size,(i+1)*self.dbm_size,j*self.dbm_size,(j+1)*self.dbm_size]
         )
-        ax.set_xticklabels([])
-        ax.set_yticklabels([])
-        ax.axis("off") 
+        ax.axis("off")
 
-    def show_dbm(self, dbm, ax):
-        self.show_single_dbm(dbm, ax)
+    def show_dbm(self, dbm, ax, i, j):
+        self.show_single_dbm(dbm, ax, i, j)
 
-    def show_dbm_scatterplot(self, dbm, x, y, grid_res, ax):
-        self.show_single_dbm(dbm, ax)
-        plot_decision_map_with_points(x, y, grid_res, ax)
+    def show_dbm_scatterplot(self, dbm, x, y, ax, i, j):
+        self.show_single_dbm(dbm, ax, i, j)
+        plot_decision_map_with_points(x, y, self.dbm_size, ax)
 
-    def show_dbm_local_scatterplot(self, dbm, inverted_grid, nd_data, x, y, grid_res, ax):
-        self.show_single_dbm(dbm, ax)
+    def show_dbm_local_scatterplot(self, dbm, inverted_grid, nd_data, x, y, ax, i, j):
+        self.show_single_dbm(dbm, ax, i, j)
 
         invp_grid_neighbor_finder = NearestNeighbors(
             n_neighbors=5
@@ -54,9 +54,9 @@ class dbm_saver():
         for index, value in enumerate(values):
             alpha[index] = alpha_function(value)
 
-        plot_decision_map_with_points_relative(x, y, alpha, grid_res, ax)
+        plot_decision_map_with_points_relative(x, y, alpha, ax)
 
-    def show_class_confidence_map(self, classifier, inverted_grid, grid_res, ax):
+    def show_class_confidence_map(self, classifier, inverted_grid, ax, i, j):
         if len(self.confidence) == 0:
             res = classifier.predict_proba(inverted_grid)
             
@@ -67,11 +67,11 @@ class dbm_saver():
 
             self.confidence = confidence
 
-        self.show_single_dbm(viridis_cmap(self.confidence).reshape((grid_res, grid_res, 4)), ax)
+        self.show_single_dbm(viridis_cmap(self.confidence).reshape((self.dbm_size, self.dbm_size, 4)), ax, i, j)
 
 
-    def show_class_confidence_dbm(self, dbm, classifier, inverted_grid, grid_res, ax):
-        conf_dbm = np.zeros((grid_res,grid_res,4))
+    def show_class_confidence_dbm(self, dbm, classifier, inverted_grid, ax, i, j):
+        conf_dbm = np.zeros((self.dbm_size,self.dbm_size,4))
         
         if len(self.confidence) == 0:
             res = classifier.predict_proba(inverted_grid)
@@ -83,43 +83,43 @@ class dbm_saver():
 
             self.confidence = confidence
 
-        confidence = self.confidence.reshape(grid_res,grid_res)
+        confidence = self.confidence.reshape(self.dbm_size,self.dbm_size)
         conf_dbm[:,:,0] = dbm[:,:,0]*confidence
         conf_dbm[:,:,1] = dbm[:,:,1]*confidence
         conf_dbm[:,:,2] = dbm[:,:,2]*confidence
         conf_dbm[:,:,3] = dbm[:,:,3]
 
-        self.show_single_dbm(conf_dbm, ax)
+        self.show_single_dbm(conf_dbm, ax, i, j)
 
-    def show_distance_to_nearest_training_point_map(self, neighbor_finder, inverted_grid, grid_res, ax):
+    def show_distance_to_nearest_training_point_map(self, neighbor_finder, inverted_grid, ax, i, j):
         if len(self.dntp_map) == 0:
             self.dntp_map = metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
         minmaxed_dntp = 1.0-minmax_scale(self.dntp_map)
 
-        self.show_single_dbm(viridis_cmap(minmaxed_dntp).reshape((grid_res, grid_res, 4)), ax)
+        self.show_single_dbm(viridis_cmap(minmaxed_dntp).reshape((self.dbm_size, self.dbm_size, 4)), ax, i, j)
 
-    def show_distance_to_nearest_training_point_dbm(self, dbm, neighbor_finder, inverted_grid, grid_res, ax):
-        ntp_dbm = np.zeros((grid_res,grid_res,4))
+    def show_distance_to_nearest_training_point_dbm(self, dbm, neighbor_finder, inverted_grid, ax, i, j):
+        ntp_dbm = np.zeros((self.dbm_size,self.dbm_size,4))
         if len(self.dntp_map) == 0:
             self.dntp_map = metric_distance_to_nearest_neighbor(inverted_grid, neighbor_finder)
         minmaxed_dntp = 1.0-minmax_scale(self.dntp_map)
 
-        minmaxed_dntp = minmaxed_dntp.reshape(grid_res,grid_res)
+        minmaxed_dntp = minmaxed_dntp.reshape(self.dbm_size,self.dbm_size)
         ntp_dbm[:,:,0] = dbm[:,:,0]*(minmaxed_dntp)
         ntp_dbm[:,:,1] = dbm[:,:,1]*(minmaxed_dntp)
         ntp_dbm[:,:,2] = dbm[:,:,2]*(minmaxed_dntp)
         ntp_dbm[:,:,3] = dbm[:,:,3]
 
-        self.show_single_dbm(ntp_dbm, ax)
+        self.show_single_dbm(ntp_dbm, ax, i, j)
 
-    def show_global_distance_to_nearest_training_point_map(self, dntp_matrix_tobe_scaled, matrix_coord, grid_res, ax):
+    def show_global_distance_to_nearest_training_point_map(self, dntp_matrix_tobe_scaled, matrix_coord, ax, i, j):
         if len(self.dntp_matrix) == 0:
             self.dntp_matrix = 1.0-minmax_scale(dntp_matrix_tobe_scaled)
         viridis_cmapped = viridis_cmap(self.dntp_matrix)
 
-        self.show_single_dbm(viridis_cmapped[matrix_coord].reshape((grid_res, grid_res, 4)), ax)
+        self.show_single_dbm(viridis_cmapped[matrix_coord].reshape((self.dbm_size, self.dbm_size, 4)), ax, i, j)
 
-    def show_global_distance_to_nearest_training_point_dbm(self,dbm_matrix, dntp_matrix_tobe_scaled, matrix_coord, grid_res, ax):
+    def show_global_distance_to_nearest_training_point_dbm(self,dbm_matrix, dntp_matrix_tobe_scaled, matrix_coord, ax, i, j):
         if len(self.dntp_matrix) == 0:
             self.dntp_matrix = 1.0-minmax_scale(dntp_matrix_tobe_scaled)
 
@@ -128,5 +128,5 @@ class dbm_saver():
         dbm_matrix[matrix_coord,:,2] = dbm_matrix[matrix_coord,:,2]*self.dntp_matrix[matrix_coord]
         dbm_matrix[matrix_coord,:,3] = dbm_matrix[matrix_coord,:,3]
 
-        self.show_single_dbm(dbm_matrix[matrix_coord].reshape((grid_res, grid_res, 4)), ax)
+        self.show_single_dbm(dbm_matrix[matrix_coord].reshape((self.dbm_size, self.dbm_size, 4)), ax, i, j)
 
