@@ -364,11 +364,11 @@ class ShaRP(tfk.Model):
     def encode(self, inputs):
         return self.fwd.predict(inputs)
 
-    def transform(self, inputs):
-        return self.fwd.predict(inputs)
+    def transform(self, inputs, verbose=True):
+        return self.fwd.predict(inputs, verbose)
 
-    def inverse_transform(self, inputs):
-        return self.inv.predict(inputs, batch_size=4096)
+    def inverse_transform(self, inputs, verbose=True):
+        return self.inv.predict(inputs, batch_size=4096, verbose=verbose)
 
     def log_var_embedding(self, inputs):
         return self.log_var_model.predict(inputs)

@@ -7,7 +7,7 @@ import warnings
 import tensorflow as tf
 
 from code.tests.create_matrix import save_dbm_matrix
-from code.utils.data import get_inv_proj_data_ae, get_inv_proj_data_ae_4d, get_inv_proj_data_nninv
+from code.utils.data import get_inv_proj_data_ae, get_inv_proj_data_nninv
 from code.utils.utils import plot
 
 warnings.filterwarnings("ignore")
@@ -20,7 +20,7 @@ import numpy as np
 
 # from MulticoreTSNE import MulticoreTSNE as TSNE
 # from umap import UMAP
-import code.models.tensorflow.sharp_og as sharp
+import code.models.tensorflow.sharp as sharp
 # import code.models.pytorch.sharp_4d as sharp
 import code.models.pytorch.ssnp as ssnp
 import code.models.pytorch.nninv as nninv
@@ -244,7 +244,7 @@ if __name__ == "__main__":
     #         # Virtual devices must be set before GPUs have been initialized
     #         print(e)
 
-    output_dir = "weights/4d"
+    output_dir = "weights"#/pytorch"
     model_name_ops = ["ssnp", "sharp", "nninv"]
     model_name = model_name_ops[1]
     
@@ -280,13 +280,13 @@ if __name__ == "__main__":
         dims = sharp_dims_classes[dataset][0]
         classes = sharp_dims_classes[dataset][1]
 
-        results_nd, y_values, noise, results_2d, clf, inv_model, neighbor_finder = get_inv_proj_data_ae_4d( #get_inv_proj_data_sharp(output_dir)
+        results_nd, y_values, noise, results_2d, clf, inv_model, neighbor_finder = get_inv_proj_data_ae( #get_inv_proj_data_sharp(output_dir)
             output_dir, 
             sharp.ShaRP(
                 dims,
                 classes,
                 "diagonal_normal",
-                latent_dim=2,
+                latent_dim=4,
                 variational_layer_kwargs=dict(kl_weight=0.05, kl_mu_weight=0),
                 var_leaky_relu_alpha=-0.0001,
                 bottleneck_activation="linear",

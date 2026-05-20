@@ -16,16 +16,17 @@ from sklearn.preprocessing import minmax_scale
 import tensorflow as tf
 from joblib import Parallel, delayed
 
-import interface.models.sharp as sharp
-import interface.models.sharp_og as sharp_og
-import interface.models.nninv as nninv
+import code.models.tensorflow.sharp as sharp
+import code.models.tensorflow.sharp_og as sharp_og
+import code.models.tensorflow.nninv as nninv
+from code.utils.data import get_inv_proj_data_nninv, get_inv_proj_data_ae
 import faiss 
 import copy
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1' 
 # faiss.omp_set_num_threads(8)  # Set to the number of CPU cores you have
 gpu_res = faiss.StandardGpuResources()  # Initialize GPU resources
-gpu_res.setTempMemory(2*301*301*784)
+gpu_res.setTempMemory(2*61*61*784)
 
 def compute_knn_indices(X, k):
     n_samples = X.shape[0]
@@ -45,8 +46,8 @@ def compute_knn_indices_single(X, k, index):
     if k >= n_samples:
         k = n_samples - 1
         print(f"[warning] k ajustado para {k} pois era >= n_samples")
-
-    search = faiss.IndexFlatL2(784)   # build the inde
+    
+    search = faiss.IndexFlatL2(X.shape[1])   # build the inde
     # search = faiss.IndexIVFFlat(quantizer, n_dims, 32) 
 
     search = faiss.index_cpu_to_gpu(gpu_res, 0, search)  # Move index to GPU (GPU 0)
@@ -208,72 +209,58 @@ def numerical_id(inverter, nd_data, x_data, y_data, noise):
 
 def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
 
-    grid_res = 100
+    n_dimensions = nd_data.shape[1]
+    grid_res = 60
+    n_pieces = 5 # true grid res = n_pieces * grid_res
+    padding = 0.1
+    padded_grid_space = np.int16(np.round(padding*grid_res))
     k = 120
-    pixel_width = 101#np.ceil(np.sqrt(X_size))
+    pixel_width = 61#np.ceil(np.sqrt(X_size))
     pixel_width_sqr = pixel_width**2
     half_pixel_width = pixel_width//2
     theta = 0.95
-    index_coord = pixel_width**2//2#0  #CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
+    index_coord = pixel_width**2-1#//2#0  #CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
     
     X_size = np.shape(x_data)[0]
 
     bb = get_bounding_box(x_data)
-    # bb = pct_bb(*bb, 1/3, 2/3, 1/3, 2/3)
-    # bb = pct_bb(*bb, 2/5, 3/5, 2/5, 3/5)
-    for x_c in range(5):
-        for y_c in range(5):
-            bounding_box = pct_bb(*bb, x_c/5, (x_c+1)/5, y_c/5, (y_c+1)/5)
+    for x_c in range(n_pieces):
+        for y_c in range(n_pieces):
+            start_time = time.perf_counter()
+            bounding_box_dbm = pct_bb(*bb, (x_c-padding)/n_pieces, (x_c+1+padding)/n_pieces, (y_c-padding)/n_pieces, (y_c+1+padding)/n_pieces)
+            bounding_box_dpt = pct_bb(*bb, x_c/n_pieces, (x_c+1)/n_pieces, y_c/n_pieces, (y_c+1)/n_pieces)
 
             print("computing...")
 
-            normal_grid = make_grid_normal(*bounding_box, grid_res)
-            normal_grid_ = make_grid(*bounding_box, 0.0, 0.0, grid_res) #CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
+            normal_grid = make_grid_normal(*bounding_box_dpt, grid_res)
+            normal_grid_ = make_grid(*bounding_box_dbm, 1.0, 1.0, grid_res + 2*padded_grid_space) #CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
             invp_grid_base = inverter.inverse_transform(normal_grid_)
 
             di_list = np.ones(np.shape(normal_grid)[0])
-            print(np.shape(normal_grid))
 
-            grid_base = make_grid_normal(-1.0,1.0,-1.0,1.0, pixel_width)#CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
+            grid_base = make_grid_normal(0.8-1.0/n_pieces,0.8+1.0/n_pieces,0.8-1.0/n_pieces,0.8+1.0/n_pieces, pixel_width)#CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
 
             batch_size = 8
             for batch_index, start in enumerate(range(0, np.shape(normal_grid)[0], batch_size)):
-                start_time = time.perf_counter()
                 batch = normal_grid[start:start + batch_size]
                 batch_coord = batch_index*batch_size
                 # print(batch_index, batch.shape)
                 grid = make_grid_reverse(grid_base,batch,pixel_width)
                 # grid = grid.reshape(-1, grid.shape[2])
 
-                inv_p_batch_grid = (inverter.inverse_transform(grid)).reshape(batch_size, pixel_width_sqr, 784)
+                inv_p_batch_grid = (inverter.inverse_transform(grid, verbose=False)).reshape(batch_size, pixel_width_sqr, n_dimensions)
                 for index, i in enumerate(inv_p_batch_grid):
                     # print(np.shape(i))
                     invp_grid = np.concatenate((i,invp_grid_base))
                     id_pixelv = get_intrinsic_dimension_sv(index_coord, invp_grid, k, theta)
                     di_list[index+batch_coord] = id_pixelv
 
-                end_time = time.perf_counter()
-                elapsed_time = end_time - start_time
-                print(f"Elapsed time: {elapsed_time:.4f} seconds, done batch: {batch_index}")
-
-        
-
-    # di_list = Parallel(n_jobs=2)(delayed(get_id_value)(i, index_coord, pixel_width, invp_grid_base, k, theta) for i in normal_grid)
-    # for index,i in enumerate(normal_grid):
-    #     start_time = time.perf_counter()
-    #     grid = make_grid_reverse(-0.05,0.05,-0.05,0.05,np.array([i]),pixel_width) #[[i[0], i[1], j[0], j[1]] for j in matrix_values]
-    #     # print(np.shape(invp_grid))
-    #     invp_grid = np.concatenate((inverter.inverse_transform(grid),invp_grid_base))
-    #     # print(np.shape(invp_grid))
-    #     id_pixelv = get_intrinsic_dimension_sv(index_coord, invp_grid, k, theta)
-    #     di_list[index] = id_pixelv
-    #     end_time = time.perf_counter()
-    #     elapsed_time = end_time - start_time
-    #     print(f"Elapsed time: {elapsed_time:.4f} seconds, done pixel: {index}")
-
+            end_time = time.perf_counter()
+            elapsed_time = end_time - start_time
+            print(f"Elapsed time: {elapsed_time:.4f} seconds, done batch: {n_pieces*x_c+ y_c}")
 
             fig_id, ax_id = plt.subplots(1,1,figsize=(50,50))
-            np.save(f'center_25x/dbm_4d_({pixel_width})_{k}_{index_coord}_{x_c}_{y_c}.npy', di_list)
+            np.save(f'_ID_res3/dbm_4d_({pixel_width})_{k}_{x_c}_{y_c}.npy', di_list)
             max_v = np.max(di_list)
             min_v = np.min(di_list)
 
@@ -291,19 +278,29 @@ def plot_matrix(classifier, inverter, nd_data, x_data, y_data, noise, grid_res, 
             ax_id.axis("off")  
             print(max_v)
             print(min_v)
-            fig_id.savefig(f"center_25x/dbm_4d_({pixel_width})_{k}_{index_coord}_{x_c}_{y_c}.png", bbox_inches="tight", pad_inches=0.0)
+            fig_id.savefig(f"_ID_res3/img_4d_({pixel_width})_{k}_{x_c}_{y_c}.png", bbox_inches="tight", pad_inches=0.0)
+
+    # OLD
+    # di_list = Parallel(n_jobs=2)(delayed(get_id_value)(i, index_coord, pixel_width, invp_grid_base, k, theta) for i in normal_grid)
+    # for index,i in enumerate(normal_grid):
+    #     start_time = time.perf_counter()
+    #     grid = make_grid_reverse(-0.05,0.05,-0.05,0.05,np.array([i]),pixel_width) #[[i[0], i[1], j[0], j[1]] for j in matrix_values]
+    #     # print(np.shape(invp_grid))
+    #     invp_grid = np.concatenate((inverter.inverse_transform(grid),invp_grid_base))
+    #     # print(np.shape(invp_grid))
+    #     id_pixelv = get_intrinsic_dimension_sv(index_coord, invp_grid, k, theta)
+    #     di_list[index] = id_pixelv
+    #     end_time = time.perf_counter()
+    #     elapsed_time = end_time - start_time
+    #     print(f"Elapsed time: {elapsed_time:.4f} seconds, done pixel: {index}")
 
 def plot_matrix_pixel_plane(clf, inverter, nd_data, x_data, y_data, noise, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
 
-    grid_res = 300
-    
-    X_size = np.shape(x_data)[0]
-
-    bounding_box = get_bounding_box(x_data)
-    
-    print("computing...")
+    n_dimensions = nd_data.shape[1]
+    grid_res = 60
+    n_pieces = 5 # true grid res = n_pieces * grid_res
     k = 120
-    pixel_width = 301
+    pixel_width = 61
     pixel_width_sqr = pixel_width**2
     half_pixel_width = pixel_width//2
     theta = 0.95
@@ -311,62 +308,65 @@ def plot_matrix_pixel_plane(clf, inverter, nd_data, x_data, y_data, noise, grid_
     half_matrix_side = matrix_side//2
     index_coord = 0#pixel_width**2//2
 
-    normal_grid = make_grid_normal(*bounding_box, grid_res)
+    bb = get_bounding_box(x_data)
+    for x_c in range(n_pieces):
+        for y_c in range(n_pieces):
+            start_time = time.perf_counter()
+            bounding_box = pct_bb(*bb, x_c/n_pieces, (x_c+1)/n_pieces, y_c/n_pieces, (y_c+1)/n_pieces)
 
-    di_list = np.ones(np.shape(normal_grid)[0])
+            normal_grid = make_grid_normal(*bounding_box, grid_res)
 
-    grid_base = make_grid_normal(-1.0,1.0,-1.0,1.0, pixel_width)#CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
+            di_list = np.ones(np.shape(normal_grid)[0])
 
-    batch_size = 4
-    for batch_index, start in enumerate(range(0, np.shape(normal_grid)[0], batch_size)):
-        start_time = time.perf_counter()
-        batch = normal_grid[start:start + batch_size]
-        batch_coord = batch_index*batch_size
-        # print(batch_index, batch.shape)
-        grid = make_grid_reverse(grid_base,batch,pixel_width)
-        # grid = grid.reshape(-1, grid.shape[2])
+            grid_base = make_grid_normal(-1.0/n_pieces,1.0/n_pieces,-1.0/n_pieces,1.0/n_pieces, pixel_width)#CHANGE HERE WHEN RUNNING DIFFERENT DBM COORD
 
-        inv_p_batch_grid = inverter.inverse_transform(grid)
-        inv_p_batch_grid = inv_p_batch_grid.reshape((batch_size, pixel_width_sqr, 784))
-        
-        for index, i in enumerate(inv_p_batch_grid):
-            # print(np.shape(i))
-            invp_grid = i
-            id_pixelv = get_intrinsic_dimension_sv(index_coord, invp_grid, k, theta)
-            di_list[index+batch_coord] = id_pixelv
+            batch_size = 4
+            for batch_index, start in enumerate(range(0, np.shape(normal_grid)[0], batch_size)):
+                batch = normal_grid[start:start + batch_size]
+                batch_coord = batch_index*batch_size
+                # print(batch_index, batch.shape)
+                grid = make_grid_reverse(grid_base,batch,pixel_width)
+                # grid = grid.reshape(-1, grid.shape[2])
 
-        end_time = time.perf_counter()
-        elapsed_time = end_time - start_time
-        print(f"Elapsed time: {elapsed_time:.4f} seconds, done batch: {batch_index}")
+                inv_p_batch_grid = (inverter.inverse_transform(grid, verbose=False)).reshape((batch_size, pixel_width_sqr, n_dimensions))        
+                for index, i in enumerate(inv_p_batch_grid):
+                    # print(np.shape(i))
+                    invp_grid = i
+                    id_pixelv = get_intrinsic_dimension_sv(index_coord, invp_grid, k, theta)
+                    di_list[index+batch_coord] = id_pixelv
 
-    fig_id, ax_id = plt.subplots(1,1,figsize=(100,100))
+            end_time = time.perf_counter()
+            elapsed_time = end_time - start_time
+            print(f"Elapsed time: {elapsed_time:.4f} seconds, done batch: {n_pieces*x_c+ y_c}")
+
+            fig_id, ax_id = plt.subplots(1,1,figsize=(50,50))
+            
+            res_id = di_list
+            np.save(f'_ID_res_reuters/dbm_({pixel_width})_{k}_{x_c}_{y_c}.npy', res_id)
+            max_v = np.max(res_id)
+            min_v = np.min(res_id)
+            cmap = plt.get_cmap('jet', int(5-2+1))
+            
+            ax_id.imshow(
+                    res_id.reshape((grid_res, grid_res,1)),
+                    interpolation="none",
+                    resample=False,
+                    cmap=cmap,
+                    vmin=2,
+                    vmax=5,
+            )
+
+            print(max_v)
+            print(min_v)
     
-    res_id = di_list
-    np.save(f'matrix({pixel_width})_{k}_{matrix_side}.npy', res_id)
-    max_v = np.max(res_id)
-    min_v = np.min(res_id)
-    cmap = plt.get_cmap('jet', int(5-2+1))
-    
-    ax_id.imshow(
-            res_id.reshape((grid_res, grid_res,1)),
-            interpolation="none",
-            resample=False,
-            cmap=cmap,
-            vmin=2,
-            vmax=5,
-    )
-    
-    ax_id.axis("off")     
+            ax_id.axis("off")     
+            fig_id.savefig(f"_ID_res_reuters/img_({pixel_width})_{k}_{x_c}_{y_c}.png", bbox_inches="tight", pad_inches=0.0)
 
     # bounds = np.arange(int(max_v-min_v+2)) + min_v - 0.5 # Boundaries for each color segment
     # norm = BoundaryNorm(bounds, cmap.N)
     # cbar = fig_id.colorbar(images[0], ax=ax_id, orientation='horizontal', fraction=0.05, norm=norm, boundaries=bounds, ticks=list(range(int(min_v), int(max_v+1))))
     # cbar.ax.tick_params(labelsize=100)
     
-    print(max_v)
-    print(min_v)
-    fig_id.savefig(f"matrix_id({pixel_width})_{k}_{matrix_side}.png", bbox_inches="tight", pad_inches=0.0)
-
 def plot_matrix_dbm_plane(clf, inverter, nd_data, x_data, y_data, noise, grid_res, matrix_side_size, matrix_origin, step, format_step, figname=None):
 
     grid_res = 500
@@ -459,189 +459,6 @@ def plot_matrix_dbm_plane(clf, inverter, nd_data, x_data, y_data, noise, grid_re
     fig_dbm.savefig(f"dbm({grid_res})_{k}_{matrix_side}_({min_v},{max_v}).png")
     fig_id.savefig(f"dbm_id({grid_res})_{k}_{matrix_side}_({min_v},{max_v}).png")
 
-def include_classes(X_data, y_data, classes):
-    if len(classes) == 0:
-        return X_data, y_data
-    
-    X_train2 = []
-    y_train2 = []
-    
-    for i in range(np.shape(X_data)[0]):
-        if y_data[i] in classes:
-            X_train2.append(X_data[i,:])
-            y_train2.append(y_data[i])
-
-    return np.array(X_train2), np.array(y_train2)
-
-def make_and_fit_mlp(X, y) -> MLPClassifier:
-    return MLPClassifier(
-        verbose=True,
-        hidden_layer_sizes=(512, 128, 32),
-        activation="relu",
-        max_iter=100,
-        random_state=420,
-    ).fit(X, y)
-
-def Load_data(path, dataset):
-    X = np.load(os.path.join(path, dataset, "X.npy"))
-    y = np.load(os.path.join(path, dataset, "y.npy"))
-    return X, y
-
-def get_inv_proj_data_i_wo_augmentation(output_dir, _model, _inv_model, dataset_name, model_name, method, epochs):
-    data_dir = "./data/"
-
-    d = dataset_name
-
-    X, y = Load_data(data_dir, d)
-
-    X_train, _, y_train, _ = train_test_split(
-        X, y, train_size=30000, test_size=10, random_state=420, stratify=y
-    )
-    _, X_test, _, y_test = train_test_split(
-        X_train, y_train, train_size=10, test_size=5000, random_state=420, stratify=y_train
-    )
-
-    if os.path.exists(f'{output_dir}/{dataset_name}/tsneData2d_train.joblib'):
-        tsne_proj = load(f'{output_dir}/{dataset_name}/tsneData2d_train.joblib')
-    else:
-        tsne_proj = _model.fit_transform(X_train)
-        tsne_proj = minmax_scale(tsne_proj)
-        dump(tsne_proj, f'{output_dir}/{dataset_name}/tsneData2d_train.joblib')
-    
-    if os.path.exists(f'{output_dir}/{dataset_name}/tsneData2d_test.joblib'):
-        X_model_res = load(f'{output_dir}/{dataset_name}/tsneData2d_test.joblib')
-    else:
-        # X_model_res = tsne_proj
-        X_model_res = _model.fit_transform(X_test)
-        X_model_res = minmax_scale(X_model_res)
-        dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData2d_test.joblib')
-
-    if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
-        _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
-    else:
-        # noise = X
-        _inv_model.fit(tsne_proj, X_train, epochs=epochs)
-        _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
-        
-    X_model_2d = X_model_res
-
-    if os.path.exists(f'{output_dir}/{dataset_name}/class.joblib'):
-        clf = load(f'{output_dir}/{dataset_name}/class.joblib')
-    else:
-        clf = make_and_fit_mlp(X_train, y_train)
-        dump(clf, f'{output_dir}/{dataset_name}/class.joblib')
-
-    return X_test, X_model_2d, y_test, [], clf, _inv_model
-
-def get_inv_proj_data_i(output_dir, _model, _inv_model, dataset_name, model_name, method, epochs):
-    data_dir = "./data/"
-
-    d = dataset_name
-
-    X, y = Load_data(data_dir, d)
-
-    n_samples = X.shape[0]
-
-    train_size = min(int(n_samples * 0.9), 10000)
-
-    X_train, _, y_train, _ = train_test_split(
-        X, y, train_size=30000, test_size=10, random_state=420, stratify=y
-    )
-
-    pca = PCA(n_components=2)
-    noise = pca.fit_transform(X_train)
-    noise = minmax_scale(noise, feature_range=(-1,1))
-
-    X_train= np.concatenate((X_train,noise), axis=1)
-
-    _, X_test, _, y_test = train_test_split(
-        X_train, y_train, train_size=10, test_size=5000, random_state=420, stratify=y_train
-    )
-    noise = X_train[:,-2:]
-    X_train = X_train[:,:-2]
-    noise_test = X_test[:,-2:]
-    X_test = X_test[:,:-2]
-
-    if os.path.exists(f'{output_dir}/{dataset_name}/tsneData2d_train.joblib'):
-        tsne_proj = load(f'{output_dir}/{dataset_name}/tsneData2d_train.joblib')
-    else:
-        tsne_proj = _model.fit_transform(X_train)
-        tsne_proj = minmax_scale(tsne_proj)
-        dump(tsne_proj, f'{output_dir}/{dataset_name}/tsneData2d_train.joblib')
-    
-    if os.path.exists(f'{output_dir}/{dataset_name}/tsneData2d_test.joblib'):
-        X_model_res = load(f'{output_dir}/{dataset_name}/tsneData2d_test.joblib')
-    else:
-        # X_model_res = tsne_proj
-        X_model_res = _model.fit_transform(X_test)
-        X_model_res = minmax_scale(X_model_res)
-        dump(X_model_res, f'{output_dir}/{dataset_name}/tsneData2d_test.joblib')
-
-    if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
-        _inv_model.load_weights(os.path.join(output_dir, dataset_name, model_name, method))
-    else:
-        # noise = X
-        _inv_model.fit_random(tsne_proj, X_train, noise, epochs=epochs)
-        _inv_model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
-        
-    X_model_2d = X_model_res
-
-    if os.path.exists(f'{output_dir}/{dataset_name}/class.joblib'):
-        clf = load(f'{output_dir}/{dataset_name}/class.joblib')
-    else:
-        clf = make_and_fit_mlp(X_train, y_train)
-        dump(clf, f'{output_dir}/{dataset_name}/class.joblib')
-
-    return X_test, X_model_2d, y_test, noise_test, clf, _inv_model
-
-def get_inv_proj_data_sharp(output_dir, _model, dataset_name, model_name, method, epochs):
-    data_dir = "./data/"
-
-    d = dataset_name
-
-    X, y = Load_data(data_dir, d)
-
-    X_train, _, y_train, _ = train_test_split(
-        X, y, train_size=20000, test_size=500, random_state=420, stratify=y
-    )
-    X_train, y_train = include_classes(X_train, y_train, [0,1])
-    # print(np.shape(X))
-    if method == "noise":
-        # noise = tf.random.stateless_uniform(seed=(420,420), minval=-1, maxval=1, shape=(X_train.shape[0],2))
-        pca = PCA(n_components=2)
-        noise = pca.fit_transform(X_train)
-        noise = minmax_scale(noise, feature_range=(-1,1))
-
-    else:
-        noise = tf.zeros((X_train.shape[0],0))
-
-    X_train= np.concatenate((X_train,noise), axis=1)
-
-    _, X_test, _, y_test = train_test_split(
-        X_train, y_train, train_size=100, test_size=4000, random_state=420, stratify=y_train
-    )     
-    noise = X_train[:,-2:]
-    X_train = X_train[:,:-2]
-    noise_test = X_test[:,-2:]
-    X_test = X_test[:,:-2]
-
-    if os.path.exists(os.path.join(output_dir, dataset_name, model_name, method)):
-        _model.load_weights(export_path=os.path.join(output_dir, dataset_name, model_name, method))
-    else:
-        _model.fit(X_train, y_train, noise, epochs=epochs)
-        _model.save_weights(os.path.join(output_dir, dataset_name, model_name, method))
-    X_model_res = _model.transform(X_test)
-    X_model_2d = X_model_res
-
-    if os.path.exists(f'{output_dir}/{dataset_name}/class.joblib'):
-        clf = load(f'{output_dir}/{dataset_name}/class.joblib')
-    else:
-        clf = make_and_fit_mlp(X_train, y_train)
-        dump(clf, f'{output_dir}/{dataset_name}/class.joblib')
-
-    return X_test, X_model_2d, y_test, noise_test, clf, _model
-
-
 if __name__ == "__main__":
 
     gpus = tf.config.list_physical_devices('GPU')
@@ -660,8 +477,8 @@ if __name__ == "__main__":
     
     output_dir = "weights"
     model_name = "sharp"
-    dataset_ops = ["mnist", "fashionmnist"] 
-    dataset = dataset_ops[0]
+    dataset_ops = ["mnist", "fashionmnist", "reuters", "har"] 
+    dataset = dataset_ops[2]
     method = "noise"
     
     grid_res = 100
@@ -686,7 +503,7 @@ if __name__ == "__main__":
     noise = []
 
     if model_name == "sharp":
-        results_nd, results_2d, y_values, noise, clf, inv_model = get_inv_proj_data_sharp(
+        results_nd, y_values, noise, results_2d, clf, inv_model, nn = get_inv_proj_data_ae(
             output_dir, 
             sharp.ShaRP(
                 dims,
@@ -701,11 +518,12 @@ if __name__ == "__main__":
             ),
             dataset,
             model_name,
+            "mlp",
             method,
             epochs
         )
     if model_name == "nninv":#noise,
-        results_nd, results_2d, y_values, noise, clf, inv_model = get_inv_proj_data_i_wo_augmentation(
+        results_nd, results_2d, y_values, noise, clf, inv_model = get_inv_proj_data_nninv(
             output_dir, 
             TSNE(
                 n_jobs=4, 
@@ -730,8 +548,8 @@ if __name__ == "__main__":
     
     txt = f"({np.round(matrix_origin[0],np.uint8(format_step[0]))}_{np.round(matrix_origin[1],np.uint8(format_step[1]))})_({np.round(matrix_step[0],np.uint8(format_step[0]))}_{np.round(matrix_step[1],np.uint8(format_step[1]))})"
     
-    # fig = plot_matrix(clf, inv_model, results_nd, results_2d, y_values, noise, grid_res, matrix_size, matrix_origin, matrix_step, format_step, figname=f"./matrices/matrices/{model_name}/{method}/{grid_res}_{matrix_size}_{txt}_ID_EXPERIMENT")
-    numerical_id(inv_model, results_nd, results_2d, y_values, noise)
+    fig = plot_matrix(clf, inv_model, results_nd, results_2d, y_values, noise, grid_res, matrix_size, matrix_origin, matrix_step, format_step, figname=f"./matrices/matrices/{model_name}/{method}/{grid_res}_{matrix_size}_{txt}_ID_EXPERIMENT")
+    # numerical_id(inv_model, results_nd, results_2d, y_values, noise)
 
 
 
