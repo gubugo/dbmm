@@ -20,7 +20,7 @@ import numpy as np
 
 # from MulticoreTSNE import MulticoreTSNE as TSNE
 # from umap import UMAP
-import code.models.tensorflow.sharp_og as sharp
+import code.models.tensorflow.sharp as sharp
 # import code.models.pytorch.sharp_4d as sharp
 import code.models.pytorch.ssnp as ssnp
 import code.models.pytorch.nninv as nninv
@@ -216,7 +216,7 @@ def plot_matrix_whole(classifier, inverter, neighbor_finder, x_data, y_data, noi
     #         dbm_saver.show_global_distance_to_nearest_training_point_dbm(cmapped, dntp_matrix, matrix_side_size*i+j, ax_glob_dntpdbm, i, j)
 
     plt.subplots_adjust(wspace=0, hspace=0)
-    fig_main.savefig(f"results/dbm/matrix.png", bbox_inches="tight", pad_inches=0.0)
+    fig_main.savefig(f"results/dbm/matrixwmlp.png", bbox_inches="tight", pad_inches=0.0)
     # fig_conf.savefig(f"results/cc/matrix.png", bbox_inches="tight", pad_inches=0.0)
     # fig_confdbm.savefig(f"results/cc_dbm/matrix.png", bbox_inches="tight", pad_inches=0.0)
     # fig_dntp.savefig(f"results/dntp/matrix.png", bbox_inches="tight", pad_inches=0.0)
@@ -244,18 +244,18 @@ if __name__ == "__main__":
     #         # Virtual devices must be set before GPUs have been initialized
     #         print(e)
 
-    output_dir = "weights/4d"
+    output_dir = "weights"
     model_name_ops = ["ssnp", "sharp", "nninv"]
     model_name = model_name_ops[1]
     
     dataset_ops = ["mnist", "fashionmnist", "har", "reuters", "hate_speech"]
-    dataset = dataset_ops[3]
+    dataset = dataset_ops[1]
 
     method_ops = ["latent_space", "noise"]
     method = method_ops[1] 
 
-    classifier_names = ["mlp", "svc", "random_forest", "nb_gaussian"]
-    classifier_name = "svc"
+    classifier_names = ["mlp", "svc", "random_forest", "nb_gaussian", "wmlp"]
+    classifier_name = classifier_names[4]
     
     grid_res_ops = [100, 150, 200, 300, 500]
     grid_res = 300#grid_res_ops[3]
@@ -268,6 +268,7 @@ if __name__ == "__main__":
     epochs_dataset["reuters"] = 30
     
     epochs = epochs_dataset[dataset]
+    noise = {}
 
     if model_name == "sharp":
         sharp_dims_classes = {}
@@ -280,7 +281,7 @@ if __name__ == "__main__":
         dims = sharp_dims_classes[dataset][0]
         classes = sharp_dims_classes[dataset][1]
 
-        results_nd, y_values, noise, results_2d, clf, inv_model, neighbor_finder = get_inv_proj_data_ae_4d( #get_inv_proj_data_sharp(output_dir)
+        results_nd, y_values, noise, results_2d, clf, inv_model, neighbor_finder = get_inv_proj_data_ae( #get_inv_proj_data_sharp(output_dir)
             output_dir, 
             sharp.ShaRP(
                 dims,
